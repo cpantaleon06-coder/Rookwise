@@ -286,11 +286,10 @@ def _ratelimit_headers(headers: Any) -> dict[str, str]:
 
 def _reasoning_text_chars(message: dict[str, Any]) -> int:
     """Characters of visible reasoning text, wherever the server puts it."""
-    total = 0
-    for field in ("reasoning_content", "reasoning"):
-        value = message.get(field)
-        if isinstance(value, str):
-            total += len(value)
+    # The same text can come back in both `reasoning` and `reasoning_content` (Lightning
+    # did in the smoke test), so count the longer of the two once.
+    fields = (message.get("reasoning_content"), message.get("reasoning"))
+    total = max((len(value) for value in fields if isinstance(value, str)), default=0)
     for block in THINK_BLOCK.findall(message.get("content") or ""):
         total += len(block)
     return total
@@ -299,7 +298,10 @@ def _reasoning_text_chars(message: dict[str, Any]) -> int:
 def _check(kind: str, record: dict[str, Any]) -> dict[str, Any]:
     content = _answer_text(record.get("content"))
     if kind == "reasoning":
-        # Expected answer: $8. Numbers inside a <think> block do not count.
+        # Output cut off by max_tokens fails: it can be untagged thinking text that happens
+        # to contain the number. Expected answer: $8. Numbers in a <think> block do not count.
+        if record.get("finish_reason") == "length":
+            return {"answer_correct": False, "truncated": True}
         return {"answer_correct": bool(re.search(r"(?<![\d.])8(?:\.0+)?(?!\.?\d)", content))}
     if kind == "tool":
         return {"tool_call_count": len(record.get("tool_calls") or [])}
@@ -406,7 +408,10 @@ def _note(record: dict[str, Any]) -> str:
         return prefix + _short(record["error"], 70)
     checks = record["checks"]
     if record["kind"] == "reasoning":
-        verdict = "correct" if checks.get("answer_correct") else "WRONG/EMPTY"
+        if checks.get("truncated"):
+            verdict = "TRUNCATED"
+        else:
+            verdict = "correct" if checks.get("answer_correct") else "WRONG/EMPTY"
         return f"{verdict}: {_short(_answer_text(record.get('content')), 40)}"
     if record["kind"] == "tool":
         calls = record.get("tool_calls") or []
