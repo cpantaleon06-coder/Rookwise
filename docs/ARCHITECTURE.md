@@ -72,7 +72,7 @@ Communication is vertical. Operators talk to their manager, managers to the dire
 - Caps per run, per level and per task.
 - Record input, cached, output and reasoning tokens, model, cost and time of every call.
 - Stop at a cap and return the partial result.
-- Limit retries and concurrency (concurrency also respects the provider rate limits, see below).
+- Limit retries and concurrency. Rate limiting and concurrency are per model and read from `config/rate_limits.json`. The administrator enforces requests per minute and tokens per minute for each model before reserving a call.
 - Honor the user's brake: pause, resume, cancel.
 
 ### Cost of a call
@@ -100,6 +100,9 @@ Responsibilities:
 - Send chat completions to Token Factory and return text, tool calls and usage.
 - Run the tool loop: model proposes `tool_calls`, harness executes them (for example Tavily search), appends `tool` messages, calls the model again, up to a step cap. Each step is a model call, so each step needs its own reservation.
 - Validate output against a schema (task_v1, result_v1) and retry within limits.
+- Treat `finish_reason: "length"` as a failure, even when some content came back. Retry within limits with a larger `max_tokens` or with reasoning off, and charge every attempt to the ledger. (Observed in the smoke test: Lightning with reasoning on hit the 600-token limit in 6 of its 11 successful calls, 5 of them with no final answer.)
+- Choose the reasoning mode per call by role. Reasoning off is the starting default for operators, to be confirmed by the benchmark.
+- Set `max_tokens` to cover reasoning plus the answer: reasoning tokens count inside `completion_tokens` and share the same `max_tokens` limit.
 - Respect rate limits: read `x-ratelimit-*` headers, honor `Retry-After` on HTTP 429, back off with a queue.
 - Model-agnostic interface: a model is a name, an endpoint, a price entry and a few flags, so non-Nemotron models can be added later.
 
@@ -178,11 +181,13 @@ Prices and speeds from the Nebius console model cards, read October 12, 2026.
 | Nemotron-3.5-Lightning | 0.06 | 0.24 | 314.12 tok/s | eu-north1 |
 | Nemotron-3-Nano-30B-A3B | 0.06 | 0.24 | 60 tok/s | eu-north1 |
 
-Observations to confirm by measurement: Lightning costs the same as Nano and is listed about 5x faster. Super is cheaper than Ultra but listed slower; Ultra at 523 tok/s versus Super at 127 tok/s is an odd ordering for the larger model. The smoke test records latency and end-to-end output tokens per second for every call to check it. Only Nano's card mentions multilingual support, so output quality of Lightning in non-English languages must be checked early.
+Observations to confirm by measurement: Lightning costs the same as Nano and is listed about 5x faster. Super is cheaper than Ultra but listed slower; Ultra at 523 tok/s versus Super at 127 tok/s is an odd ordering for the larger model. The first smoke test (2026-10-13) did not reproduce the listed speeds, but its outputs were short; a long-output test is needed (see HARNESS_RESEARCH.md). Only Nano's card mentions multilingual support, so output quality of Lightning in non-English languages must be checked early.
 
 ### Estimate of one run (assumed volumes, not measured)
 
 Every token volume below is assumed by the author, not measured. Costs are arithmetic on those volumes and the prices above: count x (input tokens x input price + output tokens x output price) / 1,000,000. They ignore caching, retries and reasoning overhead.
+
+Assumption to replace with measurements: the assumed output volumes ignore reasoning tokens. In the smoke test, reasoning tokens appear to count inside `completion_tokens` (see HARNESS_RESEARCH.md), so real output, cost and rate-limit use may be higher than below.
 
 Config B, hierarchy with a different model per level:
 
@@ -209,17 +214,26 @@ Config C, B plus a board and a VP. The extra volume is a placeholder assumption 
 
 Config A, a single Ultra agent with no hierarchy, has no estimate until it is measured. Its token volume does not follow from the hierarchy volumes above.
 
-### Rate-limit implication (conditional on the real console limits)
+### Rate-limit implication (lower bound, per model)
 
-The Token Factory docs give an example baseline of 60 RPM and 400,000 TPM and say real defaults are in the console (see HARNESS_RESEARCH.md). Everything below assumes the console shows that example baseline and that TPM counts input plus output tokens (UNVERIFIED). Recompute once the real limits are known.
+Per-model limits for this account, read from the `x-ratelimit-*` response headers on 2026-10-13 and stored in `config/rate_limits.json` (see HARNESS_RESEARCH.md). They may change with dynamic scaling.
 
-- One B or A2 run is about 441,000 tokens: 441,000 / 400,000 = 1.10 minutes of TPM budget, so a single run already exceeds one minute.
-- One C run is about 525,000 tokens: 525,000 / 400,000 = 1.31 minutes.
-- The 27 benchmark runs that have an estimate (A2, B and C, about 12,663,000 tokens, see "Evaluation and benchmark") need at least 12,663,000 / 400,000 = 31.7 minutes of throughput, plus the 9 runs of A once measured.
-- Requests: 9 x 27 + 9 x 27 + 9 x 29 = 747, and 747 / 60 = 12.5 minutes at 60 RPM. Tokens per minute, not requests per minute, is the likely binding limit.
-- The documented dynamic scaling (x1.2 for the next 15-minute window at 80% usage or more) may raise the limit during a long benchmark. Do not plan on it.
+| Model | Requests per minute | Tokens per minute |
+|---|---|---|
+| Ultra | 300 | 200,000 |
+| Super | 300 | 200,000 |
+| Lightning | 600 | 400,000 |
+| Nano | 100 | 800,000 |
 
-Check the real numbers in the console before designing the parallelism.
+Benchmark tokens per model for A2, B and C, from the assumed volumes in "Estimate of one run" (tokens = input + output per agent, 9 runs per configuration):
+
+- Ultra. B: director 40,000 + 8,000 = 48,000 and auditor 30,000 + 3,000 = 33,000, so 81,000 per run. A2: every agent, 441,000 per run. C: two directors 2 x 48,000 = 96,000, VP 30,000 + 6,000 = 36,000 and auditor 33,000, so 165,000 per run. Total 9 x 81,000 + 9 x 441,000 + 9 x 165,000 = 729,000 + 3,969,000 + 1,485,000 = 6,183,000 tokens. At 200,000 TPM: 6,183,000 / 200,000 = 30.9 minutes.
+- Super (managers in B and C): 5 x (20,000 + 4,000) = 120,000 per run. Total 18 x 120,000 = 2,160,000 tokens. At 200,000 TPM: 2,160,000 / 200,000 = 10.8 minutes.
+- Lightning (operators in B and C): 20 x (10,000 + 2,000) = 240,000 per run. Total 18 x 240,000 = 4,320,000 tokens. At 400,000 TPM: 4,320,000 / 400,000 = 10.8 minutes.
+- Nano: not used by any configuration.
+- Requests: Ultra 9 x (2 + 27 + 4) = 297 at 300 RPM = 1.0 minute; Super 18 x 5 = 90 at 300 RPM = 0.3 minutes; Lightning 18 x 20 = 360 at 600 RPM = 0.6 minutes. Tokens per minute, not requests per minute, is the binding limit.
+
+So the benchmark needs at least 30.9 minutes on Ultra alone, and Ultra is the bottleneck. Config A is not included (no estimate until measured). This is a lower bound. It assumes the limits are independent per model and that the token limit counts input plus output tokens (both UNVERIFIED), and it uses the assumed token volumes, which ignore reasoning tokens. The documented dynamic scaling (x1.2 for the next 15-minute window at 80% usage or more) may raise the limits during a long benchmark. Do not plan on it.
 
 ## Failures and loops
 
@@ -231,6 +245,7 @@ Check the real numbers in the console before designing the parallelism.
 | Level budget exhausted | Administrator stops it, manager returns partial result |
 | Loop (repeated messages, no progress) | Automatic stop, escalate one level up |
 | HTTP 429 | Wait for `Retry-After`, then retry with growing backoff |
+| `finish_reason: "length"` | Treat as a failure: retry within limits with a larger `max_tokens` or reasoning off; charge every attempt |
 | Auditor rejects | One correction cycle, then deliver with a visible warning |
 | User pauses or cancels | Administrator freezes pending calls |
 
@@ -305,4 +320,4 @@ README is written at the end (Phase 5).
 
 ## Open decisions
 
-Exact Token Factory model IDs; real console rate limits; whether Nemotron models support tool calling and JSON schema output; reputation formula; store choice (Supabase or SQLite); scope of the public live mode; final demo cases.
+Whether reasoning tokens are billed as output (compare with the console balance); caching under other conditions; long-output speed per model; what the token rate limit counts and whether limits are independent per model; reputation formula; store choice (Supabase or SQLite); scope of the public live mode; final demo cases.

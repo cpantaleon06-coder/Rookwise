@@ -1,0 +1,9 @@
+{
+  "_note": "Read from the x-ratelimit-* response headers on 2026-10-13 for this account (first smoke test call per model). May change: dynamic scaling applies. UNVERIFIED whether tokens_per_minute counts input plus output tokens, and whether the limits are independent per model.",
+  "per_model": {
+    "nemotron-3-ultra":       { "requests_per_minute": 300, "tokens_per_minute": 200000 },
+    "nemotron-3-super":       { "requests_per_minute": 300, "tokens_per_minute": 200000 },
+    "nemotron-3.5-lightning": { "requests_per_minute": 600, "tokens_per_minute": 400000 },
+    "nemotron-3-nano":        { "requests_per_minute": 100, "tokens_per_minute": 800000 }
+  }
+}

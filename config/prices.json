@@ -9,10 +9,10 @@
     "nemotron-3-nano":        { "input": 0.06, "cached_input": null, "output": 0.24 }
   },
   "model_ids": {
-    "_note": "Exact Token Factory model IDs are NOT confirmed yet. Fill from the console model cards before the first call.",
-    "nemotron-3-ultra": "",
-    "nemotron-3-super": "",
-    "nemotron-3.5-lightning": "",
-    "nemotron-3-nano": ""
+    "_note": "Exact Token Factory model IDs, read from GET /models on 2026-10-13.",
+    "nemotron-3-ultra": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "nemotron-3-super": "nvidia/nemotron-3-super-120b-a12b",
+    "nemotron-3.5-lightning": "nvidia/Nemotron-3_5-Lightning",
+    "nemotron-3-nano": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   }
 }

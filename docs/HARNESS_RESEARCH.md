@@ -1,6 +1,8 @@
 # Harness research: Nebius Token Factory and Nemotron
 
-Researched October 12, 2026 from the official Token Factory docs and one third-party source. Each item is marked VERIFIED (read in the docs), THIRD-PARTY (not from Nebius), or UNVERIFIED (must be tested with a real call).
+Researched October 12, 2026 from the official Token Factory docs and one third-party source. Updated October 13, 2026 with the first real smoke test (`scripts/smoke_test.py`; raw results in `runs/smoke_test.json`, not committed). Each item is marked VERIFIED (read in the docs, or observed in a real call with the date), THIRD-PARTY (not from Nebius), or UNVERIFIED (not confirmed by a doc page or a real call).
+
+Smoke test of 2026-10-13: 12 calls per model on the four Nemotron models, one sample per test, `max_tokens` 600, estimated spend USD 0.012978. One sample on short prompts shows what the API returns, not model quality.
 
 ## API basics
 
@@ -10,7 +12,7 @@ Researched October 12, 2026 from the official Token Factory docs and one third-p
 | Chat endpoint | VERIFIED | `POST https://api.tokenfactory.nebius.com/v1/chat/completions` |
 | Auth | VERIFIED | `Authorization: Bearer <key>` |
 | OpenAI compatibility | VERIFIED | Official docs use the standard OpenAI Python and JS SDKs with a custom base URL and `NEBIUS_API_KEY` |
-| Nemotron model IDs | UNVERIFIED | Not on the docs pages read. Copy them from the console model cards into `config/prices.json` |
+| Nemotron model IDs | VERIFIED (2026-10-13, observed in smoke test) | From `GET /v1/models`: `nvidia/Nemotron-3-Ultra-550b-a55b`, `nvidia/nemotron-3-super-120b-a12b`, `nvidia/Nemotron-3_5-Lightning`, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` (case as returned). Stored in `model_ids` in `config/prices.json` |
 
 Sources: https://docs.tokenfactory.nebius.com/quickstart.md and https://docs.tokenfactory.nebius.com/api-reference/introduction.md
 
@@ -22,16 +24,23 @@ Source: https://docs.tokenfactory.nebius.com/api-reference/inference/create-chat
 - VERIFIED response: `id`, `object`, `created`, `model`, `choices`, `usage`, `service_tier`.
 - VERIFIED usage fields: `prompt_tokens`, `completion_tokens`, `total_tokens`, `prompt_tokens_details.cached_tokens`, `completion_tokens_details.reasoning_tokens`.
 - VERIFIED streaming: `usage` is populated only with `stream_options.include_usage`.
-- UNVERIFIED: whether reasoning tokens are billed as output tokens, and whether `completion_tokens` already includes them. Until verified, the ledger treats them as output tokens (see "Cost of a call" in ARCHITECTURE.md). The smoke test must compare billed usage against the console billing.
-- UNVERIFIED: whether Token Factory reports non-zero `cached_tokens` for Nemotron models, and at what price. No cached-input price is published in what we have, so `cached_input` is `null` in `config/prices.json` and the ledger falls back to the normal input price. The smoke test repeats an identical plain chat call to see whether `cached_tokens` shows up.
+- VERIFIED (2026-10-13, observed in smoke test): `completion_tokens_details.reasoning_tokens` is returned by Ultra, Super and Lightning, not by Nano. Wherever it is present, `completion_tokens >= reasoning_tokens`, so reasoning tokens appear to be included in `completion_tokens`.
+- UNVERIFIED: whether reasoning tokens are billed as output tokens. Until verified, the ledger treats them as output tokens (see "Cost of a call" in ARCHITECTURE.md). Compare billed usage against the console balance.
+- Billing check (2026-10-13, 15:35 local time): the console credit balance showed no visible change after an estimated spend of USD 0.012978. Inconclusive; compare again after cumulative estimated spend exceeds USD 1.
+
+### Caching
+
+- VERIFIED (2026-10-13, observed in smoke test): the two `plain_chat` calls sent an identical 2,232-token prompt (a fixed system message plus a short user message). `prompt_tokens_details.cached_tokens` was 0 on both calls for Ultra and Super; the field was absent for Lightning and Nano. No cache discount was observed, so `cached_input` stays `null` in `config/prices.json` and the ledger falls back to the normal input price.
+- UNVERIFIED: caching under other conditions (longer prompts, more repeats, other timing).
 
 ## Tool calling
 
 Source: https://docs.tokenfactory.nebius.com/ai-models-inference/function-calling.md
 
 - VERIFIED: OpenAI-style. Request has `tools` (type `function`, with `name`, `description`, JSON Schema `parameters`) and optional `tool_choice` (`"auto"` default, or a forced function). Response message carries `tool_calls` with `id`, `type`, and `function.name` and `function.arguments` (a JSON string). The caller executes the function and appends a message with `role: "tool"`, the matching `tool_call_id` and the function `name`.
-- UNVERIFIED: which models support it. The page lists no models and the only example model is a Llama. Nemotron is not mentioned.
-- UNVERIFIED: parallel tool calls.
+- VERIFIED (2026-10-13, observed in smoke test): all four Nemotron models returned `tool_calls` with `finish_reason: "tool_calls"`, given one function tool (`add(a, b)`) and the default `tool_choice`.
+- Calls per response. The prompt was: "Use the add tool to compute 17 + 25 and, separately, 40 + 2. Call the tool once for each sum." It asks for one call per sum but does not ask for both calls in the same response, so it did not explicitly request parallel calls. VERIFIED (2026-10-13, observed in smoke test): Lightning and Nano returned both calls in one response (2 `tool_calls`); Ultra and Super returned one call, `add(17, 25)`. The script made no follow-up turn, so a single call does not show that Ultra or Super lack parallel calls.
+- UNVERIFIED: whether Ultra and Super make the second call in a following turn, and whether they return several calls in one response when asked explicitly.
 - THIRD-PARTY: the SGLang cookbook for Nemotron 3 Super serves tool calls with `--tool-call-parser qwen3_coder` and uses `temperature=0.6`, `top_p=0.95` in its tool-calling example. This describes a self-hosted server, not Token Factory. https://docs.sglang.io/cookbook/autoregressive/NVIDIA/Nemotron3-Super
 - Fallback if a model lacks native tool calling: ask for a JSON action via `response_format` and run the tool loop in the harness.
 
@@ -41,8 +50,14 @@ Source: https://docs.tokenfactory.nebius.com/ai-models-inference/json.md
 
 - VERIFIED: `response_format` with `{"type": "json_object"}` (valid JSON, free fields) or `{"type": "json_schema"}` with a `json_schema` key. Support varies by model; look for the "JSON mode" tag on the model card.
 - VERIFIED advice: put instructions and schema in the prompt as well as in `json_schema`; check `message.refusal` first; wrap `json.loads` in try/except.
-- UNVERIFIED: whether the schema must be wrapped in `{name, schema, strict}` or passed bare (the docs examples disagree). Test on the target model.
-- UNVERIFIED: which Nemotron models carry the JSON mode tag.
+- VERIFIED (2026-10-13, observed in smoke test): the schema must be wrapped. Both variants sent the same prompt, which also contains the schema, and the same schema (an object with `city` string, `country` string and `is_capital` boolean, all required, `additionalProperties: false`).
+  - `json_wrapped` sends `{"type": "json_schema", "json_schema": {"name": "city_fact", "schema": <schema>, "strict": true}}`. On all four models the content parsed as JSON and passed pydantic validation.
+  - `json_bare` sends `{"type": "json_schema", "json_schema": <schema>}`: the schema object directly under `json_schema`, with no `name`, `schema` or `strict`. All four models returned HTTP 422 with this detail (identical for all four):
+
+    ```json
+    {"detail": [{"type": "missing", "loc": ["body", "response_format", "json_schema", "name"], "msg": "Field required", "input": {"type": "object", "properties": {"city": {"type": "string"}, "country": {"type": "string"}, "is_capital": {"type": "boolean"}}, "required": ["city", "country", "is_capital"], "additionalProperties": false}}, {"type": "missing", "loc": ["body", "response_format", "json_schema", "schema"], "msg": "Field required", "input": {"type": "object", "properties": {"city": {"type": "string"}, "country": {"type": "string"}, "is_capital": {"type": "boolean"}}, "required": ["city", "country", "is_capital"], "additionalProperties": false}}]}
+    ```
+- UNVERIFIED: which Nemotron models carry the JSON mode tag on the console cards (not checked).
 - Rule for the harness: always validate with pydantic after parsing, regardless of server-side enforcement.
 
 ## Rate limits
@@ -54,14 +69,44 @@ Source: https://docs.tokenfactory.nebius.com/ai-models-inference/rate-limits.md
 - VERIFIED: exceeding the limit returns HTTP 429 with a `Retry-After` header (seconds). Some over-limit requests are still served and carry `x-ratelimit-over-limit: yes` as an early warning.
 - VERIFIED headers: `x-ratelimit-limit-requests`, `x-ratelimit-limit-tokens`, `x-ratelimit-remaining-requests`, `x-ratelimit-remaining-tokens`, `x-ratelimit-reset-requests`, `x-ratelimit-reset-tokens`, `x-ratelimit-dynamic-scale-requests`, `x-ratelimit-dynamic-scale-tokens`, `x-ratelimit-dynamic-period-remaining`, `x-ratelimit-dynamic-period-usage-requests`, `x-ratelimit-dynamic-period-usage-tokens`.
 - VERIFIED: the Batch API has significantly higher limits and is recommended for async work.
-- TODO (user): read the real RPM and TPM for your account in the console and write them here.
+- VERIFIED (2026-10-13, observed in smoke test): per-model limits for this account, read from the `x-ratelimit-limit-*` response headers and stored in `config/rate_limits.json`. They may change (dynamic scaling applies).
 
-Implication, from our assumed volumes (not measured): one run is about 27 requests and 441,000 tokens (configs A2 and B), or 29 requests and 525,000 tokens with a board (config C). Requests per minute is not the problem; tokens per minute probably is. The arithmetic is in ARCHITECTURE.md.
+  | Model | Requests per minute | Tokens per minute |
+  |---|---|---|
+  | Ultra | 300 | 200,000 |
+  | Super | 300 | 200,000 |
+  | Lightning | 600 | 400,000 |
+  | Nano | 100 | 800,000 |
+
+- Which call the headers come from: the script stores, for each model, the headers of the first call for that model that returned any `x-ratelimit-*` header. In this run that was the first call for every model, `plain_chat` (2,232 prompt tokens, `max_tokens` 600).
+- After that call, remaining tokens were 2,537 below the limit on Nano and 2,538 below on the other three. This matches no model's prompt plus completion tokens for that call (Nano 2,506, Ultra 2,417, Lightning 2,832, Super 2,501). UNVERIFIED: what the token limit counts, and whether the limits are independent per model.
+
+Implication, from our assumed volumes (not measured): requests per minute is not the problem; tokens per minute is, and Ultra is the bottleneck. The per-model arithmetic is in ARCHITECTURE.md.
 
 ## Reasoning mode for Nemotron
 
-- THIRD-PARTY (self-hosted Nemotron 3 Super, SGLang docs): reasoning is on by default; it is disabled with `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`. Whether Token Factory accepts that field is UNVERIFIED. Token Factory documents `reasoning_effort` instead (VERIFIED as a field; accepted values and Nemotron behavior UNVERIFIED).
+- THIRD-PARTY (self-hosted Nemotron 3 Super, SGLang docs): reasoning is on by default; it is disabled with `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`. Token Factory also documents `reasoning_effort` (VERIFIED as a field).
+- VERIFIED (2026-10-13, observed in smoke test): Token Factory accepted both controls on all four models (HTTP 200): `reasoning_effort` values `"none"`, `"low"` and `"high"`, and the `thinking_off` variant. `thinking_off` passes `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` to the OpenAI SDK, which sends `chat_template_kwargs` as a top-level field of the request body.
+- VERIFIED (2026-10-13, observed in smoke test), one sample each on a trivial prompt ("A shop sells 3 pens for $2. How much do 12 pens cost? Reply with only the amount.", expected $8), so no quality conclusion:
+  - `reasoning_effort: "none"` and `thinking_off` gave correct answers in 2 to 3 completion tokens on Ultra, Super and Lightning.
+  - On Nano, `reasoning_effort: "none"` returned `content: null` (2 completion tokens) with the answer "8" in the `reasoning` field, so a caller reading `content` got an empty answer. `thinking_off` returned the correct answer "$8" in `content`.
+  - `reasoning_effort` low and high showed no visible difference on Ultra (81 completion tokens each).
+- VERIFIED (2026-10-13, observed in smoke test): Lightning with reasoning on used all `max_tokens`=600 (`finish_reason: "length"`) in 6 of its 11 successful calls: `plain_chat`, `plain_chat_2`, `reason_default`, `effort_high`, `thinking_on`, `non_english`. In the first five, the thinking text came back in `content` (starting "Here's a thinking process:") and no final answer was produced. In `non_english`, the reasoning came back in separate `reasoning` and `reasoning_content` fields, and the Spanish answer in `content` was cut off mid-sentence. With `effort_low`, `effort_none` and `thinking_off` it ended normally (`finish_reason: "stop"`).
+- Note on `runs/smoke_test.json`: the script's answer check marked `reason_default`, `effort_high` and `thinking_on` on Lightning as correct, because the truncated thinking text contains "8". Treat those three as failed.
 - Why it matters: reasoning tokens are extra output tokens (likely billed) and add latency. Operators on cheap models should probably run with reasoning off or low; the director and auditor may need it. Test cost and quality both ways.
+
+## Speed
+
+- VERIFIED (2026-10-13, observed in smoke test): end-to-end output tokens per second (output tokens / total latency, including network and prompt processing). Median over calls with at least 100 output tokens.
+
+  | Model | Median tok/s | Calls (n) | Listed in console |
+  |---|---|---|---|
+  | Ultra | 135.3 | 4 | 523 |
+  | Super | 102.0 | 6 | 127 |
+  | Lightning | 220.4 | 8 | 314.12 |
+  | Nano | 131.7 | 9 | 60 |
+
+- The listed console speeds were not reproduced (Nano measured faster than listed). Outputs were short (at most 600 tokens), so these are weak measurements. A long-output test is needed before using speeds in the plan.
 
 ## First-call checklist (do this before writing agents)
 
