@@ -1,14 +1,17 @@
 """Smoke test for Nebius Token Factory with NVIDIA Nemotron models.
 
 Covers items 2 to 7 of the "First-call checklist" in docs/HARNESS_RESEARCH.md:
-rate-limit headers, plain chat, reasoning on versus off (`reasoning_effort` and
+rate-limit headers, plain chat (sent twice with the identical prompt to see whether
+`cached_tokens` shows up), reasoning on versus off (`reasoning_effort` and
 `extra_body.chat_template_kwargs.enable_thinking`), tool calling, json_schema output
-(wrapped and bare schema) and a short non-English prompt.
+(wrapped and bare schema) and a short non-English prompt. Every call records latency and
+end-to-end output tokens per second, to check the speeds listed in the console.
 
 Every call uses max_tokens <= 600. Each error is caught and recorded, then the script
 moves on. Before each call it reserves a worst-case cost and stops the whole run if the
 estimated spend would pass the cap (USD 0.25 by default). Prices come only from
-config/prices.json. Raw results are written to runs/smoke_test.json (gitignored).
+config/prices.json, with the cost formula from docs/ARCHITECTURE.md. Raw results are
+written to runs/smoke_test.json (gitignored).
 
 Usage:
     python scripts/smoke_test.py                  # list models, test every Nemotron model
@@ -26,6 +29,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 from dotenv import load_dotenv
@@ -42,6 +46,20 @@ DEFAULT_MAX_USD = 0.25
 # when reserving budget before a call. The real count comes from `usage` afterwards.
 TEMPLATE_MARGIN_TOKENS = 256
 MAX_RETRY_AFTER_WAIT_S = 60.0
+# Short answers make tokens per second mostly network and prompt time, so the speed
+# summary only uses calls with at least this many output tokens.
+MIN_OUTPUT_TOKENS_FOR_SPEED = 100
+
+# A long, fixed system message for the two plain chat calls. Prefix caches work on
+# long shared prefixes, so a tiny prompt could hide caching even where it exists.
+CACHE_CONTEXT = "You are a concise assistant for a small business. House rules:\n" + "\n".join(
+    f"Rule {i}: answer in plain English, stay polite, and keep replies under 20 words."
+    for i in range(1, 101)
+)
+PLAIN_MESSAGES = [
+    {"role": "system", "content": CACHE_CONTEXT},
+    {"role": "user", "content": "Reply with a short greeting of at most five words."},
+]
 
 WORD_PROBLEM = "A shop sells 3 pens for $2. How much do 12 pens cost? Reply with only the amount."
 
@@ -94,11 +112,9 @@ def _thinking(enabled: bool) -> dict[str, Any]:
 
 # kind decides how the response is checked: chat, reasoning, tool or json.
 TESTS: list[dict[str, Any]] = [
-    {
-        "name": "plain_chat",
-        "kind": "chat",
-        "params": {"messages": _user("Reply with a short greeting of at most five words.")},
-    },
+    {"name": "plain_chat", "kind": "chat", "params": {"messages": PLAIN_MESSAGES}},
+    # Identical request, sent right after the first one, to see whether caching shows up.
+    {"name": "plain_chat_2", "kind": "chat", "params": {"messages": PLAIN_MESSAGES}},
     {"name": "reason_default", "kind": "reasoning", "params": {"messages": _user(WORD_PROBLEM)}},
     {
         "name": "effort_low",
@@ -172,7 +188,7 @@ TESTS: list[dict[str, Any]] = [
 # Prices and spend
 
 
-def load_prices(path: Path) -> tuple[dict[str, dict[str, float]], dict[str, str]]:
+def load_prices(path: Path) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     data = json.loads(path.read_text(encoding="utf-8"))
     per_million = data["per_million_tokens"]
     model_ids = {
@@ -184,7 +200,7 @@ def load_prices(path: Path) -> tuple[dict[str, dict[str, float]], dict[str, str]
 
 
 def resolve_price(
-    model_id: str, per_million: dict[str, dict[str, float]], model_ids: dict[str, str]
+    model_id: str, per_million: dict[str, dict[str, Any]], model_ids: dict[str, str]
 ) -> dict[str, Any]:
     """Map an API model ID to a price entry in config/prices.json.
 
@@ -202,13 +218,34 @@ def resolve_price(
     return {
         "alias": None,
         "input": max(p["input"] for p in per_million.values()),
+        "cached_input": None,
         "output": max(p["output"] for p in per_million.values()),
         "how": "highest price in file (no match)",
     }
 
 
-def cost_usd(input_tokens: int, output_tokens: int, price: dict[str, Any]) -> float:
-    return (input_tokens * price["input"] + output_tokens * price["output"]) / 1_000_000
+def cost_usd(
+    input_tokens: int, output_tokens: int, price: dict[str, Any], cached_tokens: int = 0
+) -> float:
+    """Cost formula from docs/ARCHITECTURE.md. A null cached_input price falls back to input."""
+    cached_price = price["input"] if price.get("cached_input") is None else price["cached_input"]
+    return (
+        (input_tokens - cached_tokens) * price["input"]
+        + cached_tokens * cached_price
+        + output_tokens * price["output"]
+    ) / 1_000_000
+
+
+def output_tokens(completion: int | None, reasoning: int | None) -> int | None:
+    """Output tokens to bill. Reasoning tokens count as output until verified.
+
+    UNVERIFIED whether `completion_tokens` already includes reasoning tokens. If a response
+    reports more reasoning than completion tokens, they are clearly not included: add them.
+    """
+    if completion is None:
+        return None
+    reasoning = reasoning or 0
+    return completion + reasoning if reasoning > completion else completion
 
 
 def reserve_usd(params: dict[str, Any], price: dict[str, Any]) -> float:
@@ -221,13 +258,9 @@ def reserve_usd(params: dict[str, Any], price: dict[str, Any]) -> float:
 def billed_usd(record: dict[str, Any], price: dict[str, Any], reserved: float) -> float:
     """Estimated cost of a finished call, from the usage the API returned."""
     prompt = record.get("prompt_tokens")
-    completion = record.get("completion_tokens")
-    if prompt is not None and completion is not None:
-        reasoning = record.get("reasoning_tokens") or 0
-        # Whether reasoning tokens are billed inside completion_tokens is UNVERIFIED.
-        # If they clearly are not included, count them on top.
-        output = completion + reasoning if reasoning > completion else completion
-        return cost_usd(prompt, output, price)
+    output = record.get("output_tokens")
+    if prompt is not None and output is not None:
+        return cost_usd(prompt, output, price, record.get("cached_tokens") or 0)
     status = record.get("status_code")
     if status is not None and 400 <= status < 500:
         return 0.0  # rejected before generation
@@ -307,18 +340,23 @@ def run_call(client: OpenAI, model_id: str, test: dict[str, Any]) -> dict[str, A
         choice = (data.get("choices") or [{}])[0]
         message = choice.get("message") or {}
         usage = data.get("usage") or {}
-        details = usage.get("completion_tokens_details") or {}
+        prompt_details = usage.get("prompt_tokens_details") or {}
+        completion_details = usage.get("completion_tokens_details") or {}
         record.update(
             ok=True,
             prompt_tokens=usage.get("prompt_tokens"),
+            cached_tokens=prompt_details.get("cached_tokens"),
             completion_tokens=usage.get("completion_tokens"),
-            reasoning_tokens=details.get("reasoning_tokens"),
+            reasoning_tokens=completion_details.get("reasoning_tokens"),
             finish_reason=choice.get("finish_reason"),
             content=message.get("content"),
             refusal=message.get("refusal"),
             tool_calls=message.get("tool_calls") or [],
             reasoning_text_chars=_reasoning_text_chars(message),
             response=data,
+        )
+        record["output_tokens"] = output_tokens(
+            record["completion_tokens"], record["reasoning_tokens"]
         )
     except APIStatusError as exc:
         headers = exc.response.headers
@@ -327,7 +365,14 @@ def run_call(client: OpenAI, model_id: str, test: dict[str, Any]) -> dict[str, A
         record["error"] = f"{type(exc).__name__}: {exc}"
     except Exception as exc:  # keep going whatever happens; the error is recorded
         record["error"] = f"{type(exc).__name__}: {exc}"
-    record["latency_s"] = round(time.perf_counter() - started, 2)
+    elapsed = time.perf_counter() - started
+    record["latency_s"] = round(elapsed, 2)
+    # End to end: includes network and prompt processing, not only decoding.
+    record["output_tokens_per_s"] = (
+        round(record["output_tokens"] / elapsed, 1)
+        if record.get("output_tokens") and elapsed > 0
+        else None
+    )
     if headers:
         record["ratelimit_headers"] = _ratelimit_headers(headers)
         record["retry_after"] = headers.get("retry-after")
@@ -350,8 +395,8 @@ def _cell(value: Any, width: int, align: str = ">") -> str:
 
 
 HEADER = (
-    f"  {'test':<15} {'ok':<3} {'lat_s':>6} {'prompt':>6} {'compl':>6} {'rsn_tok':>7} "
-    f"{'rsn_txt':>7} {'tools':>5} {'finish':<10} {'usd':>9}  note"
+    f"  {'test':<15} {'ok':<3} {'lat_s':>6} {'tok/s':>6} {'prompt':>6} {'cached':>6} "
+    f"{'compl':>6} {'rsn_tok':>7} {'rsn_txt':>7} {'tools':>5} {'finish':<10} {'usd':>9}  note"
 )
 
 
@@ -380,13 +425,54 @@ def _note(record: dict[str, Any]) -> str:
 def print_row(record: dict[str, Any]) -> None:
     print(
         f"  {record['test']:<15} {'yes' if record['ok'] else 'NO':<3} "
-        f"{_cell(record.get('latency_s'), 6)} {_cell(record.get('prompt_tokens'), 6)} "
+        f"{_cell(record.get('latency_s'), 6)} {_cell(record.get('output_tokens_per_s'), 6)} "
+        f"{_cell(record.get('prompt_tokens'), 6)} {_cell(record.get('cached_tokens'), 6)} "
         f"{_cell(record.get('completion_tokens'), 6)} {_cell(record.get('reasoning_tokens'), 7)} "
         f"{_cell(record.get('reasoning_text_chars'), 7)} "
         f"{_cell(len(record.get('tool_calls') or []) if record['ok'] else None, 5)} "
         f"{_cell(record.get('finish_reason'), 10, '<')} {record['usd_estimate']:>9.6f}  "
         f"{_note(record)}"
     )
+
+
+def print_summary(calls: list[dict[str, Any]]) -> None:
+    """Per model: speed (to check the listed speeds) and cached tokens on the repeated call."""
+    by_model: dict[str, list[dict[str, Any]]] = {}
+    for call in calls:
+        by_model.setdefault(call["model"], []).append(call)
+    if not by_model:
+        return
+    width = max(len(m) for m in by_model)
+    print(
+        "\n== Summary per model ==\n"
+        "  tok/s is end to end (output tokens / total latency, including network and prompt\n"
+        "  processing), so it reads lower than a pure decoding speed. Median over calls with\n"
+        f"  at least {MIN_OUTPUT_TOKENS_FOR_SPEED} output tokens (n). cached = cached_tokens on "
+        "plain_chat / plain_chat_2."
+    )
+    print(
+        f"  {'model':<{width}} {'calls':>5} {'errors':>6} {'med_lat_s':>9} {'med_tok/s':>9} "
+        f"{'n':>3} {'cached':>11} {'usd':>9}"
+    )
+    for model, model_calls in by_model.items():
+        ok = [c for c in model_calls if c["ok"]]
+        speeds = [
+            c["output_tokens_per_s"]
+            for c in ok
+            if c.get("output_tokens_per_s")
+            and (c.get("output_tokens") or 0) >= MIN_OUTPUT_TOKENS_FOR_SPEED
+        ]
+        cached = {c["test"]: c.get("cached_tokens") for c in model_calls}
+        cached_cell = "/".join(
+            "-" if cached.get(t) is None else str(cached[t]) for t in ("plain_chat", "plain_chat_2")
+        )
+        print(
+            f"  {model:<{width}} {len(model_calls):>5} "
+            f"{sum(1 for c in model_calls if c['error']):>6} "
+            f"{_cell(round(median(c['latency_s'] for c in ok), 2) if ok else None, 9)} "
+            f"{_cell(round(median(speeds), 1) if speeds else None, 9)} {len(speeds):>3} "
+            f"{cached_cell:>11} {sum(c['usd_estimate'] for c in model_calls):>9.6f}"
+        )
 
 
 def write_results(path: Path, results: dict[str, Any]) -> None:
@@ -441,10 +527,16 @@ def run(client: OpenAI, args: argparse.Namespace, results: dict[str, Any]) -> No
     first_call = True
     for model_id in targets:
         price = resolve_price(model_id, per_million, model_ids)
+        price["cached_price_fallback"] = price.get("cached_input") is None
         results["prices_used"][model_id] = price
+        cached_note = (
+            "not published, input price used"
+            if price["cached_price_fallback"]
+            else f"USD {price['cached_input']}"
+        )
         print(
             f"\n== {model_id} ==\n  price: {price['alias'] or '?'} via {price['how']}, "
-            f"USD {price['input']}/{price['output']} per 1M in/out"
+            f"USD {price['input']}/{price['output']} per 1M in/out; cached input: {cached_note}"
         )
         for test in TESTS:
             params = {"max_tokens": MAX_TOKENS, **test["params"]}
@@ -520,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         results["finished_at"] = datetime.now(UTC).isoformat()
         calls = results["calls"]
+        print_summary(calls)
         errors = sum(1 for c in calls if c["error"])
         print(
             f"\n{len(calls)} calls, {errors} errors, "

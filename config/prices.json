@@ -1,11 +1,12 @@
 {
   "_note": "USD per 1M tokens. Read from the Nebius console on 2026-10-12. Edit here, never hard-code prices.",
+  "_cached_input_note": "Optional price for cached input tokens. null means not published in what we have: the ledger then uses the normal input price and records cached_price_fallback.",
   "currency": "USD",
   "per_million_tokens": {
-    "nemotron-3-ultra":     { "input": 1.00, "output": 3.00 },
-    "nemotron-3-super":     { "input": 0.30, "output": 0.90 },
-    "nemotron-3.5-lightning": { "input": 0.06, "output": 0.24 },
-    "nemotron-3-nano":      { "input": 0.06, "output": 0.24 }
+    "nemotron-3-ultra":       { "input": 1.00, "cached_input": null, "output": 3.00 },
+    "nemotron-3-super":       { "input": 0.30, "cached_input": null, "output": 0.90 },
+    "nemotron-3.5-lightning": { "input": 0.06, "cached_input": null, "output": 0.24 },
+    "nemotron-3-nano":        { "input": 0.06, "cached_input": null, "output": 0.24 }
   },
   "model_ids": {
     "_note": "Exact Token Factory model IDs are NOT confirmed yet. Fill from the console model cards before the first call.",

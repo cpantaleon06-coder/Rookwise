@@ -8,7 +8,7 @@ Researched October 12, 2026 from the official Token Factory docs and one third-p
 |---|---|---|
 | Base URL | VERIFIED | `https://api.tokenfactory.nebius.com/v1/` |
 | Chat endpoint | VERIFIED | `POST https://api.tokenfactory.nebius.com/v1/chat/completions` |
-| Auth | VERIFIED | `Authorization: Bearer <key>`; key shown once in the console; do not expose in client-side code |
+| Auth | VERIFIED | `Authorization: Bearer <key>` |
 | OpenAI compatibility | VERIFIED | Official docs use the standard OpenAI Python and JS SDKs with a custom base URL and `NEBIUS_API_KEY` |
 | Nemotron model IDs | UNVERIFIED | Not on the docs pages read. Copy them from the console model cards into `config/prices.json` |
 
@@ -22,7 +22,8 @@ Source: https://docs.tokenfactory.nebius.com/api-reference/inference/create-chat
 - VERIFIED response: `id`, `object`, `created`, `model`, `choices`, `usage`, `service_tier`.
 - VERIFIED usage fields: `prompt_tokens`, `completion_tokens`, `total_tokens`, `prompt_tokens_details.cached_tokens`, `completion_tokens_details.reasoning_tokens`.
 - VERIFIED streaming: `usage` is populated only with `stream_options.include_usage`.
-- Open question: whether reasoning tokens are billed as output tokens. UNVERIFIED. The ledger must read the billed usage, and the first real call should compare it with the console.
+- UNVERIFIED: whether reasoning tokens are billed as output tokens, and whether `completion_tokens` already includes them. Until verified, the ledger treats them as output tokens (see "Cost of a call" in ARCHITECTURE.md). The smoke test must compare billed usage against the console billing.
+- UNVERIFIED: whether Token Factory reports non-zero `cached_tokens` for Nemotron models, and at what price. No cached-input price is published in what we have, so `cached_input` is `null` in `config/prices.json` and the ledger falls back to the normal input price. The smoke test repeats an identical plain chat call to see whether `cached_tokens` shows up.
 
 ## Tool calling
 
@@ -55,7 +56,7 @@ Source: https://docs.tokenfactory.nebius.com/ai-models-inference/rate-limits.md
 - VERIFIED: the Batch API has significantly higher limits and is recommended for async work.
 - TODO (user): read the real RPM and TPM for your account in the console and write them here.
 
-Implication, from our assumed volumes (not measured): one run is about 27 requests and 441,000 tokens. Requests per minute is not the problem; tokens per minute probably is.
+Implication, from our assumed volumes (not measured): one run is about 27 requests and 441,000 tokens (configs A2 and B), or 29 requests and 525,000 tokens with a board (config C). Requests per minute is not the problem; tokens per minute probably is. The arithmetic is in ARCHITECTURE.md.
 
 ## Reasoning mode for Nemotron
 
@@ -66,7 +67,7 @@ Implication, from our assumed volumes (not measured): one run is about 27 reques
 
 1. Copy exact Nemotron model IDs from the console to `config/prices.json`.
 2. Read real RPM and TPM from the console.
-3. One plain chat call per model: confirm it works, read `usage`, compare against console billing.
+3. One plain chat call per model: confirm it works, read `usage`, compare against console billing. Repeat it once with the identical prompt and check `cached_tokens`. Record latency and output tokens per second to check the listed speeds.
 4. One call with `tools` per model: does it return `tool_calls`? Does it support more than one call in a response?
 5. One call with `response_format` json_schema per model, wrapped and bare schema.
 6. One call with reasoning on and off (`reasoning_effort` and `extra_body`): compare tokens, latency, quality.

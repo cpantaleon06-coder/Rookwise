@@ -1,12 +1,12 @@
 # Rookwise: Architecture
 
-Source of truth for humans and coding agents (Claude Code, GLM). Version of October 12, 2026.
+Source of truth for humans and coding agents (Claude Code, GLM). Version of October 13, 2026.
 Hackathon: Nebius x NVIDIA Global AI Hackathon 2026, track Best Apps and Agents. Submission deadline: October 30, 2026, 10:00 AM PDT.
 
 ## Rules for any agent working in this repo
 
 - Write all code, comments, docs and UI text in English.
-- Never commit secrets. Keys live in `.env` (see `.env.example`). Never print a key.
+- Never expose keys. Keys live in `.env` (see `.env.example`) or in server-side environment variables. Never commit a key, never print it, never send it to the browser.
 - Prices are never hard-coded. Read them from `config/prices.json`.
 - Do not assume API details. Check `docs/HARNESS_RESEARCH.md` first and mark anything unverified as such.
 - Every module in `core/` ships with tests in `tests/`.
@@ -20,6 +20,22 @@ A hierarchical team of AI agents with a controlled token budget. The user sets a
 Thesis to test with our own measurements: a hierarchy that uses a different model per level costs less than running the largest model for everything, with comparable quality according to an independent auditor. If the benchmark does not confirm it, we report what we measured.
 
 Runs on NVIDIA Nemotron models on Nebius Token Factory. Demo cases are simulated and labeled as simulated. Kosmo (an in-house small language model under development) is a roadmap item and is not part of this submission.
+
+## Hackathon requirements
+
+Source: the team's summary of the hackathon rules. **Verify against the Devpost page before submitting.**
+
+| Requirement | How Rookwise meets it | Status |
+|---|---|---|
+| Run on Nebius Token Factory or Nebius AI Cloud | All model calls go to Token Factory | Planned |
+| Use at least one NVIDIA open source model | NVIDIA Nemotron at every level | Planned |
+| Working demo with a URL | Vercel deployment of `web/` (recorded and live modes) | Planned (Phase 3) |
+| Public YouTube video, 3 minutes or less | Demo video | Planned (Phase 5) |
+| Public repo with an open source license visible at the top, and a README | MIT `LICENSE` in the repo root; README written in Phase 5 | License done, README planned |
+| Feedback on Nebius and NVIDIA | `FEEDBACK.md`, kept from day one | In progress |
+| One category | Best Apps and Agents | Chosen |
+| Project description | Devpost text | Planned (Phase 5) |
+| Optional: Best Use of Tavily bonus | Researcher operators use Tavily search | Planned |
 
 ## Levels
 
@@ -54,22 +70,36 @@ Communication is vertical. Operators talk to their manager, managers to the dire
 
 - Reserve budget before each call, charge real cost after.
 - Caps per run, per level and per task.
-- Record input and output tokens, model, cost and time of every call.
+- Record input, cached, output and reasoning tokens, model, cost and time of every call.
 - Stop at a cap and return the partial result.
 - Limit retries and concurrency (concurrency also respects the provider rate limits, see below).
 - Honor the user's brake: pause, resume, cancel.
 
-Cost of a call = input_tokens x price_in + output_tokens x price_out, with prices from `config/prices.json`.
+### Cost of a call
+
+Prices come from `config/prices.json` in USD per 1M tokens, so each product below is divided by 1,000,000.
+
+```
+cost = (input_tokens - cached_tokens) x price_in
+     + cached_tokens x price_cached_in
+     + output_tokens x price_out
+```
+
+- `input_tokens` is `usage.prompt_tokens`. `cached_tokens` is `usage.prompt_tokens_details.cached_tokens` (VERIFIED as a field in the docs); treat a missing value as 0. Whether Token Factory reports non-zero cached tokens for Nemotron is UNVERIFIED.
+- `price_cached_in` is the optional `cached_input` price per model in `config/prices.json`. It is `null` for every model because no cached price is published in what we have. When it is `null`, the ledger uses `price_in` for cached tokens and says so: the ledger entry carries `"cached_price_fallback": true`.
+- `output_tokens` is `usage.completion_tokens`. Reasoning tokens (`usage.completion_tokens_details.reasoning_tokens`) are treated as output tokens until verified. UNVERIFIED: whether they are billed and whether `completion_tokens` already includes them. If a response reports more reasoning tokens than completion tokens, they are clearly not included and are added to `output_tokens`. The smoke test must compare billed usage against the console billing before any of this is marked VERIFIED.
 
 ## Harness (`core/harness/`)
 
 The harness is the only code that talks to the model API. Agents are built on top of it and never call the API directly.
 
+Every model call is gated by the administrator layer. Before each call the harness asks it to RESERVE budget for that call (a worst-case estimate from the prompt size, `max_tokens` and the model's prices). After the call it reports the real usage, and the administrator layer charges the real cost and releases the rest of the reservation. No model call happens without a reservation; if the reservation is refused, the call is not made.
+
 Responsibilities:
+- Reserve budget with the administrator layer before every model call, and report real usage after it.
 - Send chat completions to Token Factory and return text, tool calls and usage.
-- Run the tool loop: model proposes `tool_calls`, harness executes them (for example Tavily search), appends `tool` messages, calls the model again, up to a step cap.
+- Run the tool loop: model proposes `tool_calls`, harness executes them (for example Tavily search), appends `tool` messages, calls the model again, up to a step cap. Each step is a model call, so each step needs its own reservation.
 - Validate output against a schema (task_v1, result_v1) and retry within limits.
-- Report usage to the administrator layer for every call.
 - Respect rate limits: read `x-ratelimit-*` headers, honor `Retry-After` on HTTP 429, back off with a queue.
 - Model-agnostic interface: a model is a name, an endpoint, a price entry and a few flags, so non-Nemotron models can be added later.
 
@@ -127,7 +157,10 @@ Messages carry ids and references, not content. Content lives in the store (Supa
   "task_id": "t-014",
   "model": "nemotron-3.5-lightning",
   "input_tokens": 9800,
+  "cached_tokens": 0,
   "output_tokens": 1900,
+  "reasoning_tokens": 0,
+  "cached_price_fallback": true,
   "usd_real": 0.00105,
   "usd_predicted": 0.00120,
   "ts": "2026-10-20T15:02:11Z"
@@ -145,23 +178,48 @@ Prices and speeds from the Nebius console model cards, read October 12, 2026.
 | Nemotron-3.5-Lightning | 0.06 | 0.24 | 314.12 tok/s | eu-north1 |
 | Nemotron-3-Nano-30B-A3B | 0.06 | 0.24 | 60 tok/s | eu-north1 |
 
-Observations to confirm by measurement: Lightning costs the same as Nano and is listed about 5x faster. Super is cheaper than Ultra but listed slower. Only Nano's card mentions multilingual support, so output quality of Lightning in non-English languages must be checked early.
+Observations to confirm by measurement: Lightning costs the same as Nano and is listed about 5x faster. Super is cheaper than Ultra but listed slower; Ultra at 523 tok/s versus Super at 127 tok/s is an odd ordering for the larger model. The smoke test records latency and end-to-end output tokens per second for every call to check it. Only Nano's card mentions multilingual support, so output quality of Lightning in non-English languages must be checked early.
 
-Estimate of one run with token volumes assumed by the author (not measured):
+### Estimate of one run (assumed volumes, not measured)
 
-| Role | Count | Tokens per agent (in / out) | Cost |
-|---|---|---|---|
-| Director (Ultra) | 1 | 40,000 / 8,000 | USD 0.064 |
-| Managers (Super) | 5 | 20,000 / 4,000 | USD 0.048 |
-| Operators (Lightning) | 20 | 10,000 / 2,000 | USD 0.0216 |
-| Auditor (Ultra) | 1 | 30,000 / 3,000 | USD 0.039 |
-| Total | | 370,000 in / 71,000 out | USD 0.1726 |
+Every token volume below is assumed by the author, not measured. Costs are arithmetic on those volumes and the prices above: count x (input tokens x input price + output tokens x output price) / 1,000,000. They ignore caching, retries and reasoning overhead.
 
-About 145 runs on USD 25 in theory, before retries and Tavily. The same volume entirely on Ultra would be about USD 0.58 (arithmetic on assumed volumes, not a measurement).
+Config B, hierarchy with a different model per level:
 
-### Rate-limit implication (from the Token Factory docs, see HARNESS_RESEARCH.md)
+| Role | Count | Tokens per agent (in / out) | Arithmetic | USD |
+|---|---|---|---|---|
+| Director (Ultra) | 1 | 40,000 / 8,000 | 1 x (40,000 x 1.00 + 8,000 x 3.00) / 1M | 0.0640 |
+| Managers (Super) | 5 | 20,000 / 4,000 | 5 x (20,000 x 0.30 + 4,000 x 0.90) / 1M | 0.0480 |
+| Operators (Lightning) | 20 | 10,000 / 2,000 | 20 x (10,000 x 0.06 + 2,000 x 0.24) / 1M | 0.0216 |
+| Auditor (Ultra) | 1 | 30,000 / 3,000 | 1 x (30,000 x 1.00 + 3,000 x 3.00) / 1M | 0.0390 |
+| Total | 27 calls | 370,000 / 71,000 (441,000 tokens) | | 0.1726 |
 
-The docs give an example baseline of 60 RPM and 400,000 TPM and say real defaults are in the console. If the console shows the same numbers, one run of about 441,000 tokens already exceeds one minute of the example TPM budget, and the 27-run benchmark (about 11.9M tokens) needs at least 30 minutes of throughput. Tokens per minute, not requests per minute, is the likely binding limit. Check the real numbers in the console before designing the parallelism.
+In theory about 150 runs of B fit in the USD 26 of credits (26 / 0.1726 = 150.6), before retries and Tavily.
+
+Config A2, the same hierarchy and volumes with every agent on Ultra: director 0.0640 + managers 5 x (20,000 x 1.00 + 4,000 x 3.00) / 1M = 0.1600 + operators 20 x (10,000 x 1.00 + 2,000 x 3.00) / 1M = 0.3200 + auditor 0.0390 = USD 0.5830 per run. Equivalently, 370,000 x 1.00 / 1M + 71,000 x 3.00 / 1M = 0.370 + 0.213 = 0.583. This is the "same volume entirely on Ultra" figure (about USD 0.58), so it corresponds to A2, not to A. On these assumptions A2 costs 0.5830 / 0.1726 = 3.4x B.
+
+Config C, B plus a board and a VP. The extra volume is a placeholder assumption until the board is built: one more director with the same volume as the first (a board of two), and a VP on Ultra at 30,000 in / 6,000 out. Managers, operators and auditor are unchanged.
+
+| Role | Count | Tokens per agent (in / out) | Arithmetic | USD |
+|---|---|---|---|---|
+| Directors (Ultra) | 2 | 40,000 / 8,000 | 2 x (40,000 x 1.00 + 8,000 x 3.00) / 1M | 0.1280 |
+| VP (Ultra) | 1 | 30,000 / 6,000 | 1 x (30,000 x 1.00 + 6,000 x 3.00) / 1M | 0.0480 |
+| Managers, operators, auditor | 26 | as in B | 0.0480 + 0.0216 + 0.0390 | 0.1086 |
+| Total | 29 calls | 440,000 / 85,000 (525,000 tokens) | | 0.2846 |
+
+Config A, a single Ultra agent with no hierarchy, has no estimate until it is measured. Its token volume does not follow from the hierarchy volumes above.
+
+### Rate-limit implication (conditional on the real console limits)
+
+The Token Factory docs give an example baseline of 60 RPM and 400,000 TPM and say real defaults are in the console (see HARNESS_RESEARCH.md). Everything below assumes the console shows that example baseline and that TPM counts input plus output tokens (UNVERIFIED). Recompute once the real limits are known.
+
+- One B or A2 run is about 441,000 tokens: 441,000 / 400,000 = 1.10 minutes of TPM budget, so a single run already exceeds one minute.
+- One C run is about 525,000 tokens: 525,000 / 400,000 = 1.31 minutes.
+- The 27 benchmark runs that have an estimate (A2, B and C, about 12,663,000 tokens, see "Evaluation and benchmark") need at least 12,663,000 / 400,000 = 31.7 minutes of throughput, plus the 9 runs of A once measured.
+- Requests: 9 x 27 + 9 x 27 + 9 x 29 = 747, and 747 / 60 = 12.5 minutes at 60 RPM. Tokens per minute, not requests per minute, is the likely binding limit.
+- The documented dynamic scaling (x1.2 for the next 15-minute window at 80% usage or more) may raise the limit during a long benchmark. Do not plan on it.
+
+Check the real numbers in the console before designing the parallelism.
 
 ## Failures and loops
 
@@ -192,7 +250,30 @@ Director (or VP) summary, deliverables, predicted versus real cost report, log o
 
 Metrics: cost per accepted deliverable, cost prediction error (real minus predicted, over predicted), time versus sequential, retry rate, auditor acceptance.
 
-Design: 3 cases x 3 configurations x 3 repetitions = 27 runs. A: every agent on Ultra, no hierarchy. B: hierarchy by levels. C: hierarchy with board. With assumed volumes this is roughly USD 9 before retries and Tavily; the real figure is set after the first run of each configuration.
+Configurations:
+
+| Config | Setup | What it shows |
+|---|---|---|
+| A | A single Ultra agent, no hierarchy | What a user would do naively |
+| A2 | The same hierarchy as B, every agent on Ultra | Isolates the effect of per-level model choice |
+| B | Hierarchy with a different model per level | The proposed design |
+| C | B plus board and VP | Time saved by the board, and its coordination cost |
+
+The thesis (a different model per level costs less, at comparable quality) is tested by B versus A2, which differ only in the models. A versus B is the practical comparison against a naive single agent.
+
+Design: 4 configurations x 3 cases x 3 repetitions = 36 runs, 9 per configuration.
+
+Estimated cost, based on the assumed volumes in "Estimate of one run" (not measured), before retries and Tavily:
+
+| Config | Runs | USD per run | USD total | Tokens total |
+|---|---|---|---|---|
+| A | 9 | not estimated until measured | unknown | unknown |
+| A2 | 9 | 0.5830 | 9 x 0.5830 = 5.2470 | 9 x 441,000 = 3,969,000 |
+| B | 9 | 0.1726 | 9 x 0.1726 = 1.5534 | 9 x 441,000 = 3,969,000 |
+| C | 9 | 0.2846 | 9 x 0.2846 = 2.5614 | 9 x 525,000 = 4,725,000 |
+| A2 + B + C | 27 | | 5.2470 + 1.5534 + 2.5614 = 9.3618 | 12,663,000 |
+
+Budget to compare against: USD 26 of credits (25 event credit plus 1 account credit). After the 27 estimated runs, 26 - 9.3618 = USD 16.64 remains for the 9 runs of A, retries, development runs, the smoke test and the public live mode. If nothing else were spent, A could cost up to 16.6382 / 9 = USD 1.85 per run before the credits run out. That is a ceiling, not an estimate. Tavily is billed by Tavily, not from these credits. The real figures are set after the first measured run of each configuration.
 
 Known limitation: the auditor is a model and may favor outputs similar to its own. Mitigation: fixed rubric, separate context, human review of a sample.
 
@@ -217,7 +298,7 @@ A cost and quality governance layer for agent teams. The catalog is model-indepe
 | 1. Foundations | Oct 12 to 14 | 9 | Repo, credits, console prices, Tavily key, schemas, ledger skeleton, harness research |
 | 2. Core | Oct 15 to 19 | 15 | Administrator layer, harness, catalog, store. One end-to-end run |
 | 3. Agents and interface | Oct 20 to 24 | 15 | Full agents with Tavily, retries, reputation, chat and feed, deployed URL |
-| 4. Board and evidence | Oct 25 to 27 | 9 | Board and VP, cost panel, 27-run benchmark, one good run for the video |
+| 4. Board and evidence | Oct 25 to 27 | 9 | Board and VP, cost panel, 36-run benchmark, one good run for the video |
 | 5. Submission | Oct 28 and 29 | 6 | Video, README, feedback, Devpost on the night of Oct 29 |
 
 README is written at the end (Phase 5).
