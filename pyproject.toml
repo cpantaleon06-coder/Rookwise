@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rookwise"
+dynamic = ["version"]
+description = "Hierarchical AI agent teams with a hard token budget, on NVIDIA Nemotron via Nebius Token Factory."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.40",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+# The import name is `rookwise`, the source lives in core/.
+# New subpackages (for example core/harness/) must be added to `packages`
+# as "rookwise.<name>".
+[tool.setuptools]
+package-dir = { "rookwise" = "core" }
+packages = ["rookwise"]
+
+[tool.setuptools.dynamic]
+version = { attr = "rookwise.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rookwise"]

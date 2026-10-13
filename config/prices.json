@@ -1,0 +1,17 @@
+{
+  "_note": "USD per 1M tokens. Read from the Nebius console on 2026-10-12. Edit here, never hard-code prices.",
+  "currency": "USD",
+  "per_million_tokens": {
+    "nemotron-3-ultra":     { "input": 1.00, "output": 3.00 },
+    "nemotron-3-super":     { "input": 0.30, "output": 0.90 },
+    "nemotron-3.5-lightning": { "input": 0.06, "output": 0.24 },
+    "nemotron-3-nano":      { "input": 0.06, "output": 0.24 }
+  },
+  "model_ids": {
+    "_note": "Exact Token Factory model IDs are NOT confirmed yet. Fill from the console model cards before the first call.",
+    "nemotron-3-ultra": "",
+    "nemotron-3-super": "",
+    "nemotron-3.5-lightning": "",
+    "nemotron-3-nano": ""
+  }
+}
