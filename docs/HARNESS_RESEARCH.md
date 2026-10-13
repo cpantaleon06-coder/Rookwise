@@ -57,6 +57,7 @@ Source: https://docs.tokenfactory.nebius.com/ai-models-inference/json.md
     ```json
     {"detail": [{"type": "missing", "loc": ["body", "response_format", "json_schema", "name"], "msg": "Field required", "input": {"type": "object", "properties": {"city": {"type": "string"}, "country": {"type": "string"}, "is_capital": {"type": "boolean"}}, "required": ["city", "country", "is_capital"], "additionalProperties": false}}, {"type": "missing", "loc": ["body", "response_format", "json_schema", "schema"], "msg": "Field required", "input": {"type": "object", "properties": {"city": {"type": "string"}, "country": {"type": "string"}, "is_capital": {"type": "boolean"}}, "required": ["city", "country", "is_capital"], "additionalProperties": false}}]}
     ```
+- Docs versus API (checked 2026-10-13 against the source page above): the page's Python example sends `"json_schema": Film.model_json_schema()` and its cURL example sends `"json_schema": '"$SCHEMA"'` with a bare schema in `SCHEMA`, which is the `json_bare` shape the API rejected. Only the page's "Example of a valid JSON schema" uses the wrapped `name` / `schema` / `strict` form. Recorded in `FEEDBACK.md`.
 - UNVERIFIED: which Nemotron models carry the JSON mode tag on the console cards (not checked).
 - Rule for the harness: always validate with pydantic after parsing, regardless of server-side enforcement.
 
@@ -80,6 +81,8 @@ Source: https://docs.tokenfactory.nebius.com/ai-models-inference/rate-limits.md
 
 - Which call the headers come from: the script stores, for each model, the headers of the first call for that model that returned any `x-ratelimit-*` header. In this run that was the first call for every model, `plain_chat` (2,232 prompt tokens, `max_tokens` 600).
 - After that call, remaining tokens were 2,537 below the limit on Nano and 2,538 below on the other three. This matches no model's prompt plus completion tokens for that call (Nano 2,506, Ultra 2,417, Lightning 2,832, Super 2,501). UNVERIFIED: what the token limit counts, and whether the limits are independent per model.
+- Observed (2026-10-13, smoke test): the gap was about 2,538 on all four models, although completion tokens for that call ranged from 185 (Ultra) to 600 (Lightning). The counting rule stays UNVERIFIED.
+- Observed (2026-10-13, smoke test): `x-ratelimit-reset-requests` and `x-ratelimit-reset-tokens` read "1s" on all 44 calls that returned rate-limit headers. Reading the limits as per minute comes from the Nebius docs (RPM and TPM), not from the headers.
 
 Implication, from our assumed volumes (not measured): requests per minute is not the problem; tokens per minute is, and Ultra is the bottleneck. The per-model arithmetic is in ARCHITECTURE.md.
 
@@ -91,9 +94,18 @@ Implication, from our assumed volumes (not measured): requests per minute is not
   - `reasoning_effort: "none"` and `thinking_off` gave correct answers in 2 to 3 completion tokens on Ultra, Super and Lightning.
   - On Nano, `reasoning_effort: "none"` returned `content: null` (2 completion tokens) with the answer "8" in the `reasoning` field, so a caller reading `content` got an empty answer. `thinking_off` returned the correct answer "$8" in `content`.
   - `reasoning_effort` low and high showed no visible difference on Ultra (81 completion tokens each).
+  - Observed (2026-10-13, smoke test), single sample: on Super, `reasoning_effort: "low"` used 45 completion tokens and `"high"` used 109, and low added 7 prompt tokens (48 instead of 41 for the same prompt). On Ultra the prompt stayed at 41 tokens for both.
 - VERIFIED (2026-10-13, observed in smoke test): Lightning with reasoning on used all `max_tokens`=600 (`finish_reason: "length"`) in 6 of its 11 successful calls: `plain_chat`, `plain_chat_2`, `reason_default`, `effort_high`, `thinking_on`, `non_english`. In the first five, the thinking text came back in `content` (starting "Here's a thinking process:") and no final answer was produced. In `non_english`, the reasoning came back in separate `reasoning` and `reasoning_content` fields, and the Spanish answer in `content` was cut off mid-sentence. With `effort_low`, `effort_none` and `thinking_off` it ended normally (`finish_reason: "stop"`).
 - Note on `runs/smoke_test.json`: the script's answer check marked `reason_default`, `effort_high` and `thinking_on` on Lightning as correct, because the truncated thinking text contains "8". Treat those three as failed.
 - Why it matters: reasoning tokens are extra output tokens (likely billed) and add latency. Operators on cheap models should probably run with reasoning off or low; the director and auditor may need it. Test cost and quality both ways.
+
+## Response handling
+
+Observed (2026-10-13, smoke test), not conclusions:
+
+- `content` can be null: on every `tool_call` response (all four models), and on Nano with `reasoning_effort: "none"`, where the answer "8" was in the `reasoning` field.
+- Reasoning text arrives in different places per model. Ultra: `reasoning_content` only (9 calls). Nano: `reasoning` only (10 calls). Super: both `reasoning` and `reasoning_content`, with identical text (9 calls). Lightning: both fields, with identical text (3 calls), or untagged in `content`, starting "Here's a thinking process:" (5 calls, all cut off at `max_tokens`).
+- So the harness must not assume `content` is non-null, must check `finish_reason`, and must read reasoning text from whichever field carries it, counting it once.
 
 ## Speed
 
