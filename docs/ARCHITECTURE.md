@@ -23,19 +23,26 @@ Runs on NVIDIA Nemotron models on Nebius Token Factory. Demo cases are simulated
 
 ## Hackathon requirements
 
-Source: the team's summary of the hackathon rules. **Verify against the Devpost page before submitting.**
+Source: Devpost rules page, read on 2026-10-13 (summarized extract; re-read the original before submitting).
+**Verify against the Devpost page before submitting:** https://nebiusglobalaihackathon.devpost.com/rules
 
 | Requirement | How Rookwise meets it | Status |
 |---|---|---|
-| Run on Nebius Token Factory or Nebius AI Cloud | All model calls go to Token Factory | Planned |
-| Use at least one NVIDIA open source model | NVIDIA Nemotron at every level | Planned |
-| Working demo with a URL | Vercel deployment of `web/` (recorded and live modes) | Planned (Phase 3) |
-| Public YouTube video, 3 minutes or less | Demo video | Planned (Phase 5) |
-| Public repo with an open source license visible at the top, and a README | MIT `LICENSE` in the repo root; README written in Phase 5 | License done, README planned |
-| Feedback on Nebius and NVIDIA | `FEEDBACK.md`, kept from day one | In progress |
-| One category | Best Apps and Agents | Chosen |
-| Project description | Devpost text | Planned (Phase 5) |
-| Optional: Best Use of Tavily bonus | Researcher operators use Tavily search | Planned |
+| Nebius: a runtime call to the Token Factory inference API (or running on Nebius AI Cloud compute) | Every model call goes to the Token Factory API through the harness | In progress: runtime calls verified in the smoke test (2026-10-13); product runtime planned |
+| At least one NVIDIA open source model | NVIDIA Nemotron at every level, which is stricter than the rule | In progress: Nemotron used in the smoke test; product runtime planned |
+| A working demo, hosted application or test build, free and accessible for testing until the Judging Period ends (Dec 15, 2026) | Vercel deployment of `web/`. Plan a recorded mode that costs nothing, so the demo keeps working without credits. Check credit expiry and any free-tier pausing (hosting, database) before depending on them | Planned (Phase 3) |
+| Video: under three minutes, public on YouTube, shows the project working, no unlicensed third-party trademarks or music | Demo video, target length 2:45 | Planned (Phase 5) |
+| Public repo with source code, assets and setup instructions | Public GitHub repo with source code; setup instructions go in the README | In progress: repo public with source code; setup instructions planned (Phase 5) |
+| Open source license visible in the repository's About section | MIT `LICENSE` in the repo root; GitHub detects it as MIT (checked 2026-10-13) | Done |
+| README with setup instructions that highlights how Nemotron and Token Factory were used | README written in Phase 5 | Planned (Phase 5) |
+| Feedback on Nebius and NVIDIA tools | `FEEDBACK.md`, kept from day one | In progress |
+| Track selection and a text description of features and functionality | Track: Best Apps and Agents. Description: Devpost text | Planned (Phase 5): track decided, description not written |
+| Newly created or significantly updated after Aug 26, 2026 | Newly created: repo created 2026-10-12. The summary of significant updates only applies to pre-existing projects, so it does not apply here | Done |
+| English, or English translations | All code, docs and UI text in English; business deliverables in other languages include an English summary | In progress |
+| Optional: Best Use of Tavily bonus (USD 3,000), which requires a functional runtime call to the Tavily API as part of the solution. A project can win one Overall or one Track award, plus one Bonus | Researcher operators call Tavily search at runtime | Planned (Phase 3) |
+| Judging stage one, pass/fail: fit with the theme and reasonable use of the required APIs | Token Factory and Nemotron at every level, Tavily at runtime | Planned |
+| Judging stage two, four equally weighted criteria: Technological Implementation, Design, Potential Impact, Quality of the Idea | Implementation: budget ledger, harness, measured benchmark. Design: chat, live org chart, budget panel. Impact: cost governance for agent teams, microbusiness demo cases. Idea: a cost thesis measured, not assumed | Planned |
+| Key dates: submission closes Oct 30, 2026, 10:00 am PT; judging Dec 1 to Dec 15, 2026; winners around Jan 11, 2027 | Submit on Devpost on the night of Oct 29 (Phase 5); keep the demo up through Dec 15 | Planned |
 
 ## Levels
 
