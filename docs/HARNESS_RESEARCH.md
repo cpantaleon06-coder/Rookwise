@@ -122,25 +122,26 @@ Observed (2026-10-13, smoke test), not conclusions:
 
 ## Skills on Nemotron
 
-Observed on 2026-10-15 between 03:01 and 03:03 UTC (2026-10-14 local time) with `scripts/skill_check.py`; raw results in `runs/skill_check.json` and the outputs in `runs/skill_check_outputs.md` (both gitignored). Setup: reasoning off (`chat_template_kwargs.enable_thinking: false`), wrapped json_schema, `max_tokens` 800, one small fixed input per skill, 3 calls with the skill and 3 without, 60 calls. Estimated spend from `config/prices.json`: USD 0.007834.
+Observed on 2026-10-15 between 03:29 and 03:31 UTC (2026-10-14 local time) with `scripts/skill_check.py`, on the current skill text; raw results in `runs/skill_check.json` and the outputs in `runs/skill_check_outputs.md` (both gitignored). Setup: reasoning off (`chat_template_kwargs.enable_thinking: false`), wrapped json_schema, `max_tokens` 800, one small fixed input per skill, 3 calls with the skill and 3 without, 60 calls. Estimated spend from `config/prices.json`: USD 0.007564.
 
 | Skill | Model | Prompt tokens without / with | Skill cost (tokens) | chars / 4 estimate | Completion tokens with (without) | Median latency s with (without) |
 |---|---|---|---|---|---|---|
-| prose-style | Lightning | 154 / 808 | 654 | 647 | 44 to 70 (55 to 59) | 0.68 (0.62) |
-| prose-style | Ultra | 154 / 808 | 654 | 647 | 85 to 151 (97 to 145) | 1.09 (1.14) |
-| minimal-code | Lightning | 143 / 703 | 560 | 634 | 128 to 269 (97 to 177) | 1.24 (0.97) |
-| code-review | Lightning | 142 / 406 | 264 | 317 | 99 to 164 (88 to 166) | 1.10 (0.75) |
-| testing-strategy | Lightning | 136 / 341 | 205 | 261 | 335 to 414 (144 to 233) | 1.66 (0.99) |
-| debug | Lightning | 154 / 362 | 208 | 235 | 117 to 223 (73 to 103) | 1.20 (0.79) |
-| deploy-checklist | Lightning | 140 / 365 | 225 | 274 | 233 to 334 (69 to 111) | 1.56 (0.85) |
-| incident-triage | Lightning | 152 / 488 | 336 | 401 | 74 to 93 (43 to 73) | 0.85 (0.88) |
-| status-update | Lightning | 158 / 535 | 377 | 447 | 63 to 92 (66 to 94) | 0.67 (0.72) |
-| postmortem | Lightning | 155 / 609 | 454 | 566 | 183 to 231 (98 to 131) | 1.31 (0.86) |
+| prose-style | Lightning | 154 / 810 | 656 | 648 | 58 to 92 (57 to 75) | 0.89 (0.60) |
+| prose-style | Ultra | 154 / 810 | 656 | 648 | 85 to 140 (63 to 115) | 1.60 (1.15) |
+| minimal-code | Lightning | 143 / 705 | 562 | 636 | 114 to 179 (91 to 279) | 1.06 (1.34) |
+| code-review | Lightning | 142 / 405 | 263 | 319 | 97 to 162 (67 to 95) | 1.01 (0.67) |
+| testing-strategy | Lightning | 136 / 341 | 205 | 261 | 144 to 436 (125 to 135) | 1.36 (0.80) |
+| debug | Lightning | 154 / 369 | 215 | 242 | 211 to 308 (102 to 110) | 1.22 (0.83) |
+| deploy-checklist | Lightning | 140 / 365 | 225 | 274 | 260 to 296 (67 to 119) | 1.49 (0.69) |
+| incident-triage | Lightning | 152 / 488 | 336 | 401 | 94 to 109 (64 to 82) | 0.75 (0.73) |
+| status-update | Lightning | 158 / 536 | 378 | 448 | 66 to 108 (52 to 111) | 0.89 (0.72) |
+| postmortem | Lightning | 155 / 607 | 452 | 563 | 216 to 279 (80 to 106) | 1.39 (0.69) |
 
 - VERIFIED (2026-10-15, observed in skill check): all 60 calls ended with `finish_reason: "stop"`, and every content parsed as JSON, matched the schema and held a non-empty answer. None was wrapped in a markdown code fence. `reasoning_tokens` was 0 on every call. `cached_tokens` was absent on Lightning and 0 on Ultra.
 - Prompt tokens were the same on all three repeats of each variant, so each skill cost is exact for that skill text on that model. Lightning and Ultra returned the same counts for prose-style.
-- Measured cost divided by the chars / 4 estimate gives 0.79 to 1.01. The estimate came within 1% of the measured cost for prose-style and ran 13% to 27% above it for the other eight skills.
-- `config/skills.json` now holds these costs, tied to a SHA-256 of each skill's text, and ceilings of the measured cost plus 20%, rounded up to a multiple of 50.
+- The chars / 4 estimate came out 1.2% below the measured cost for prose-style and 13% to 27% above it for the other eight skills.
+- `config/skills.json` holds these costs, tied to a SHA-256 of each skill's text, and ceilings of the measured cost plus 20%, rounded up to a multiple of 50.
+- Earlier runs the same night, superseded by the table: at 03:01 UTC on the skill text before a stop-slop cleanup (60 calls, all passed, USD 0.007834; costs within 7 tokens of the table), and at 03:26 UTC a run that stopped after 48 calls (all passed, USD 0.002488) when the script refused an edited skill's estimate against its old ceiling, since fixed. Total skill-check spend: USD 0.017886.
 - Not measured: Super and Nano, reasoning on, other inputs or base prompts, and output quality. Completion tokens and latency are single small samples.
 
 ## First-call checklist (do this before writing agents)

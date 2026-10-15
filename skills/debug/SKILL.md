@@ -16,7 +16,7 @@ Debug the problem in the task in four steps.
 3. Diagnose: form hypotheses and test them against the evidence. Trace the code path. Find the root cause, not only the symptom.
 4. Fix: propose a fix and explain it. Consider side effects and edge cases. Suggest tests that prevent a regression.
 
-Work from error messages exactly as given. Treat recent deploys, dependency updates and config changes as the first suspects.
+Work from the error message text as given, without paraphrasing it. Treat recent deploys, dependency updates and config changes as the first suspects.
 
 Report the reproduction (expected, actual, steps), the root cause, the fix, and prevention (tests to add, guards to put in place).
 

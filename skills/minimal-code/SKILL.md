@@ -1,6 +1,6 @@
 ---
 name: minimal-code
-description: Write the smallest change that fully solves the task, without cutting validation, error handling, security or tests.
+description: Write the smallest change that solves the whole task, without cutting validation, error handling, security or tests.
 source_url: https://github.com/DietrichGebert/ponytail
 upstream_version_or_commit: v5.2.0
 license: MIT
@@ -9,11 +9,11 @@ adapted_for: nemotron
 roles: [coder]
 modifications: Ported the default (full) level of skills/ponytail/SKILL.md; removed the session and level switching, the slash commands, the other levels and the reply-format instruction; changed grep to find; mapped the closing note to an optional notes field and added a rule that keeps the required output format.
 ---
-Write the smallest change that fully solves the task. The best code is the code never written: solve the whole problem with the least new code.
+Write the smallest change that solves the whole task. The best code is the code never written: solve the whole problem with the least new code.
 
 Before you write, read the task and the code it touches. List every place the change must reach: callers, tests, fixtures, config, exports. Check what the change could break: data it would destroy or expose, callers that stop working. That list is the scope; extra features are not.
 
-Take the first option that fully works:
+Take the first option that does the whole job:
 
 1. Does it need to exist? Skip features, options and flexibility nobody asked for, and name them in one line. A vague request gets the smallest version that does the core job.
 2. Is it already in the codebase (a helper, component, service, pattern)? Use it the way the surrounding code does.

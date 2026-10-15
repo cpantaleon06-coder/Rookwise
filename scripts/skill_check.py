@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import os
@@ -138,6 +139,27 @@ def plan(config: dict[str, Any], only: set[str] | None) -> list[dict[str, Any]]:
         for (skill_id, model), role in pairs.items()
         if only is None or skill_id in only
     ]
+
+
+def measurement_prompts(
+    config: dict[str, Any], pairs: list[dict[str, Any]]
+) -> dict[tuple[str, str], str]:
+    """The WITH-skill system prompt per (skill, model), built by the runtime composer.
+
+    The ceilings are lifted here because measuring must not depend on the ceilings it
+    resets; an edited skill falls back to an estimate that can pass its old ceiling.
+    """
+    unbounded = copy.deepcopy(config)
+    for spec in unbounded["skills"].values():
+        spec["max_tokens"] = sys.maxsize
+    for spec in unbounded["roles"].values():
+        spec["max_skill_tokens"] = sys.maxsize
+    return {
+        (p["skill"], p["model"]): compose_system_prompt(
+            p["role"], BASE_PROMPT, config=unbounded
+        ).text
+        for p in pairs
+    }
 
 
 def check(content: str | None, finish_reason: str | None) -> dict[str, Any]:
@@ -327,6 +349,7 @@ def main(argv: list[str] | None = None) -> int:
     model_ids = json.loads(PRICES_PATH.read_text(encoding="utf-8"))["model_ids"]
     only = {s.strip() for s in args.skills.split(",")} if args.skills else None
     pairs = plan(config, only)
+    prompts = measurement_prompts(config, pairs)  # before any call: fail before spending
     client = OpenAI(api_key=api_key, base_url=base_url, max_retries=0, timeout=90.0)
     ledger = InMemoryLedger()
     ledger.open_run(RUN_ID, Caps(run_usd=MAX_USD))
@@ -348,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
         for pair in pairs:
             skill_id, model, role = pair["skill"], pair["model"], pair["role"]
             level = "auditor" if role == "auditor" else "operator"
-            with_skill = compose_system_prompt(role, BASE_PROMPT, config=config).text
+            with_skill = prompts[(skill_id, model)]
             user = user_message(skill_id)
             for repeat in range(1, REPEATS + 1):
                 for variant, system in (("without", BASE_PROMPT), ("with", with_skill)):

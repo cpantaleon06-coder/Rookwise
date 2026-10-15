@@ -4,26 +4,26 @@
     "prose-style": {
       "max_tokens": 800,
       "measured_prompt_tokens": {
-        "nemotron-3.5-lightning": 654,
-        "nemotron-3-ultra": 654
+        "nemotron-3.5-lightning": 656,
+        "nemotron-3-ultra": 656
       },
-      "measured_sha256": "9790b3f92bcfdc64909ac7fbe972e49ceed24c46845193f84944eec32bb0dd82",
+      "measured_sha256": "6b799c23c86c73e2d247d4f7e5627f70343619bae14c30b91029dbc4289d3f9b",
       "measured_on": "2026-10-15"
     },
     "minimal-code": {
       "max_tokens": 700,
       "measured_prompt_tokens": {
-        "nemotron-3.5-lightning": 560
+        "nemotron-3.5-lightning": 562
       },
-      "measured_sha256": "42963d964dad30efa6ee32a32432c1504b271238e9a671bf5aa0d6fd1dc7d6e0",
+      "measured_sha256": "9e8a2c385ee949b4e61b124be8e5f590e54c549156a0cf21ef03377b9b7f952b",
       "measured_on": "2026-10-15"
     },
     "code-review": {
       "max_tokens": 350,
       "measured_prompt_tokens": {
-        "nemotron-3.5-lightning": 264
+        "nemotron-3.5-lightning": 263
       },
-      "measured_sha256": "8d4f47871c7d108a138c71a3a8b5018b33e72f6b056c8b908b2e976646a2f348",
+      "measured_sha256": "07a37da96f5fbbd74d5f14b233cd22a71014a21fbdbae5145ecb76b2a056cf3c",
       "measured_on": "2026-10-15"
     },
     "testing-strategy": {
@@ -35,11 +35,11 @@
       "measured_on": "2026-10-15"
     },
     "debug": {
-      "max_tokens": 250,
+      "max_tokens": 300,
       "measured_prompt_tokens": {
-        "nemotron-3.5-lightning": 208
+        "nemotron-3.5-lightning": 215
       },
-      "measured_sha256": "97ce6222e3d61b5b1f75921c8799d1384a52361c7cd232dc03d45f6800914bf7",
+      "measured_sha256": "8fce30a2cb59145f074706ca51845a3a2152a897a32c0d737bbcf92a009836e8",
       "measured_on": "2026-10-15"
     },
     "deploy-checklist": {
@@ -55,23 +55,23 @@
       "measured_prompt_tokens": {
         "nemotron-3.5-lightning": 336
       },
-      "measured_sha256": "8042fa21c0262335333d661afdc6a7a03a44fc6a0010181deba4a93514bfff22",
+      "measured_sha256": "e045b233d5b3425efef42b3c88fba0acf9025bba7018b5e06b157e3a5121f2a8",
       "measured_on": "2026-10-15"
     },
     "status-update": {
       "max_tokens": 500,
       "measured_prompt_tokens": {
-        "nemotron-3.5-lightning": 377
+        "nemotron-3.5-lightning": 378
       },
-      "measured_sha256": "0df2e439643691a6975e6a72c8d13801159f13a4d16ed9e52ba5d65247e85fe5",
+      "measured_sha256": "da0ec74022e9b320bc806784c9bd338715979165b2a5846a3b7d7f640eed782b",
       "measured_on": "2026-10-15"
     },
     "postmortem": {
       "max_tokens": 550,
       "measured_prompt_tokens": {
-        "nemotron-3.5-lightning": 454
+        "nemotron-3.5-lightning": 452
       },
-      "measured_sha256": "5f17f710c7b42887b99f2d98f6585ca7215165f8c2dd37ae3d06c8bfe9fe47f9",
+      "measured_sha256": "1683755ff7ba6500877158ddfa8392a06ba2d7e279da48055681056f2721a5c2",
       "measured_on": "2026-10-15"
     }
   },
@@ -116,7 +116,7 @@
       "skills": [
         "debug"
       ],
-      "max_skill_tokens": 250
+      "max_skill_tokens": 300
     },
     "deploy-reviewer": {
       "model": "nemotron-3.5-lightning",

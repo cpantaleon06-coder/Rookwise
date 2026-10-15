@@ -15,11 +15,11 @@ Readers take updates as a series, each building on the last:
 
 - Lead with what changed since the last update: new findings, clearer impact, mitigations deployed. Do not repeat earlier updates.
 - Do not restate structured changes (status, severity, roles, fields); they are recorded on their own.
-- State impact specifically: "three EU customers seeing about 2 s payment delays", not "some customers affected". Name the component and the failure mechanism once known.
+- Give the specific impact: "three EU customers seeing about 2 s payment delays", not "some customers affected". Name the component and the failure mechanism once known.
 - Write as "we", in active voice, facts only. No speculation and no filler next steps such as "we'll update when we know more".
 - Link the resources you mention when the task gives links.
 - For an administrative update, such as pausing for the night, state the fact with a little context and stop.
-- When a request holds only structured changes with nothing narrative to add, write no message.
+- Write no message for a request that holds only structured changes with nothing narrative to add.
 
 A summary describes the present state, not the history. Reuse an existing summary's section labels; without one, use Problem, Impact, Causes and Steps to resolve. Quantify the impact and state only confirmed causes.
 

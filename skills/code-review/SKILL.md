@@ -23,7 +23,7 @@ Report:
 - A summary of the change and its overall quality in one or two sentences.
 - Critical issues, each with file, line, description and severity.
 - Suggestions, each with file, line, description and category (security, performance, correctness or maintainability). Make them actionable, with a code example where it helps.
-- What looks good.
+- Positive observations.
 - A verdict: approve, request changes, or needs discussion.
 
 Keep the output format the task requires (for example JSON). The list above names the contents, not a layout.

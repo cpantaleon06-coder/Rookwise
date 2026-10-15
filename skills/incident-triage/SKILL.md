@@ -16,7 +16,7 @@ An incident has a reference and a name; a status in one of these categories: tri
 Rules:
 
 - Never invent a severity. Set one only when the task states it; severity decides who gets paged. With no severity given, leave the incident in triage for a responder to set.
-- Before declaring a new incident, check the open incidents listed in the task for the same problem, matching on concrete terms (service, error, component). A duplicate splits the response, and attaching to the wrong incident buries a real problem. When the same problem already has an incident, attach to it instead of declaring.
+- Before declaring a new incident, check the open incidents listed in the task for the same problem, matching on concrete terms (service, error, component). A duplicate splits the response, and attaching to the wrong incident buries a real problem. If the same problem already has an incident, attach to it instead of declaring.
 - Before blaming the organisation's own systems, check whether a third-party dependency is failing. Timing is weak evidence against it: vendors often publish an incident after the organisation starts seeing errors.
 - Keep actions (fix it now) apart from follow-ups (after it is resolved).
 - Back any claim about how a system behaves with a source in the task, or leave it out. An empty search does not prove something is absent.
