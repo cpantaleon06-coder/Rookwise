@@ -1,0 +1,22 @@
+{
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail",
+        "ref": "v5.2.0"
+      }
+    },
+    "harness-engineering": {
+      "source": {
+        "source": "github",
+        "repo": "vinicius91carvalho/harness-engineering",
+        "ref": "v3.0.0"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true,
+    "harness@harness-engineering": true
+  }
+}

@@ -313,6 +313,10 @@ Chat with the director (or VP), live feed of hires and tasks, live org chart, bu
 
 A cost and quality governance layer for agent teams. The catalog is model-independent. Next step after this submission: add proprietary models such as Kosmo (in development, not included here).
 
+## Development toolchain (Claude Code plugins)
+
+Rookwise is built with Claude Code and a small set of plugins and skills: stop-slop for human-facing text, ponytail as a guard against over-building in `core/`, harness-engineering as the spec, build, QA and Goal Review workflow, and the engineering and incident.io plugins from the user's account. They run at development time only. The Rookwise runtime (`core/`, Nemotron on Nebius Token Factory) must not depend on any of them, and their cost comes from the Claude plan, not from the Nebius credits. harness-engineering is a development workflow and is not the Rookwise harness in `core/harness/`. Setup, pinned versions, licenses, per-tool rules and the boundary are in [docs/PLUGINS.md](PLUGINS.md).
+
 ## Schedule (3 h/day, Oct 12 to 29, 54 h)
 
 | Phase | Dates | Hours | Deliverable |

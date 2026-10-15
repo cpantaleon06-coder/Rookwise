@@ -258,6 +258,19 @@ runs/
 logs/
 tmp/
 
+# Claude Code per-machine settings (the shared file is .claude/settings.json)
+.claude/settings.local.json
+
+# harness-engineering development workflow (see docs/PLUGINS.md): transient files only.
+# Keep project_specs.xml, feature_list.json, init.sh, harness-progress/,
+# .harness/projects.json and .harness/integration-branch tracked; the harness needs them.
+# roles.json is ignored so routing to other providers is never shared by accident.
+.harness/*.pid
+.harness/runtime-owned.jsonl
+.harness/project_specs.draft.json
+.harness/spec-review*
+.harness/roles.json
+
 # Editors and OS
 .vscode/
 .idea/
