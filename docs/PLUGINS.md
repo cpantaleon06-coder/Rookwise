@@ -5,10 +5,11 @@ Recorded on 2026-10-14. `docs/ARCHITECTURE.md` stays the source of truth; this f
 ## Boundary (read first)
 
 - These tools run in Claude Code at development time. The Rookwise runtime (`core/`, Nemotron on Nebius Token Factory) must not depend on any of them: no imports, no calls, no configuration read at runtime.
+- The plugins themselves stay development-time only. The runtime uses adapted copies of four of them in `skills/`: `prose-style` from stop-slop; `minimal-code` from ponytail; `code-review`, `testing-strategy`, `debug` and `deploy-checklist` from engineering; `incident-triage`, `status-update` and `postmortem` from incident-io. Each copy names its source, version, license and changes in its frontmatter, and `THIRD_PARTY_NOTICES.md` and `licenses/` carry the attribution. The runtime reads only those copies. See "Skills layer" in `docs/ARCHITECTURE.md`.
 - `harness-engineering` is a development workflow. It is NOT the Rookwise harness in `core/harness/`, which is our runtime code that calls Nemotron through the budget ledger. The two share a word, nothing else.
 - Their cost comes from the Claude plan, not from the Nebius credits. Keep the two budgets separate in all reporting: the ledger, the benchmark and the cost panel count Nebius usage only.
 - The public demo must work for judges without accounts or paid services. incident.io data in the demo is simulated and labeled as simulated.
-- Before any plugin text is reused inside operator prompts, check its license and record the reuse here. `harness-engineering` has no license, so none of its text may be reused.
+- Before any plugin text is reused inside operator prompts, check its license and record the reuse in `THIRD_PARTY_NOTICES.md`. `harness-engineering` has no license, so none of its text may be reused.
 - Do not quote the savings claimed by the ponytail project as ours. If we ever report a saving, it must come from our own measurement.
 
 ## Setup in this repository

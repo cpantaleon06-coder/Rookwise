@@ -1,6 +1,6 @@
 # Rookwise: Architecture
 
-Source of truth for humans and coding agents (Claude Code, GLM). Version of October 13, 2026.
+Source of truth for humans and coding agents (Claude Code, GLM). Version of October 14, 2026.
 Hackathon: Nebius x NVIDIA Global AI Hackathon 2026, track Best Apps and Agents. Submission deadline: October 30, 2026, 10:00 AM PDT.
 
 ## Rules for any agent working in this repo
@@ -135,6 +135,18 @@ Each operator is a catalog entry with role, model, price estimate, latency, repu
 ```
 
 Selection: lowest expected cost that meets a minimum reputation and maximum latency. Reputation is a moving average of auditor acceptance. All numbers above are placeholders until measured.
+
+## Skills layer (Nemotron-adapted)
+
+Operators and the auditor receive role-specific instructions called skills. Each skill is a short text in `skills/<id>/SKILL.md`, adapted for Nemotron with reasoning off and JSON output. Its frontmatter names the source, the version or commit, the license, the copyright holder, the roles it serves and the changes made. `THIRD_PARTY_NOTICES.md` and `licenses/` carry the attribution.
+
+- `config/skills.json` maps each role to its model and skills, and sets a token ceiling per skill and per role.
+- `core/skills` validates each skill and composes a role's system prompt the same way every time: the base prompt first, then the role's skills in config order. It returns the text and the skill ids; the harness records the ids in the ledger entry (`skills`). It refuses to compose when a ceiling would be passed.
+- Token counts come from measurement. `scripts/skill_check.py` measures each skill's prompt-token cost on its role's model (prompt tokens with the skill minus without). A measurement counts only while its SHA-256 matches the skill text; after an edit, the loader falls back to characters / 4 and labels the count an estimate.
+- Measured on 2026-10-15: 205 to 654 prompt tokens per skill (see "Skills on Nemotron" in `docs/HARNESS_RESEARCH.md`). At Lightning's input price that adds at most 654 x 0.06 / 1M = USD 0.0000392 per call; at Ultra's, 654 x 1.00 / 1M = USD 0.000654.
+- Skills: `prose-style` (copywriter, researcher, and the auditor's rubric), `minimal-code` (coder), `code-review`, `testing-strategy`, `debug` and `deploy-checklist` (reviewer roles), and `incident-triage`, `status-update` and `postmortem` (ITOps roles, placeholders until the ITOps and DevOps use case is final). Demo incident data is simulated and labeled as simulated.
+- Each skill ends with a rule that keeps the output format the task requires, so the harness's JSON schema stays in charge of the format.
+- The Claude Code plugins in `.claude/` stay development tools. The runtime reads only the adapted copies in `skills/` (see `docs/PLUGINS.md`).
 
 ## Messages and shared store
 
@@ -316,7 +328,7 @@ A cost and quality governance layer for agent teams. The catalog is model-indepe
 
 ## Development toolchain (Claude Code plugins)
 
-Rookwise is built with Claude Code and a small set of plugins and skills: stop-slop for human-facing text, ponytail as a guard against over-building in `core/`, harness-engineering as the spec, build, QA and Goal Review workflow, and the engineering and incident.io plugins from the user's account. They run at development time only. The Rookwise runtime (`core/`, Nemotron on Nebius Token Factory) must not depend on any of them, and their cost comes from the Claude plan, not from the Nebius credits. harness-engineering is a development workflow and is not the Rookwise harness in `core/harness/`. Setup, pinned versions, licenses, per-tool rules and the boundary are in [docs/PLUGINS.md](PLUGINS.md).
+Rookwise is built with Claude Code and a small set of plugins and skills: stop-slop for human-facing text, ponytail as a guard against over-building in `core/`, harness-engineering as the spec, build, QA and Goal Review workflow, and the engineering and incident.io plugins from the user's account. They run at development time only. The Rookwise runtime (`core/`, Nemotron on Nebius Token Factory) must not depend on any of them, and their cost comes from the Claude plan, not from the Nebius credits. The runtime uses adapted, attributed copies of four of them in `skills/` (see "Skills layer"). harness-engineering is a development workflow and is not the Rookwise harness in `core/harness/`. Setup, pinned versions, licenses, per-tool rules and the boundary are in [docs/PLUGINS.md](PLUGINS.md).
 
 ## Schedule (3 h/day, Oct 12 to 29, 54 h)
 
