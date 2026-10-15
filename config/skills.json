@@ -1,0 +1,27 @@
+{
+  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. max_tokens is the ceiling per skill and max_skill_tokens the ceiling per role (sum of its skills). The ceilings are PLACEHOLDERS until scripts/skill_check.py measures the skills on Nemotron; until then token counts are an ESTIMATE (characters / 4). The ITOps roles are placeholders until the ITOps and DevOps use case is final.",
+  "skills": {
+    "prose-style": { "max_tokens": 2000 },
+    "minimal-code": { "max_tokens": 2000 },
+    "code-review": { "max_tokens": 2000 },
+    "testing-strategy": { "max_tokens": 2000 },
+    "debug": { "max_tokens": 2000 },
+    "deploy-checklist": { "max_tokens": 2000 },
+    "incident-triage": { "max_tokens": 2000 },
+    "status-update": { "max_tokens": 2000 },
+    "postmortem": { "max_tokens": 2000 }
+  },
+  "roles": {
+    "copywriter": { "model": "nemotron-3.5-lightning", "skills": ["prose-style"], "max_skill_tokens": 2000 },
+    "researcher": { "model": "nemotron-3.5-lightning", "skills": ["prose-style"], "max_skill_tokens": 2000 },
+    "coder": { "model": "nemotron-3.5-lightning", "skills": ["minimal-code"], "max_skill_tokens": 2000 },
+    "code-reviewer": { "model": "nemotron-3.5-lightning", "skills": ["code-review"], "max_skill_tokens": 2000 },
+    "test-planner": { "model": "nemotron-3.5-lightning", "skills": ["testing-strategy"], "max_skill_tokens": 2000 },
+    "debugger": { "model": "nemotron-3.5-lightning", "skills": ["debug"], "max_skill_tokens": 2000 },
+    "deploy-reviewer": { "model": "nemotron-3.5-lightning", "skills": ["deploy-checklist"], "max_skill_tokens": 2000 },
+    "incident-triager": { "model": "nemotron-3.5-lightning", "skills": ["incident-triage"], "max_skill_tokens": 2000 },
+    "status-updater": { "model": "nemotron-3.5-lightning", "skills": ["status-update"], "max_skill_tokens": 2000 },
+    "postmortem-writer": { "model": "nemotron-3.5-lightning", "skills": ["postmortem"], "max_skill_tokens": 2000 },
+    "auditor": { "model": "nemotron-3-ultra", "skills": ["prose-style"], "max_skill_tokens": 2000 }
+  }
+}

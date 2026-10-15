@@ -117,7 +117,7 @@ What is verified and what is not is tracked in `docs/HARNESS_RESEARCH.md`.
 
 ## Operator catalog
 
-Each operator is a catalog entry with role, model, price estimate, latency, reputation, tools and schemas.
+Each operator is a catalog entry with role, model, price estimate, latency, reputation, tools, skills and schemas. `skills` lists the ids of the Nemotron-adapted skills composed into the operator's system prompt; `config/skills.json` maps each role to its skills.
 
 ```json
 {
@@ -128,6 +128,7 @@ Each operator is a catalog entry with role, model, price estimate, latency, repu
   "avg_latency_s": 8,
   "reputation": 0.82,
   "tools": ["tavily_search"],
+  "skills": ["prose-style"],
   "input_schema": "task_v1",
   "output_schema": "result_v1"
 }
