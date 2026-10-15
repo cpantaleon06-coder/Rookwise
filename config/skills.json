@@ -1,27 +1,157 @@
 {
-  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. max_tokens is the ceiling per skill and max_skill_tokens the ceiling per role (sum of its skills). The ceilings are PLACEHOLDERS until scripts/skill_check.py measures the skills on Nemotron; until then token counts are an ESTIMATE (characters / 4). The ITOps roles are placeholders until the ITOps and DevOps use case is final.",
+  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final.",
   "skills": {
-    "prose-style": { "max_tokens": 2000 },
-    "minimal-code": { "max_tokens": 2000 },
-    "code-review": { "max_tokens": 2000 },
-    "testing-strategy": { "max_tokens": 2000 },
-    "debug": { "max_tokens": 2000 },
-    "deploy-checklist": { "max_tokens": 2000 },
-    "incident-triage": { "max_tokens": 2000 },
-    "status-update": { "max_tokens": 2000 },
-    "postmortem": { "max_tokens": 2000 }
+    "prose-style": {
+      "max_tokens": 800,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 654,
+        "nemotron-3-ultra": 654
+      },
+      "measured_sha256": "9790b3f92bcfdc64909ac7fbe972e49ceed24c46845193f84944eec32bb0dd82",
+      "measured_on": "2026-10-15"
+    },
+    "minimal-code": {
+      "max_tokens": 700,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 560
+      },
+      "measured_sha256": "42963d964dad30efa6ee32a32432c1504b271238e9a671bf5aa0d6fd1dc7d6e0",
+      "measured_on": "2026-10-15"
+    },
+    "code-review": {
+      "max_tokens": 350,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 264
+      },
+      "measured_sha256": "8d4f47871c7d108a138c71a3a8b5018b33e72f6b056c8b908b2e976646a2f348",
+      "measured_on": "2026-10-15"
+    },
+    "testing-strategy": {
+      "max_tokens": 250,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 205
+      },
+      "measured_sha256": "6931462684da95263d868cac860eb311af6e5ed473b437b72f7d32096aa609a0",
+      "measured_on": "2026-10-15"
+    },
+    "debug": {
+      "max_tokens": 250,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 208
+      },
+      "measured_sha256": "97ce6222e3d61b5b1f75921c8799d1384a52361c7cd232dc03d45f6800914bf7",
+      "measured_on": "2026-10-15"
+    },
+    "deploy-checklist": {
+      "max_tokens": 300,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 225
+      },
+      "measured_sha256": "3245156fffe3424fd544d1c00c42284ed5552834704f92217699e55f73b5bb36",
+      "measured_on": "2026-10-15"
+    },
+    "incident-triage": {
+      "max_tokens": 450,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 336
+      },
+      "measured_sha256": "8042fa21c0262335333d661afdc6a7a03a44fc6a0010181deba4a93514bfff22",
+      "measured_on": "2026-10-15"
+    },
+    "status-update": {
+      "max_tokens": 500,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 377
+      },
+      "measured_sha256": "0df2e439643691a6975e6a72c8d13801159f13a4d16ed9e52ba5d65247e85fe5",
+      "measured_on": "2026-10-15"
+    },
+    "postmortem": {
+      "max_tokens": 550,
+      "measured_prompt_tokens": {
+        "nemotron-3.5-lightning": 454
+      },
+      "measured_sha256": "5f17f710c7b42887b99f2d98f6585ca7215165f8c2dd37ae3d06c8bfe9fe47f9",
+      "measured_on": "2026-10-15"
+    }
   },
   "roles": {
-    "copywriter": { "model": "nemotron-3.5-lightning", "skills": ["prose-style"], "max_skill_tokens": 2000 },
-    "researcher": { "model": "nemotron-3.5-lightning", "skills": ["prose-style"], "max_skill_tokens": 2000 },
-    "coder": { "model": "nemotron-3.5-lightning", "skills": ["minimal-code"], "max_skill_tokens": 2000 },
-    "code-reviewer": { "model": "nemotron-3.5-lightning", "skills": ["code-review"], "max_skill_tokens": 2000 },
-    "test-planner": { "model": "nemotron-3.5-lightning", "skills": ["testing-strategy"], "max_skill_tokens": 2000 },
-    "debugger": { "model": "nemotron-3.5-lightning", "skills": ["debug"], "max_skill_tokens": 2000 },
-    "deploy-reviewer": { "model": "nemotron-3.5-lightning", "skills": ["deploy-checklist"], "max_skill_tokens": 2000 },
-    "incident-triager": { "model": "nemotron-3.5-lightning", "skills": ["incident-triage"], "max_skill_tokens": 2000 },
-    "status-updater": { "model": "nemotron-3.5-lightning", "skills": ["status-update"], "max_skill_tokens": 2000 },
-    "postmortem-writer": { "model": "nemotron-3.5-lightning", "skills": ["postmortem"], "max_skill_tokens": 2000 },
-    "auditor": { "model": "nemotron-3-ultra", "skills": ["prose-style"], "max_skill_tokens": 2000 }
+    "copywriter": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "prose-style"
+      ],
+      "max_skill_tokens": 800
+    },
+    "researcher": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "prose-style"
+      ],
+      "max_skill_tokens": 800
+    },
+    "coder": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "minimal-code"
+      ],
+      "max_skill_tokens": 700
+    },
+    "code-reviewer": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "code-review"
+      ],
+      "max_skill_tokens": 350
+    },
+    "test-planner": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "testing-strategy"
+      ],
+      "max_skill_tokens": 250
+    },
+    "debugger": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "debug"
+      ],
+      "max_skill_tokens": 250
+    },
+    "deploy-reviewer": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "deploy-checklist"
+      ],
+      "max_skill_tokens": 300
+    },
+    "incident-triager": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "incident-triage"
+      ],
+      "max_skill_tokens": 450
+    },
+    "status-updater": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "status-update"
+      ],
+      "max_skill_tokens": 500
+    },
+    "postmortem-writer": {
+      "model": "nemotron-3.5-lightning",
+      "skills": [
+        "postmortem"
+      ],
+      "max_skill_tokens": 550
+    },
+    "auditor": {
+      "model": "nemotron-3-ultra",
+      "skills": [
+        "prose-style"
+      ],
+      "max_skill_tokens": 800
+    }
   }
 }

@@ -8,12 +8,14 @@ other field is allowed.
 `config/skills.json` maps each role to its model and skill ids and sets a token
 ceiling per skill (`max_tokens`) and per role (`max_skill_tokens`, the sum of its
 skills). A skill's token count is the measured prompt-token cost on the role's model
-when `measured_prompt_tokens` has it, otherwise an ESTIMATE of characters / 4.
+when `measured_prompt_tokens` has it and `measured_sha256` still matches the skill's
+text, otherwise an ESTIMATE of characters / 4.
 Composition is deterministic and refuses to exceed a ceiling.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from dataclasses import dataclass
@@ -126,10 +128,20 @@ def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
     return config
 
 
+def skill_sha256(skill: Skill) -> str:
+    """Hash of the exact block a measurement was taken on."""
+    return hashlib.sha256(skill.render().encode("utf-8")).hexdigest()
+
+
 def skill_tokens(skill: Skill, config: dict[str, Any], model: str) -> tuple[int, TokenMethod]:
-    """Measured prompt tokens on `model` when recorded, else an estimate (characters / 4)."""
-    measured = config["skills"][skill.id].get("measured_prompt_tokens", {}).get(model)
-    if measured is not None:
+    """Measured prompt tokens on `model`, else an estimate (characters / 4).
+
+    A measurement counts only while `measured_sha256` matches the skill's current text,
+    so editing a skill falls back to the estimate until it is measured again.
+    """
+    spec = config["skills"][skill.id]
+    measured = spec.get("measured_prompt_tokens", {}).get(model)
+    if measured is not None and spec.get("measured_sha256") == skill_sha256(skill):
         return int(measured), "measured"
     return math.ceil(len(skill.render()) / 4), "estimate_chars_div_4"
 

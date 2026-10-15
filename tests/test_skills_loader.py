@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from rookwise.skills import SkillError, compose_system_prompt, load_config, load_skill
+from rookwise.skills import (
+    SkillError,
+    compose_system_prompt,
+    load_config,
+    load_skill,
+    skill_sha256,
+)
 
 CONFIG = Path(__file__).resolve().parents[1] / "config"
 
@@ -107,11 +113,20 @@ def test_compose_is_deterministic_and_returns_skill_ids(skills_dir):
 
 
 def test_compose_uses_measured_tokens_when_recorded(skills_dir):
-    composed = compose_system_prompt(
-        "coder", "Base.", config=_config(measured=42), skills_dir=skills_dir
+    config = _config(measured=42)
+    config["skills"]["minimal-code"]["measured_sha256"] = skill_sha256(
+        load_skill("minimal-code", skills_dir)
     )
+    composed = compose_system_prompt("coder", "Base.", config=config, skills_dir=skills_dir)
     assert composed.skill_tokens == {"minimal-code": 42}
     assert composed.token_method == {"minimal-code": "measured"}
+
+
+def test_a_measurement_of_older_skill_text_is_ignored(skills_dir):
+    config = _config(measured=42)
+    config["skills"]["minimal-code"]["measured_sha256"] = "0" * 64
+    composed = compose_system_prompt("coder", "Base.", config=config, skills_dir=skills_dir)
+    assert composed.token_method == {"minimal-code": "estimate_chars_div_4"}
 
 
 @pytest.mark.parametrize("config", [_config(skill_max=1), _config(role_max=1)])

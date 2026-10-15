@@ -8,6 +8,7 @@ from rookwise.skills.loader import (
     load_config,
     load_skill,
     parse_skill,
+    skill_sha256,
     skill_tokens,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "load_config",
     "load_skill",
     "parse_skill",
+    "skill_sha256",
     "skill_tokens",
 ]

@@ -30,3 +30,10 @@ Kept from day one for the hackathon feedback requirement. One entry per finding:
   - Observed: HTTP 422 on all four Nemotron models, `"msg": "Field required"` for `["body", "response_format", "json_schema", "name"]` and for `[..., "json_schema", "schema"]` (full detail in `docs/HARNESS_RESEARCH.md`). The wrapped form, as in the page's "Example of a valid JSON schema", worked on all four.
   - Reproduce: `python scripts/smoke_test.py` (tests json_bare and json_wrapped).
   - What would help: use the wrapped `{name, schema, strict}` form in every request example on the page.
+
+## 2026-10-15
+- Docs/API: on Nemotron, the reasoning switch that worked on every model is `chat_template_kwargs.enable_thinking`, which the chat completion reference does not list. Source: https://docs.tokenfactory.nebius.com/api-reference/inference/create-chat-completion.md and real calls.
+  - Sent: `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` through the OpenAI SDK (a top-level body field), with the wrapped json_schema form.
+  - Observed: the reference documents `reasoning_effort` (none, minimal, low, medium, high, xhigh, max) and no `chat_template_kwargs`. With `enable_thinking` false, Lightning and Ultra returned schema-valid JSON in 60 of 60 calls, with `reasoning_tokens` 0 and no length cutoffs. In the 2026-10-13 smoke test it gave correct short answers on all four models, while `reasoning_effort: "none"` on Nano returned `content: null`.
+  - Reproduce: `python scripts/skill_check.py`, and `python scripts/smoke_test.py` for the four-model comparison.
+  - What would help: document `chat_template_kwargs.enable_thinking` for Nemotron models, and say which reasoning control each model honors.
