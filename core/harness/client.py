@@ -24,6 +24,7 @@ stream, for example with `contextlib.aclosing`, so settlement runs at once.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import os
 import random
 from collections.abc import AsyncIterator, Callable
@@ -33,9 +34,11 @@ from typing import Any
 
 import httpx
 
+from rookwise.harness.cassette import Cassette, request_key
 from rookwise.harness.config import HarnessConfig, load_config
 from rookwise.harness.cost import estimate_usage_from_text, full_reservation_usage
 from rookwise.harness.events import (
+    EVENT_ADAPTER,
     ErrorEvent,
     Event,
     Finish,
@@ -44,7 +47,7 @@ from rookwise.harness.events import (
     TextDelta,
     UsageEvent,
 )
-from rookwise.harness.ratelimit import Clock, RateLimiter, SystemClock
+from rookwise.harness.ratelimit import Clock, Permit, RateLimiter, SystemClock
 from rookwise.harness.request import BuiltRequest, ChatRequest, build_request
 from rookwise.harness.retry import (
     ApiError,
@@ -59,6 +62,15 @@ from rookwise.harness.sse import ChunkNormalizer, SSEDecoder, StreamOutcome
 from rookwise.ledger import Ledger, Reservation, Usage
 
 _ERROR_BODY_CHARS = 500
+
+
+def _recorded_error(error: dict[str, Any]) -> ApiError:
+    return ApiError(
+        error["kind"],
+        error["message"],
+        status_code=error["status_code"],
+        retry_after_s=error["retry_after_s"],
+    )
 
 
 class CancelHandle:
@@ -134,6 +146,22 @@ class _Attempt:
 
 
 @dataclass(frozen=True)
+class _Call:
+    """A call's cassette slot: request key and sequence index, and in replay the recording."""
+
+    key: str
+    index: int
+    recording: dict[str, Any] | None = None
+
+
+class _NoPermit:
+    """Replay makes no API calls, so it takes no rate-limit budget."""
+
+    def release(self, used_tokens: int | None = None) -> None:
+        pass
+
+
+@dataclass(frozen=True)
 class _Settlement:
     usage: Usage
     estimated: bool
@@ -156,6 +184,7 @@ class Harness:
         limiter: RateLimiter | None = None,
         clock: Clock | None = None,
         rng: random.Random | None = None,
+        cassette: Cassette | None = None,
     ) -> None:
         self._ledger = ledger
         self._config = config or load_config()
@@ -163,20 +192,37 @@ class Harness:
         self._rng = rng or random.Random()
         self._policy = RetryPolicy.from_config(self._config.retry)
         self._limiter = limiter or RateLimiter.from_config(self._config, self._clock)
+        self._mode = cassette.mode if cassette is not None else self._config.mode
         key = api_key if api_key is not None else os.environ.get("NEBIUS_API_KEY", "")
-        if not key.strip():
+        key = key.strip()
+        if self._mode != "replay" and not key:
             raise HarnessError("NEBIUS_API_KEY is not set")
-        self._http = httpx.AsyncClient(
-            base_url=self._config.base_url,
-            headers={"Authorization": f"Bearer {key.strip()}"},
-            timeout=httpx.Timeout(
-                self._config.read_timeout_s, connect=self._config.connect_timeout_s
-            ),
-            transport=transport,
+        if cassette is None and self._mode != "live":
+            cassette = Cassette(self._config.cassette_dir / "default.json", self._mode)
+        self._cassette = cassette
+        if cassette is not None:
+            cassette.add_secret(key)
+        # Replay never calls the API, so it gets no HTTP client at all.
+        self._http = (
+            None
+            if self._mode == "replay"
+            else httpx.AsyncClient(
+                base_url=self._config.base_url,
+                headers={"Authorization": f"Bearer {key}"},
+                timeout=httpx.Timeout(
+                    self._config.read_timeout_s, connect=self._config.connect_timeout_s
+                ),
+                transport=transport,
+            )
         )
 
+    @property
+    def mode(self) -> str:
+        return self._mode
+
     async def aclose(self) -> None:
-        await self._http.aclose()
+        if self._http is not None:
+            await self._http.aclose()
 
     async def __aenter__(self) -> Harness:
         return self
@@ -217,13 +263,21 @@ class Harness:
     ) -> AsyncIterator[Event]:
         built = build_request(request, self._config)
         cancel = cancel or CancelHandle()
+        call = None
+        if self._cassette is not None:
+            key = request_key(built.body)
+            index = self._cassette.next_index(key)
+            recording = self._cassette.lookup(key, index) if self._mode == "replay" else None
+            call = _Call(key, index, recording)
         attempt = 0
         while True:
             attempt += 1
             if cancel.cancelled:
                 yield Finish(finish_reason=None, usd=0.0, usage_estimated=False, cancelled=True)
                 return
-            permit = await self._limiter.acquire(built.model.alias, built.worst_case_tokens)
+            permit: Permit | _NoPermit = _NoPermit()
+            if self._mode != "replay":
+                permit = await self._limiter.acquire(built.model.alias, built.worst_case_tokens)
             used_tokens: int | None = None
             try:
                 reservation = self._reserve(built)
@@ -233,7 +287,7 @@ class Harness:
             state = _Attempt(attempt, reservation)
             try:
                 # aclosing: if our consumer stops early, the attempt settles right away.
-                async with aclosing(self._run_attempt(built, state, cancel)) as events:
+                async with aclosing(self._run_attempt(built, state, cancel, call)) as events:
                     async for event in events:
                         if isinstance(event, UsageEvent) and not event.estimated:
                             used_tokens = event.input_tokens + event.output_tokens
@@ -254,7 +308,8 @@ class Harness:
                     raise
             finally:
                 permit.release(used_tokens)
-            if delay > 0:
+            instant_replay = self._mode == "replay" and not self._cassette.realtime
+            if delay > 0 and not instant_replay:
                 await self._clock.sleep(delay)
 
     # -- one attempt -------------------------------------------------------------------
@@ -273,10 +328,10 @@ class Harness:
         )
 
     async def _run_attempt(
-        self, built: BuiltRequest, state: _Attempt, cancel: CancelHandle
+        self, built: BuiltRequest, state: _Attempt, cancel: CancelHandle, call: _Call | None
     ) -> AsyncIterator[Event]:
         queue: asyncio.Queue[Any] = asyncio.Queue()
-        producer = asyncio.create_task(self._produce(self._source(built, state), queue))
+        producer = asyncio.create_task(self._produce(self._source(built, state, call), queue))
 
         def on_cancel() -> None:
             # A task cancelled before its first step never runs its body, so the marker
@@ -358,8 +413,21 @@ class Harness:
         finally:
             await source.aclose()  # type: ignore[attr-defined]
 
-    async def _source(self, built: BuiltRequest, state: _Attempt) -> AsyncIterator[Any]:
-        """Live source: POST the request and yield `_STARTED`, then deltas."""
+    def _source(
+        self, built: BuiltRequest, state: _Attempt, call: _Call | None
+    ) -> AsyncIterator[Any]:
+        if self._mode == "replay":
+            assert call is not None and call.recording is not None
+            return self._replay_source(state, call.recording)
+        source = self._live_source(built, state)
+        if self._mode == "record":
+            assert call is not None
+            return self._record(source, built, state, call)
+        return source
+
+    async def _live_source(self, built: BuiltRequest, state: _Attempt) -> AsyncIterator[Any]:
+        """POST the request and yield `_STARTED`, then deltas."""
+        assert self._http is not None
         normalizer = ChunkNormalizer(built.model.reasoning_fields)
         state.outcome = normalizer.outcome
         decoder = SSEDecoder()
@@ -388,6 +456,81 @@ class Harness:
         except httpx.HTTPError as error:
             kind = classify_exception(error)
             raise ApiError(kind, f"{type(error).__name__}: {error}") from error
+
+    async def _record(
+        self, source: AsyncIterator[Any], built: BuiltRequest, state: _Attempt, call: _Call
+    ) -> AsyncIterator[Any]:
+        """Pass the live source through and store what it produced in the cassette."""
+        assert self._cassette is not None
+        start = self._clock.now()
+        events: list[dict[str, Any]] = []
+        status, error = "ok", None
+        try:
+            async for item in source:
+                if isinstance(item, TextDelta | ReasoningDelta):
+                    events.append({**item.model_dump(), "t": round(self._clock.now() - start, 3)})
+                yield item
+        except ApiError as failure:
+            status = "error"
+            error = {
+                "kind": failure.kind,
+                "message": failure.message,
+                "status_code": failure.status_code,
+                "retry_after_s": failure.retry_after_s,
+                "after_start": state.started,
+            }
+            raise
+        except asyncio.CancelledError:
+            status = "cancelled"
+            raise
+        finally:
+            outcome = state.outcome
+            final = outcome.final_usage()
+            running = outcome.running_usage
+            self._cassette.put(
+                {
+                    "key": call.key,
+                    "index": call.index,
+                    "request": built.body,
+                    "status": status,
+                    "error": error,
+                    "response_id": outcome.response_id,
+                    "finish_reason": outcome.finish_reason,
+                    "done": outcome.done,
+                    "usage": dataclasses.asdict(final) if final else None,
+                    "running_usage": dataclasses.asdict(running) if running else None,
+                    "events": events,
+                }
+            )
+
+    async def _replay_source(
+        self, state: _Attempt, recording: dict[str, Any]
+    ) -> AsyncIterator[Any]:
+        """Yield a recorded attempt the way the live source produced it. No network."""
+        assert self._cassette is not None
+        state.in_flight = True
+        error = recording["error"]
+        if error is not None and not error["after_start"]:
+            raise _recorded_error(error)
+        state.started = True
+        yield _STARTED
+        previous = 0.0
+        for raw in recording["events"]:
+            if self._cassette.realtime and raw["t"] > previous:
+                await self._clock.sleep(raw["t"] - previous)
+                previous = raw["t"]
+            yield EVENT_ADAPTER.validate_python({k: v for k, v in raw.items() if k != "t"})
+        outcome = state.outcome
+        outcome.response_id = recording["response_id"]
+        outcome.finish_reason = recording["finish_reason"]
+        outcome.done = recording["done"]
+        outcome.usage = Usage(**recording["usage"]) if recording["usage"] else None
+        running = recording["running_usage"]
+        outcome.running_usage = Usage(**running) if running else None
+        if error is not None:
+            raise _recorded_error(error)
+        if recording["status"] == "cancelled":
+            raise asyncio.CancelledError  # ends the attempt as cancelled, as when recorded
 
     def _settle(self, built: BuiltRequest, state: _Attempt) -> _Settlement:
         """Charge or release the attempt's reservation, exactly once."""

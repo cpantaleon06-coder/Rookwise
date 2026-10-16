@@ -3,9 +3,9 @@
 Public surface:
 
 - `Harness(ledger, config=None, api_key=None, transport=None, limiter=None, clock=None,
-  rng=None)`: one per ledger. `stream(request, cancel=None)` yields normalized events;
-  `complete(request, cancel=None)` consumes the stream and returns a `Result`. Use it as
-  an async context manager, or call `aclose()`.
+  rng=None, cassette=None)`: one per ledger. `stream(request, cancel=None)` yields
+  normalized events; `complete(request, cancel=None)` consumes the stream and returns
+  a `Result`. Use it as an async context manager, or call `aclose()`.
 - `ChatRequest`, `JsonSchemaFormat`: what to send. Model defaults and quirks come from
   config/harness.json; `build_request` shows the exact body.
 - Events: `StreamStart`, `TextDelta`, `ReasoningDelta`, `UsageEvent`, `Finish`,
@@ -14,6 +14,9 @@ Public surface:
 - Errors: `HarnessError` (base), `ApiError` (with a `kind` from the taxonomy),
   `StreamInterrupted`, `RequestError`, `ConfigError`. Budget refusals raise the
   ledger's `CapReached` and nothing is sent.
+- Record and replay: `HARNESS_MODE` = live (default), record or replay. `Cassette`
+  holds one recording file; replay never calls the API and raises `CassetteMiss`
+  when a request was not recorded.
 - `load_config`, `HarnessConfig`, `RateLimiter`, `RetryPolicy`, `Clock`.
 
 Every call reserves its worst case in the ledger before it is sent and is settled
@@ -21,6 +24,7 @@ exactly once (see client.py). The API key is read from the environment
 (`NEBIUS_API_KEY`) or passed in; it is never logged or stored.
 """
 
+from rookwise.harness.cassette import Cassette, CassetteMiss
 from rookwise.harness.client import CancelHandle, Harness, Result
 from rookwise.harness.config import ConfigError, HarnessConfig, load_config
 from rookwise.harness.events import (
@@ -39,6 +43,8 @@ from rookwise.harness.retry import ApiError, HarnessError, RetryPolicy, StreamIn
 __all__ = [
     "ApiError",
     "CancelHandle",
+    "Cassette",
+    "CassetteMiss",
     "ChatRequest",
     "Clock",
     "ConfigError",
