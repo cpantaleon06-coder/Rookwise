@@ -252,3 +252,135 @@ Checked without API calls on the saved streaming probe data (`runs/stream_probe.
   - Lightning, reasoning on: `completion_tokens` 256 equals `reasoning_tokens` 256 equals `max_tokens`. The 758 characters of reasoning repeated as content (see the streaming probe) were not counted a second time.
 - UNVERIFIED: whether Token Factory bills reasoning tokens at the output price. No console comparison yet.
 - Consequence: the ledger bills `completion_tokens` as output, which already holds the reasoning, so reasoning is billed once. `call_cost` adds `reasoning_tokens` only when they exceed `completion_tokens`, which no observed call did. The cost code is unchanged; a regression test pins the Ultra numbers above.
+
+## Tool-calling probe (2026-10-16)
+
+Observed with `scripts/tool_probe.py` (raw results in `runs/tool_probe.json`, gitignored), streaming with `include_usage`, one function tool `add(a, b)`. Calls per model: `auto` (`tool_choice: "auto"`, reasoning off), `forced` (`tool_choice` naming the function), `reasoning_on`, `with_schema` (tools plus a wrapped json_schema `response_format`), `follow_up` (the tool call and a `tool` message with the result, only after a tool call in `auto`) and `json_action` (no tools, the JSON action protocol with `response_format: json_object`). One sample each. Estimated spend: USD 0.003598.
+
+Summary across the four models (details per model below):
+
+- VERIFIED: all four accepted `tools` with `tool_choice: "auto"` and with `tool_choice` naming the function (HTTP 200, streaming).
+- VERIFIED: Ultra, Super and Lightning returned a tool call in `auto`, `forced` and `reasoning_on`, with `finish_reason: "tool_calls"` and arguments that parse as JSON (`{"a": 17, "b": 25}`). In `follow_up` (the tool call plus a `tool` message with the result) all three answered in text with `finish_reason: "stop"`.
+- VERIFIED: streamed tool-call fragments. The first fragment carries `index`, `id`, `type` and `function.name`, with `function.arguments` null (Ultra, Super, Lightning), "" (Nano) or the whole arguments string (Ultra `forced`, Nano `forced`). Later fragments carry `index` and an `arguments` piece only; Lightning sent the arguments in one piece. Ids looked like `chatcmpl-tool-...` (Ultra, Super, Nano `forced`) or `call_...` (Lightning, Nano).
+- VERIFIED: Super's `auto` reply had text content ("I need to use the add tool ...") before the tool call in the same response.
+- VERIFIED: Nano was unreliable. `auto` worked. `forced` returned a tool call with `finish_reason: "stop"`. `reasoning_on` returned arguments that do not parse (the pieces `{`, `"a": 17`, `{}`). `follow_up` called the tool again (with text) instead of answering. A late fragment repeated the `id` and `type` keys with a null id.
+- VERIFIED: with a wrapped json_schema `response_format` sent together with `tools`, none of the four called the tool; each answered `{"sum": 42}` directly with `finish_reason: "stop"`. On this sample, structured output and native tool calls do not combine in one call.
+- VERIFIED: the JSON action protocol (no tools, `response_format: {"type": "json_object"}`) gave exactly `{"action": "tool", "name": "add", "args": {"a": 17, "b": 25}}` on all four.
+- Decision, set in `config/harness.json` (`loop_protocol` per model): `native_tools` for Ultra, Super and Lightning, `json_protocol` for Nano. `json_protocol` is the baseline the loop always supports. One sample per call, so this is weak evidence; the benchmark should confirm it.
+- UNVERIFIED: parallel tool calls in one response, tools with more than one function, and long tool results.
+
+### nemotron-3-ultra
+
+- VERIFIED (`auto`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`auto`): assembled tool calls `[{"index": 0, "id": "chatcmpl-tool-a2e7401fbb9aa538", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`auto`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "chatcmpl-tool-a2e7401fbb9aa538", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "17, \"b\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "25}"}]`.
+- VERIFIED (`auto`): final usage `{"prompt_tokens": 345, "total_tokens": 379, "completion_tokens": 34, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 345}`.
+- VERIFIED (`forced`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`forced`): assembled tool calls `[{"index": 0, "id": "chatcmpl-tool-aecf01287bdd6c48", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`forced`): 1 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "chatcmpl-tool-aecf01287bdd6c48", "name": "add", "arguments": "{\"a\": 17, \"b\": 25}"}]`.
+- VERIFIED (`forced`): final usage `{"prompt_tokens": 345, "total_tokens": 364, "completion_tokens": 19, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 345}`.
+- VERIFIED (`reasoning_on`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`reasoning_on`): assembled tool calls `[{"index": 0, "id": "chatcmpl-tool-8231cfae333ffd77", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`reasoning_on`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "chatcmpl-tool-8231cfae333ffd77", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "17, \"b\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "25}"}]`.
+- VERIFIED (`reasoning_on`): 109 reasoning characters.
+- VERIFIED (`reasoning_on`): final usage `{"prompt_tokens": 345, "total_tokens": 417, "completion_tokens": 72, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 37}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 345}`.
+- VERIFIED (`with_schema`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`with_schema`): no `delta.tool_calls` fragments.
+- VERIFIED (`with_schema`): content `"{\"sum\": 42}"`.
+- VERIFIED (`with_schema`): final usage `{"prompt_tokens": 353, "total_tokens": 361, "completion_tokens": 8, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 353}`.
+- VERIFIED (`follow_up`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`follow_up`): no `delta.tool_calls` fragments.
+- VERIFIED (`follow_up`): content `"The result of 17 + 25 is **42**."`.
+- VERIFIED (`follow_up`): final usage `{"prompt_tokens": 398, "total_tokens": 414, "completion_tokens": 16, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 398}`.
+- VERIFIED (`json_action`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`json_action`): no `delta.tool_calls` fragments.
+- VERIFIED (`json_action`): content `"{\"action\": \"tool\", \"name\": \"add\", \"args\": {\"a\": 17, \"b\": 25}}"`.
+- VERIFIED (`json_action`): final usage `{"prompt_tokens": 111, "total_tokens": 141, "completion_tokens": 30, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 111}`.
+
+### nemotron-3-super
+
+- VERIFIED (`auto`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`auto`): assembled tool calls `[{"index": 0, "id": "chatcmpl-tool-89d7c9b91f22cceb", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`auto`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "chatcmpl-tool-89d7c9b91f22cceb", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "17, \"b\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "25}"}]`.
+- VERIFIED (`auto`): content `"I need to use the add tool to calculate 17 + 25 as requested."`.
+- VERIFIED (`auto`): final usage `{"prompt_tokens": 392, "total_tokens": 444, "completion_tokens": 52, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 392}`.
+- VERIFIED (`forced`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`forced`): assembled tool calls `[{"index": 0, "id": "chatcmpl-tool-9315f67ab9b88f06", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`forced`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "chatcmpl-tool-9315f67ab9b88f06", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "17, \"b\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "25}"}]`.
+- VERIFIED (`forced`): final usage `{"prompt_tokens": 392, "total_tokens": 424, "completion_tokens": 32, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 392}`.
+- VERIFIED (`reasoning_on`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`reasoning_on`): assembled tool calls `[{"index": 0, "id": "chatcmpl-tool-81c76bd826511980", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`reasoning_on`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "chatcmpl-tool-81c76bd826511980", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "17, \"b\": "}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "25}"}]`.
+- VERIFIED (`reasoning_on`): 36 reasoning characters.
+- VERIFIED (`reasoning_on`): final usage `{"prompt_tokens": 392, "total_tokens": 443, "completion_tokens": 51, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 16}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 392}`.
+- VERIFIED (`with_schema`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`with_schema`): no `delta.tool_calls` fragments.
+- VERIFIED (`with_schema`): content `"{\"sum\": 42}"`.
+- VERIFIED (`with_schema`): final usage `{"prompt_tokens": 400, "total_tokens": 408, "completion_tokens": 8, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 400}`.
+- VERIFIED (`follow_up`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`follow_up`): no `delta.tool_calls` fragments.
+- VERIFIED (`follow_up`): content `"The result of adding 17 and 25 is **42**."`.
+- VERIFIED (`follow_up`): final usage `{"prompt_tokens": 445, "total_tokens": 462, "completion_tokens": 17, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 445}`.
+- VERIFIED (`json_action`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`json_action`): no `delta.tool_calls` fragments.
+- VERIFIED (`json_action`): content `"{\"action\": \"tool\", \"name\": \"add\", \"args\": {\"a\": 17, \"b\": 25}}"`.
+- VERIFIED (`json_action`): final usage `{"prompt_tokens": 111, "total_tokens": 141, "completion_tokens": 30, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 111}`.
+
+### nemotron-3.5-lightning
+
+- VERIFIED (`auto`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`auto`): assembled tool calls `[{"index": 0, "id": "call_c8c86247be164a498087ace4", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`auto`): 2 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "call_c8c86247be164a498087ace4", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\":17,\"b\":25}"}]`.
+- VERIFIED (`auto`): final usage `{"prompt_tokens": 439, "total_tokens": 473, "completion_tokens": 34, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 439}`.
+- VERIFIED (`forced`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`forced`): assembled tool calls `[{"index": 0, "id": "call_f387ce9385b44f15811fda4e", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`forced`): 2 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "call_f387ce9385b44f15811fda4e", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\":17,\"b\":25}"}]`.
+- VERIFIED (`forced`): final usage `{"prompt_tokens": 317, "total_tokens": 351, "completion_tokens": 34, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 317}`.
+- VERIFIED (`reasoning_on`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`reasoning_on`): assembled tool calls `[{"index": 0, "id": "call_f532a7ef98dc4dd5a9cdfac6", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`reasoning_on`): 2 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "call_f532a7ef98dc4dd5a9cdfac6", "name": "add", "arguments": null}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{\"a\":17,\"b\":25}"}]`.
+- VERIFIED (`reasoning_on`): 63 reasoning characters.
+- VERIFIED (`reasoning_on`): final usage `{"prompt_tokens": 439, "total_tokens": 493, "completion_tokens": 54, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 19}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 439}`.
+- VERIFIED (`with_schema`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`with_schema`): no `delta.tool_calls` fragments.
+- VERIFIED (`with_schema`): content `"{\"sum\": 42}"`.
+- VERIFIED (`with_schema`): final usage `{"prompt_tokens": 447, "total_tokens": 455, "completion_tokens": 8, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 447}`.
+- VERIFIED (`follow_up`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`follow_up`): no `delta.tool_calls` fragments.
+- VERIFIED (`follow_up`): content `"The sum of 17 and 25 is 42."`.
+- VERIFIED (`follow_up`): final usage `{"prompt_tokens": 492, "total_tokens": 508, "completion_tokens": 16, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 492}`.
+- VERIFIED (`json_action`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`json_action`): no `delta.tool_calls` fragments.
+- VERIFIED (`json_action`): content `"{\"action\": \"tool\", \"name\": \"add\", \"args\": {\"a\": 17, \"b\": 25}}"`.
+- VERIFIED (`json_action`): final usage `{"prompt_tokens": 111, "total_tokens": 141, "completion_tokens": 30, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 111}`.
+
+### nemotron-3-nano
+
+- VERIFIED (`auto`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`auto`): assembled tool calls `[{"index": 0, "id": "call_55ae1cd829e8412d8671a445", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`auto`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "call_55ae1cd829e8412d8671a445", "name": "add", "arguments": ""}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{"}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "\"a\": 17, \"b\": 25"}, {"keys": ["function", "id", "index", "type"], "index": 0, "id": null, "name": null, "arguments": "}"}]`.
+- VERIFIED (`auto`): content `""`.
+- VERIFIED (`auto`): final usage `{"prompt_tokens": 310, "total_tokens": 344, "completion_tokens": 34}`.
+- VERIFIED (`forced`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`forced`): assembled tool calls `[{"index": 0, "id": "chatcmpl-tool-83d2a8a6058b7508", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`forced`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "chatcmpl-tool-83d2a8a6058b7508", "name": "add", "arguments": "{\n  \"a"}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "\": 17,\n"}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "  \"b\":"}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": " 25\n}"}]`.
+- VERIFIED (`forced`): final usage `{"prompt_tokens": 310, "total_tokens": 329, "completion_tokens": 19}`.
+- VERIFIED (`reasoning_on`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`reasoning_on`): assembled tool calls `[{"index": 0, "id": "call_cf6508a637b94a788ad62a79", "name": "add", "args": null, "args_parsed": false}]`.
+- VERIFIED (`reasoning_on`): 4 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "call_cf6508a637b94a788ad62a79", "name": "add", "arguments": ""}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{"}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "\"a\": 17"}, {"keys": ["function", "id", "index", "type"], "index": 0, "id": null, "name": null, "arguments": "{}"}]`.
+- VERIFIED (`reasoning_on`): content `""`.
+- VERIFIED (`reasoning_on`): 458 reasoning characters.
+- VERIFIED (`reasoning_on`): final usage `{"prompt_tokens": 310, "total_tokens": 460, "completion_tokens": 150}`.
+- VERIFIED (`with_schema`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`with_schema`): no `delta.tool_calls` fragments.
+- VERIFIED (`with_schema`): content `"{ \"sum\": 42 }"`.
+- VERIFIED (`with_schema`): final usage `{"prompt_tokens": 318, "total_tokens": 329, "completion_tokens": 11}`.
+- VERIFIED (`follow_up`): HTTP 200; `finish_reason` `["tool_calls"]`.
+- VERIFIED (`follow_up`): assembled tool calls `[{"index": 0, "id": "call_54b385f3edaa4877803f8b08", "name": "add", "args": {"a": 17, "b": 25}, "args_parsed": true}]`.
+- VERIFIED (`follow_up`): 5 `delta.tool_calls` fragment(s); first ones `[{"keys": ["function", "id", "index", "type"], "index": 0, "id": "call_54b385f3edaa4877803f8b08", "name": "add", "arguments": ""}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "{"}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": "\"a\": 17"}, {"keys": ["function", "index"], "index": 0, "id": null, "name": null, "arguments": ", \"b\": 25"}]`.
+- VERIFIED (`follow_up`): content `"The sum of 17 and 25 is **42**. Here's the breakdown using the `add` tool:"`.
+- VERIFIED (`follow_up`): final usage `{"prompt_tokens": 363, "total_tokens": 424, "completion_tokens": 61}`.
+- VERIFIED (`json_action`): HTTP 200; `finish_reason` `["stop"]`.
+- VERIFIED (`json_action`): no `delta.tool_calls` fragments.
+- VERIFIED (`json_action`): content `"{\"action\": \"tool\", \"name\": \"add\", \"args\": {\"a\": 17, \"b\": 25}}"`.
+- VERIFIED (`json_action`): final usage `{"prompt_tokens": 111, "total_tokens": 141, "completion_tokens": 30}`.
