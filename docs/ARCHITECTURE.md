@@ -94,7 +94,7 @@ cost = (input_tokens - cached_tokens) x price_in
 
 - `input_tokens` is `usage.prompt_tokens`. `cached_tokens` is `usage.prompt_tokens_details.cached_tokens` (VERIFIED as a field in the docs); treat a missing value as 0. Whether Token Factory reports non-zero cached tokens for Nemotron is UNVERIFIED.
 - `price_cached_in` is the optional `cached_input` price per model in `config/prices.json`. It is `null` for every model because no cached price is published in what we have. When it is `null`, the ledger uses `price_in` for cached tokens and says so: the ledger entry carries `"cached_price_fallback": true`.
-- `output_tokens` is `usage.completion_tokens`. Reasoning tokens (`usage.completion_tokens_details.reasoning_tokens`) are treated as output tokens until verified. UNVERIFIED: whether they are billed and whether `completion_tokens` already includes them. If a response reports more reasoning tokens than completion tokens, they are clearly not included and are added to `output_tokens`. The smoke test must compare billed usage against the console billing before any of this is marked VERIFIED.
+- `output_tokens` is `usage.completion_tokens`. VERIFIED (2026-10-16, Stage 2 Task 0, from the saved streaming probe data; see "Reasoning token accounting" in `docs/HARNESS_RESEARCH.md`): `completion_tokens` already includes the reasoning tokens (`usage.completion_tokens_details.reasoning_tokens`) on all four models, so reasoning is billed once, as part of `output_tokens`. As a safeguard, if a response ever reports more reasoning tokens than completion tokens, they are added to `output_tokens`; no observed call did. UNVERIFIED, pending a console check: whether Token Factory bills reasoning tokens at the output price.
 
 ## Harness (`core/harness/`)
 
@@ -275,6 +275,8 @@ So the benchmark needs at least 30.9 minutes on Ultra alone, and Ultra is the bo
 | `finish_reason: "length"` | Treat as a failure: retry within limits with a larger `max_tokens` or reasoning off; charge every attempt |
 | Auditor rejects | One correction cycle, then deliver with a visible warning |
 | User pauses or cancels | Administrator freezes pending calls |
+
+Model ladder (proposed, pending the user's decision, not final): escalation runs inside the operator runner as a mechanical retry. After the repairs above, the same task moves up the model ladder in `config/harness.json` (Lightning or Nano to Super, Super to Ultra) under the ledger caps. A manager reassigns the task to another operator only after the ladder is exhausted.
 
 ## Board and vice president
 
