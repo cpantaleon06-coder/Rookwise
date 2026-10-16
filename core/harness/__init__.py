@@ -1,12 +1,27 @@
 """The model harness: the only code in Rookwise that calls the model API.
 
-Public surface so far: `load_config` and `HarnessConfig` (config/harness.json),
-`ChatRequest`, `JsonSchemaFormat` and `build_request` (the exact request body), the
-normalized event types, `RateLimiter` and `Clock` (requests and tokens per minute plus
-a concurrency cap), and `RetryPolicy` with the error taxonomy (`HarnessError`,
-`ApiError`, `StreamInterrupted`). The streaming client comes in a later module.
+Public surface:
+
+- `Harness(ledger, config=None, api_key=None, transport=None, limiter=None, clock=None,
+  rng=None)`: one per ledger. `stream(request, cancel=None)` yields normalized events;
+  `complete(request, cancel=None)` consumes the stream and returns a `Result`. Use it as
+  an async context manager, or call `aclose()`.
+- `ChatRequest`, `JsonSchemaFormat`: what to send. Model defaults and quirks come from
+  config/harness.json; `build_request` shows the exact body.
+- Events: `StreamStart`, `TextDelta`, `ReasoningDelta`, `UsageEvent`, `Finish`,
+  `ErrorEvent` (the `Event` union).
+- `CancelHandle`: cancel a call from outside; asyncio cancellation works too.
+- Errors: `HarnessError` (base), `ApiError` (with a `kind` from the taxonomy),
+  `StreamInterrupted`, `RequestError`, `ConfigError`. Budget refusals raise the
+  ledger's `CapReached` and nothing is sent.
+- `load_config`, `HarnessConfig`, `RateLimiter`, `RetryPolicy`, `Clock`.
+
+Every call reserves its worst case in the ledger before it is sent and is settled
+exactly once (see client.py). The API key is read from the environment
+(`NEBIUS_API_KEY`) or passed in; it is never logged or stored.
 """
 
+from rookwise.harness.client import CancelHandle, Harness, Result
 from rookwise.harness.config import ConfigError, HarnessConfig, load_config
 from rookwise.harness.events import (
     ErrorEvent,
@@ -23,18 +38,21 @@ from rookwise.harness.retry import ApiError, HarnessError, RetryPolicy, StreamIn
 
 __all__ = [
     "ApiError",
+    "CancelHandle",
     "ChatRequest",
     "Clock",
     "ConfigError",
     "ErrorEvent",
     "Event",
     "Finish",
+    "Harness",
     "HarnessConfig",
     "HarnessError",
     "JsonSchemaFormat",
     "RateLimiter",
     "ReasoningDelta",
     "RequestError",
+    "Result",
     "RetryPolicy",
     "StreamInterrupted",
     "StreamStart",
