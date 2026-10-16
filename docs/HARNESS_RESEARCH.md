@@ -154,3 +154,88 @@ Observed on 2026-10-15 between 03:29 and 03:31 UTC (2026-10-14 local time) with 
 6. One call with reasoning on and off (`reasoning_effort` and `extra_body`): compare tokens, latency, quality.
 7. Test a short non-English prompt on Lightning and compare with Super.
 8. Record every friction point in `FEEDBACK.md`.
+
+## Streaming probe (2026-10-16 UTC, 2026-10-15 local time)
+
+Observed with `scripts/stream_probe.py` (raw results in `runs/stream_probe.json`, gitignored). Per model, three streaming requests with `stream_options.include_usage: true`: `off` (reasoning off, max_tokens 48), `cancel` (reasoning off, max_tokens 64, closed by the client after 3 content chunks) and `on` (reasoning on via `chat_template_kwargs.enable_thinking: true`, max_tokens 256). One sample each. Estimated spend: USD 0.001192.
+
+Summary across the four models (details per model below):
+
+- VERIFIED: with `include_usage`, every model ended the stream with a JSON chunk that has `choices: []` and the final `usage`, then `data: [DONE]`. Events were separated by blank lines only (no comments, no `event:` lines).
+- VERIFIED: Ultra and Nano also put running `usage` totals on every chunk (the role chunk shows `completion_tokens: 0`). Super and Lightning sent `usage` only on the final chunk. A running total seen before a stream is cut is a lower bound, not the final usage.
+- VERIFIED: `completion_tokens_details.reasoning_tokens` was reported by Ultra, Super and Lightning (0 with reasoning off). Nano's usage had only `prompt_tokens`, `completion_tokens` and `total_tokens`.
+- VERIFIED: `prompt_tokens_details.cached_tokens` was 0 on Ultra (final chunk only, not on the running chunks) and Super (with an extra `created_cache_tokens: 0`); `prompt_tokens_details` was null on Lightning and absent on Nano. Ultra, Super and Lightning also sent `prompt_cache_hit_tokens` (0) and `prompt_cache_miss_tokens` (equal to `prompt_tokens`), fields not in the docs.
+- VERIFIED: the first chunk is a role chunk: `{"role": "assistant", "content": ""}` on Ultra, Super and Nano, `{"role": "assistant"}` with no `content` key on Lightning. `delta.content` was never null; it was absent on reasoning chunks and on Lightning's finish chunk (`delta: {}`).
+- VERIFIED: reasoning deltas used `reasoning_content` on Ultra, `reasoning` on Nano, and both fields with identical text on Super and Lightning, as in the non-streaming smoke test.
+- VERIFIED: Lightning with reasoning on hit `max_tokens` 256 (`finish_reason: "length"`, `reasoning_tokens` 256 of 256). It streamed the reasoning in both fields, then sent the same 758 characters once more as one `content` chunk. A client that reads only `content` gets the reasoning text as the answer.
+- VERIFIED: `finish_reason` values seen: `stop` and `length`. Ultra, Super and Nano also sent `prompt_token_ids` and `prompt_text` (null, first chunk), `logprobs`, `token_ids` and `stop_reason` in choices, and `system_fingerprint` on the final chunk; Lightning's chunks had none of these.
+- VERIFIED: closing the connection after 3 content chunks raised no error on the client. Ultra and Nano had delivered running usage before the close; Super and Lightning had delivered none.
+- VERIFIED: streaming responses carry the `x-ratelimit-*` headers (`content-type: text/event-stream; charset=utf-8`). No `retry-after` on these HTTP 200 responses. After the `off` call (35 prompt tokens, `max_tokens` 48), `x-ratelimit-remaining-tokens` was the limit minus 65 on all four models. What the token limit counts stays UNVERIFIED.
+
+- UNVERIFIED (client close): what the server does after the client closes the connection, and whether or how much it bills, is not observable from the client.
+- UNVERIFIED: whether `retry-after` is sent on HTTP 429 for streaming requests (no 429 happened).
+
+### nemotron-3-ultra
+
+- VERIFIED (reasoning off): `usage` on every chunk (7 of 7) as running totals; the last JSON chunk has `choices: []` (True) and the final totals.
+- VERIFIED (reasoning off): final usage `{"prompt_tokens": 35, "total_tokens": 56, "completion_tokens": 21, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 35}`.
+- VERIFIED (reasoning off): 7 JSON chunks; delta keys `["content", "role"]`; first delta `{"role": "assistant", "content": ""}`; `finish_reason` values `["stop"]`.
+- VERIFIED (reasoning off): `delta.content` "" in 1 chunk(s), null in 0, absent in 0; 20 content chars.
+- VERIFIED (reasoning off): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (reasoning on): `usage` on every chunk (25 of 25) as running totals; the last JSON chunk has `choices: []` (True) and the final totals.
+- VERIFIED (reasoning on): final usage `{"prompt_tokens": 41, "total_tokens": 140, "completion_tokens": 99, "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 95}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 41}`.
+- VERIFIED (reasoning on): 25 JSON chunks; delta keys `["content", "reasoning_content", "role"]`; first delta `{"role": "assistant", "content": ""}`; `finish_reason` values `["stop"]`.
+- VERIFIED (reasoning on): `delta.content` "" in 1 chunk(s), null in 0, absent in 21; 2 content chars.
+- VERIFIED (reasoning on): reasoning text in delta field(s) `["reasoning_content"]`, chars `{"reasoning_content": 273}`.
+- VERIFIED (reasoning on): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (client close): closed after 4 JSON chunks; `usage` chunks received before the close: 4 (final `choices: []` chunk received: False); error raised by the close: `null`.
+- VERIFIED (headers, `off` call): `retry-after` present: False; x-ratelimit headers `{"x-ratelimit-dynamic-period-remaining": "900s", "x-ratelimit-dynamic-period-usage-requests": "0%", "x-ratelimit-dynamic-period-usage-tokens": "0%", "x-ratelimit-dynamic-scale-requests": "1.00", "x-ratelimit-dynamic-scale-tokens": "1.00", "x-ratelimit-limit-requests": "300", "x-ratelimit-limit-tokens": "200000", "x-ratelimit-remaining-requests": "299", "x-ratelimit-remaining-tokens": "199935", "x-ratelimit-reset-requests": "1s", "x-ratelimit-reset-tokens": "1s"}`.
+
+### nemotron-3-super
+
+- VERIFIED (reasoning off): `usage` on 1 of 8 chunks; the last JSON chunk carries it: True; it has `choices: []`: True.
+- VERIFIED (reasoning off): final usage `{"prompt_tokens": 35, "total_tokens": 56, "completion_tokens": 21, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 35}`.
+- VERIFIED (reasoning off): 8 JSON chunks; delta keys `["content", "role"]`; first delta `{"role": "assistant", "content": ""}`; `finish_reason` values `["stop"]`.
+- VERIFIED (reasoning off): `delta.content` "" in 1 chunk(s), null in 0, absent in 0; 20 content chars.
+- VERIFIED (reasoning off): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (reasoning on): `usage` on 1 of 54 chunks; the last JSON chunk carries it: True; it has `choices: []`: True.
+- VERIFIED (reasoning on): final usage `{"prompt_tokens": 41, "total_tokens": 176, "completion_tokens": 135, "prompt_tokens_details": {"cached_tokens": 0, "created_cache_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 131}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 41}`.
+- VERIFIED (reasoning on): 54 JSON chunks; delta keys `["content", "reasoning", "reasoning_content", "role"]`; first delta `{"role": "assistant", "content": ""}`; `finish_reason` values `["stop"]`.
+- VERIFIED (reasoning on): `delta.content` "" in 1 chunk(s), null in 0, absent in 51; 2 content chars.
+- VERIFIED (reasoning on): reasoning text in delta field(s) `["reasoning", "reasoning_content"]`, chars `{"reasoning": 454, "reasoning_content": 454}` (identical text in each field).
+- VERIFIED (reasoning on): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (client close): closed after 4 JSON chunks; `usage` chunks received before the close: 0 (final `choices: []` chunk received: False); error raised by the close: `null`.
+- VERIFIED (headers, `off` call): `retry-after` present: False; x-ratelimit headers `{"x-ratelimit-dynamic-period-remaining": "900s", "x-ratelimit-dynamic-period-usage-requests": "0%", "x-ratelimit-dynamic-period-usage-tokens": "0%", "x-ratelimit-dynamic-scale-requests": "1.00", "x-ratelimit-dynamic-scale-tokens": "1.00", "x-ratelimit-limit-requests": "300", "x-ratelimit-limit-tokens": "200000", "x-ratelimit-remaining-requests": "299", "x-ratelimit-remaining-tokens": "199935", "x-ratelimit-reset-requests": "1s", "x-ratelimit-reset-tokens": "1s"}`.
+
+### nemotron-3.5-lightning
+
+- VERIFIED (reasoning off): `usage` on 1 of 14 chunks; the last JSON chunk carries it: True; it has `choices: []`: True.
+- VERIFIED (reasoning off): final usage `{"prompt_tokens": 35, "total_tokens": 56, "completion_tokens": 21, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 0}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 35}`.
+- VERIFIED (reasoning off): 14 JSON chunks; delta keys `["content", "role"]`; first delta `{"role": "assistant"}`; `finish_reason` values `["stop"]`.
+- VERIFIED (reasoning off): `delta.content` "" in 0 chunk(s), null in 0, absent in 2; 20 content chars.
+- VERIFIED (reasoning off): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (reasoning on): `usage` on 1 of 142 chunks; the last JSON chunk carries it: True; it has `choices: []`: True.
+- VERIFIED (reasoning on): final usage `{"prompt_tokens": 41, "total_tokens": 297, "completion_tokens": 256, "prompt_tokens_details": null, "completion_tokens_details": {"reasoning_tokens": 256}, "prompt_cache_hit_tokens": 0, "prompt_cache_miss_tokens": 41}`.
+- VERIFIED (reasoning on): 142 JSON chunks; delta keys `["content", "reasoning", "reasoning_content", "role"]`; first delta `{"role": "assistant"}`; `finish_reason` values `["length"]`.
+- VERIFIED (reasoning on): `delta.content` "" in 0 chunk(s), null in 0, absent in 140; 758 content chars.
+- VERIFIED (reasoning on): reasoning text in delta field(s) `["reasoning", "reasoning_content"]`, chars `{"reasoning": 758, "reasoning_content": 758}` (identical text in each field).
+- VERIFIED (reasoning on): the content is the reasoning text again, sent as 1 content chunk(s) after the reasoning deltas.
+- VERIFIED (reasoning on): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (client close): closed after 4 JSON chunks; `usage` chunks received before the close: 0 (final `choices: []` chunk received: False); error raised by the close: `null`.
+- VERIFIED (headers, `off` call): `retry-after` present: False; x-ratelimit headers `{"x-ratelimit-dynamic-period-remaining": "900s", "x-ratelimit-dynamic-period-usage-requests": "0%", "x-ratelimit-dynamic-period-usage-tokens": "0%", "x-ratelimit-dynamic-scale-requests": "1.00", "x-ratelimit-dynamic-scale-tokens": "1.00", "x-ratelimit-limit-requests": "600", "x-ratelimit-limit-tokens": "400000", "x-ratelimit-remaining-requests": "599", "x-ratelimit-remaining-tokens": "399935", "x-ratelimit-reset-requests": "1s", "x-ratelimit-reset-tokens": "1s"}`.
+
+### nemotron-3-nano
+
+- VERIFIED (reasoning off): `usage` on every chunk (23 of 23) as running totals; the last JSON chunk has `choices: []` (True) and the final totals.
+- VERIFIED (reasoning off): final usage `{"prompt_tokens": 35, "total_tokens": 56, "completion_tokens": 21}`.
+- VERIFIED (reasoning off): 23 JSON chunks; delta keys `["content", "role"]`; first delta `{"role": "assistant", "content": ""}`; `finish_reason` values `["stop"]`.
+- VERIFIED (reasoning off): `delta.content` "" in 2 chunk(s), null in 0, absent in 0; 20 content chars.
+- VERIFIED (reasoning off): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (reasoning on): `usage` on every chunk (101 of 101) as running totals; the last JSON chunk has `choices: []` (True) and the final totals.
+- VERIFIED (reasoning on): final usage `{"prompt_tokens": 41, "total_tokens": 142, "completion_tokens": 101}`.
+- VERIFIED (reasoning on): 101 JSON chunks; delta keys `["content", "reasoning", "role"]`; first delta `{"role": "assistant", "content": ""}`; `finish_reason` values `["stop"]`.
+- VERIFIED (reasoning on): `delta.content` "" in 2 chunk(s), null in 0, absent in 96; 2 content chars.
+- VERIFIED (reasoning on): reasoning text in delta field(s) `["reasoning"]`, chars `{"reasoning": 280}`.
+- VERIFIED (reasoning on): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
+- VERIFIED (client close): closed after 4 JSON chunks; `usage` chunks received before the close: 4 (final `choices: []` chunk received: False); error raised by the close: `null`.
+- VERIFIED (headers, `off` call): `retry-after` present: False; x-ratelimit headers `{"x-ratelimit-dynamic-period-remaining": "900s", "x-ratelimit-dynamic-period-usage-requests": "0%", "x-ratelimit-dynamic-period-usage-tokens": "0%", "x-ratelimit-dynamic-scale-requests": "1.00", "x-ratelimit-dynamic-scale-tokens": "1.00", "x-ratelimit-limit-requests": "100", "x-ratelimit-limit-tokens": "800000", "x-ratelimit-remaining-requests": "99", "x-ratelimit-remaining-tokens": "799935", "x-ratelimit-reset-requests": "1s", "x-ratelimit-reset-tokens": "1s"}`.
