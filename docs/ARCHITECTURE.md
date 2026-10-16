@@ -329,7 +329,7 @@ Market evidence: public statistics on micro and small businesses from internatio
 
 ## Interface and deployment
 
-Chat with the director (or VP), live feed of hires and tasks, live org chart, budget panel (predicted versus real), delivery package view. Site and chat are built with GLM in `web/`. Deployment on Vercel with two modes: recorded (saved runs, no cost) and live (spending cap and per-visitor limit). Keys in environment variables only.
+Chat with the director (or VP), live feed of hires and tasks, live org chart, budget panel (predicted versus real), delivery package view. Site and chat are built with GLM in `web/`. The API between `core/` and `web/` is [docs/api.md](api.md) (v1, status: draft, frontend may start), with JSON Schemas in `docs/api/schemas/`, synthetic fixtures in `examples/api/` and a mock server described in [docs/api-mock.md](api-mock.md). Deployment on Vercel with two modes: recorded (saved runs, no cost) and live (spending cap and per-visitor limit). Keys in environment variables only.
 
 ## Vision
 
