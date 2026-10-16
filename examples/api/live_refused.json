@@ -1,0 +1,104 @@
+{
+  "_fixture": {
+    "synthetic": true,
+    "api_version": "v1",
+    "note": "SYNTHETIC FIXTURE written by scripts/gen_api_fixtures.py. It is not real model output and not a measured run; texts are marked [synthetic] and numbers are arithmetic on config/prices.json. The demo case itself is simulated."
+  },
+  "request": {
+    "mode": "live",
+    "goal": "[synthetic] Draft a price list.",
+    "budget_usd": 0.2,
+    "recording_id": null,
+    "board": false
+  },
+  "status": 429,
+  "response": {
+    "error": {
+      "code": "live_refused",
+      "message": "[synthetic] Live runs are paused: the daily live budget is used up.",
+      "details": {
+        "refusal": "daily_cap_reached",
+        "max_usd_per_day": 3.0,
+        "spent_usd_today": 3.0,
+        "retry": "recorded"
+      },
+      "request_id": "req-synthetic-1"
+    }
+  },
+  "modes": {
+    "api_version": "v1",
+    "default_mode": "recorded",
+    "modes": [
+      {
+        "mode": "recorded",
+        "available": true,
+        "refusal": null,
+        "detail": ""
+      },
+      {
+        "mode": "live",
+        "available": false,
+        "refusal": "daily_cap_reached",
+        "detail": "[synthetic] The daily live budget is used up. Recorded runs still work."
+      }
+    ],
+    "live_caps": {
+      "max_usd_per_run": 0.25,
+      "max_usd_per_day": 3.0,
+      "spent_usd_today": 3.0,
+      "max_runs_per_visitor_per_day": null,
+      "visitor_runs_today": null
+    },
+    "recordings": [
+      {
+        "recording_id": "rec-demo-bakery-001",
+        "title": "[synthetic] Corner bakery website",
+        "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
+        "simulated_case": true,
+        "spent_usd": 0.0
+      }
+    ]
+  },
+  "refused_after_creation": {
+    "run_id": "r-demo-002",
+    "events": [
+      {
+        "delay_ms": 0,
+        "event": {
+          "id": "r-demo-002:1",
+          "seq": 1,
+          "run_id": "r-demo-002",
+          "ts": "2026-10-20T16:00:00+00:00",
+          "type": "mode_notice",
+          "payload": {
+            "notice": "live_refused",
+            "mode": "live",
+            "refusal": "daily_cap_reached",
+            "detail": "[synthetic] The daily live budget ran out before this run started. Nothing was spent."
+          }
+        }
+      },
+      {
+        "delay_ms": 20,
+        "event": {
+          "id": "r-demo-002:2",
+          "seq": 2,
+          "run_id": "r-demo-002",
+          "ts": "2026-10-20T16:00:00.020000+00:00",
+          "type": "run_failed",
+          "payload": {
+            "error": {
+              "code": "live_refused",
+              "message": "[synthetic] Live budget for today is used up.",
+              "details": {
+                "refusal": "daily_cap_reached"
+              }
+            },
+            "partial": false,
+            "spent_usd": 0.0
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,688 @@
+{
+  "_fixture": {
+    "synthetic": true,
+    "api_version": "v1",
+    "note": "SYNTHETIC FIXTURE written by scripts/gen_api_fixtures.py. It is not real model output and not a measured run; texts are marked [synthetic] and numbers are arithmetic on config/prices.json. The demo case itself is simulated."
+  },
+  "modes": {
+    "api_version": "v1",
+    "default_mode": "recorded",
+    "modes": [
+      {
+        "mode": "recorded",
+        "available": true,
+        "refusal": null,
+        "detail": ""
+      },
+      {
+        "mode": "live",
+        "available": true,
+        "refusal": null,
+        "detail": ""
+      }
+    ],
+    "live_caps": {
+      "max_usd_per_run": 0.25,
+      "max_usd_per_day": 3.0,
+      "spent_usd_today": 0.42,
+      "max_runs_per_visitor_per_day": null,
+      "visitor_runs_today": null
+    },
+    "recordings": [
+      {
+        "recording_id": "rec-demo-bakery-001",
+        "title": "[synthetic] Corner bakery website",
+        "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
+        "simulated_case": true,
+        "spent_usd": 0.0
+      }
+    ]
+  },
+  "run": {
+    "run_id": "r-demo-001",
+    "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
+    "mode": "recorded",
+    "recording_id": "rec-demo-bakery-001",
+    "simulated_case": true,
+    "status": "finished",
+    "board": false,
+    "caps": {
+      "run_usd": 0.25,
+      "level_usd": {}
+    },
+    "spent_usd": 0.013171559999999999,
+    "held_usd": 0.0,
+    "predicted_usd": 0.013499999999999998,
+    "created_at": "2026-10-20T15:00:00Z",
+    "finished_at": "2026-10-20T15:00:16.250000Z",
+    "events_url": "/api/v1/runs/r-demo-001/events"
+  },
+  "runs": {
+    "items": [
+      {
+        "run_id": "r-demo-001",
+        "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
+        "mode": "recorded",
+        "recording_id": "rec-demo-bakery-001",
+        "simulated_case": true,
+        "status": "finished",
+        "board": false,
+        "caps": {
+          "run_usd": 0.25,
+          "level_usd": {}
+        },
+        "spent_usd": 0.013171559999999999,
+        "held_usd": 0.0,
+        "predicted_usd": 0.013499999999999998,
+        "created_at": "2026-10-20T15:00:00Z",
+        "finished_at": "2026-10-20T15:00:16.250000Z",
+        "events_url": "/api/v1/runs/r-demo-001/events"
+      }
+    ],
+    "next_cursor": null
+  },
+  "org": {
+    "run_id": "r-demo-001",
+    "as_of_event_id": "r-demo-001:36",
+    "nodes": [
+      {
+        "agent_id": "a-director",
+        "level": "director",
+        "role": "director",
+        "model": "nemotron-3-ultra",
+        "operator_id": null,
+        "parent_id": null,
+        "skills": [],
+        "tools": [],
+        "status": "done"
+      },
+      {
+        "agent_id": "a-manager-1",
+        "level": "manager",
+        "role": "manager",
+        "model": "nemotron-3-super",
+        "operator_id": null,
+        "parent_id": "a-director",
+        "skills": [],
+        "tools": [],
+        "status": "done"
+      },
+      {
+        "agent_id": "a-op-research",
+        "level": "operator",
+        "role": "researcher",
+        "model": "nemotron-3.5-lightning",
+        "operator_id": "researcher-lightning-01",
+        "parent_id": "a-manager-1",
+        "skills": [
+          "prose-style"
+        ],
+        "tools": [
+          "tavily_search"
+        ],
+        "status": "done"
+      },
+      {
+        "agent_id": "a-op-copy",
+        "level": "operator",
+        "role": "copywriter",
+        "model": "nemotron-3.5-lightning",
+        "operator_id": "copywriter-lightning-01",
+        "parent_id": "a-manager-1",
+        "skills": [
+          "prose-style"
+        ],
+        "tools": [],
+        "status": "done"
+      },
+      {
+        "agent_id": "a-auditor",
+        "level": "auditor",
+        "role": "auditor",
+        "model": "nemotron-3-ultra",
+        "operator_id": null,
+        "parent_id": null,
+        "skills": [
+          "prose-style"
+        ],
+        "tools": [],
+        "status": "done"
+      }
+    ]
+  },
+  "ledger": {
+    "run_id": "r-demo-001",
+    "caps": {
+      "run_usd": 0.25,
+      "level_usd": {}
+    },
+    "spent_usd": 0.013171559999999999,
+    "held_usd": 0.0,
+    "predicted_usd": 0.013499999999999998,
+    "spent_by_level": {
+      "director": 0.007699999999999999,
+      "manager": 0.00096,
+      "operator": 0.00141156,
+      "auditor": 0.0031
+    },
+    "usage_estimated_entries": 1,
+    "entries": [
+      {
+        "run_id": "r-demo-001",
+        "level": "director",
+        "task_id": "plan",
+        "model": "nemotron-3-ultra",
+        "input_tokens": 3000,
+        "cached_tokens": 0,
+        "output_tokens": 600,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.0048,
+        "usd_predicted": 0.005,
+        "ts": "2026-10-20T15:00:00.350000Z",
+        "skills": [],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "manager",
+        "task_id": "manage-1",
+        "model": "nemotron-3-super",
+        "input_tokens": 2000,
+        "cached_tokens": 0,
+        "output_tokens": 400,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.00096,
+        "usd_predicted": 0.001,
+        "ts": "2026-10-20T15:00:04.450000Z",
+        "skills": [],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "operator",
+        "task_id": "t-1",
+        "model": "nemotron-3.5-lightning",
+        "input_tokens": 900,
+        "cached_tokens": 0,
+        "output_tokens": 40,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 6.36e-05,
+        "usd_predicted": 0.0001,
+        "ts": "2026-10-20T15:00:06.050000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "operator",
+        "task_id": "t-1",
+        "model": "nemotron-3.5-lightning",
+        "input_tokens": 1100,
+        "cached_tokens": 0,
+        "output_tokens": 180,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.0001092,
+        "usd_predicted": 0.0001,
+        "ts": "2026-10-20T15:00:06.750000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "operator",
+        "task_id": "t-2",
+        "model": "nemotron-3.5-lightning",
+        "input_tokens": 1000,
+        "cached_tokens": 0,
+        "output_tokens": 300,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.000132,
+        "usd_predicted": 0.0002,
+        "ts": "2026-10-20T15:00:08.200000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "operator",
+        "task_id": "t-2",
+        "model": "nemotron-3.5-lightning",
+        "input_tokens": 1300,
+        "cached_tokens": 0,
+        "output_tokens": 300,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.00015,
+        "usd_predicted": 0.0002,
+        "ts": "2026-10-20T15:00:09.500000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "operator",
+        "task_id": "t-2",
+        "model": "nemotron-3.5-lightning",
+        "input_tokens": 1600,
+        "cached_tokens": 0,
+        "output_tokens": 1024,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.00034176,
+        "usd_predicted": 0.0002,
+        "ts": "2026-10-20T15:00:10.800000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": true
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "operator",
+        "task_id": "t-2",
+        "model": "nemotron-3-super",
+        "input_tokens": 1000,
+        "cached_tokens": 0,
+        "output_tokens": 350,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.000615,
+        "usd_predicted": 0.0002,
+        "ts": "2026-10-20T15:00:12.100000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "auditor",
+        "task_id": "audit",
+        "model": "nemotron-3-ultra",
+        "input_tokens": 2500,
+        "cached_tokens": 0,
+        "output_tokens": 200,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.0031,
+        "usd_predicted": 0.0035,
+        "ts": "2026-10-20T15:00:13.500000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "r-demo-001",
+        "level": "director",
+        "task_id": "deliver",
+        "model": "nemotron-3-ultra",
+        "input_tokens": 2000,
+        "cached_tokens": 0,
+        "output_tokens": 300,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": 0.0029,
+        "usd_predicted": 0.003,
+        "ts": "2026-10-20T15:00:15.050000Z",
+        "skills": [],
+        "usage_estimated": false
+      }
+    ],
+    "stops": []
+  },
+  "messages": {
+    "items": [
+      {
+        "message_id": "m-1",
+        "run_id": "r-demo-001",
+        "sender": "director",
+        "text": "[synthetic] Plan: one manager, a researcher and a copywriter, within the USD 0.25 cap. Approve?",
+        "ts": "2026-10-20T15:00:02.250000Z"
+      },
+      {
+        "message_id": "m-2",
+        "run_id": "r-demo-001",
+        "sender": "user",
+        "text": "[synthetic] Approved.",
+        "ts": "2026-10-20T15:00:04.250000Z"
+      },
+      {
+        "message_id": "m-3",
+        "run_id": "r-demo-001",
+        "sender": "director",
+        "text": "[synthetic] Done: research notes and website copy, audited and accepted. See the delivery package.",
+        "ts": "2026-10-20T15:00:16.150000Z"
+      }
+    ]
+  },
+  "tasks": {
+    "items": [
+      {
+        "task": {
+          "task_id": "t-1",
+          "run_id": "r-demo-001",
+          "role": "researcher",
+          "instruction_ref": "store://r-demo-001/briefs/t-1",
+          "inputs": [],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": 0.01
+          },
+          "deadline_s": 120
+        },
+        "agent_id": "a-op-research",
+        "operator_id": "researcher-lightning-01",
+        "status": "ok",
+        "label": "first_pass_ok",
+        "result": {
+          "task_id": "t-1",
+          "status": "ok",
+          "output_ref": "store://r-demo-001/results/t-1",
+          "usage": {
+            "input_tokens": 2000,
+            "output_tokens": 220,
+            "usd": 0.0001728
+          },
+          "self_check": {
+            "schema_valid": true,
+            "notes": "first_pass_ok"
+          }
+        },
+        "attempts": [
+          {
+            "task_id": "t-1",
+            "attempt_index": 0,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "final",
+            "ok": true,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 2,
+            "model_calls": 2,
+            "tool_calls": {
+              "search": 1
+            },
+            "usd": 0.0001728,
+            "input_tokens": 2000,
+            "output_tokens": 220,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        ],
+        "tool_calls": {
+          "search": 1
+        }
+      },
+      {
+        "task": {
+          "task_id": "t-2",
+          "run_id": "r-demo-001",
+          "role": "copywriter",
+          "instruction_ref": "store://r-demo-001/briefs/t-2",
+          "inputs": [
+            "store://r-demo-001/results/t-1"
+          ],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": 0.02
+          },
+          "deadline_s": 120
+        },
+        "agent_id": "a-op-copy",
+        "operator_id": "copywriter-lightning-01",
+        "status": "ok",
+        "label": "ok_after_escalation",
+        "result": {
+          "task_id": "t-2",
+          "status": "ok",
+          "output_ref": "store://r-demo-001/results/t-2",
+          "usage": {
+            "input_tokens": 4900,
+            "output_tokens": 1974,
+            "usd": 0.00123876
+          },
+          "self_check": {
+            "schema_valid": true,
+            "notes": "ok_after_escalation"
+          }
+        },
+        "attempts": [
+          {
+            "task_id": "t-2",
+            "attempt_index": 0,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [
+              "output.headline: Field required"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": 0.000132,
+            "input_tokens": 1000,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          },
+          {
+            "task_id": "t-2",
+            "attempt_index": 1,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "repair",
+            "retry_reason": "validation_failed",
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [
+              "output.body: String should have at most 600 characters"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": 0.00015,
+            "input_tokens": 1300,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          },
+          {
+            "task_id": "t-2",
+            "attempt_index": 2,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "repair",
+            "retry_reason": "validation_failed",
+            "loop_status": "interrupted",
+            "ok": false,
+            "validation_errors": [
+              "(loop): ended with interrupted: ReadError: connection reset"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": 0.00034176,
+            "input_tokens": 1600,
+            "output_tokens": 1024,
+            "usage_estimated": true,
+            "detail": "ReadError: connection reset"
+          },
+          {
+            "task_id": "t-2",
+            "attempt_index": 3,
+            "model": "nemotron-3-super",
+            "protocol": "native_tools",
+            "reason": "escalation",
+            "retry_reason": "interrupted",
+            "loop_status": "final",
+            "ok": true,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": 0.000615,
+            "input_tokens": 1000,
+            "output_tokens": 350,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        ],
+        "tool_calls": {}
+      }
+    ]
+  },
+  "package": {
+    "run_id": "r-demo-001",
+    "simulated_case": true,
+    "summary": "[synthetic] A one-page site plan: research notes and the page copy.",
+    "deliverables": [
+      {
+        "task_id": "t-1",
+        "output_ref": "store://r-demo-001/results/t-1",
+        "title": "[synthetic] Research notes",
+        "content": {
+          "answer": "[synthetic] Three things neighbours look for: opening hours, today's bread, how to order.",
+          "sources": [
+            "https://example.com/synthetic-source"
+          ]
+        }
+      },
+      {
+        "task_id": "t-2",
+        "output_ref": "store://r-demo-001/results/t-2",
+        "title": "[synthetic] Page copy",
+        "content": {
+          "headline": "[synthetic] Fresh bread, around the corner",
+          "body": "[synthetic] Open 7 to 7. Order by phone."
+        }
+      }
+    ],
+    "cost_report": {
+      "predicted_usd": 0.013499999999999998,
+      "real_usd": 0.013171559999999999,
+      "prediction_error": -0.02432888888888884,
+      "spent_by_level": {
+        "director": 0.007699999999999999,
+        "manager": 0.00096,
+        "operator": 0.00141156,
+        "auditor": 0.0031
+      },
+      "usage_estimated_entries": 1
+    },
+    "contracts": [
+      {
+        "task": {
+          "task_id": "t-1",
+          "run_id": "r-demo-001",
+          "role": "researcher",
+          "instruction_ref": "store://r-demo-001/briefs/t-1",
+          "inputs": [],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": 0.01
+          },
+          "deadline_s": 120
+        },
+        "result": {
+          "task_id": "t-1",
+          "status": "ok",
+          "output_ref": "store://r-demo-001/results/t-1",
+          "usage": {
+            "input_tokens": 2000,
+            "output_tokens": 220,
+            "usd": 0.0001728
+          },
+          "self_check": {
+            "schema_valid": true,
+            "notes": "first_pass_ok"
+          }
+        }
+      },
+      {
+        "task": {
+          "task_id": "t-2",
+          "run_id": "r-demo-001",
+          "role": "copywriter",
+          "instruction_ref": "store://r-demo-001/briefs/t-2",
+          "inputs": [
+            "store://r-demo-001/results/t-1"
+          ],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": 0.02
+          },
+          "deadline_s": 120
+        },
+        "result": {
+          "task_id": "t-2",
+          "status": "ok",
+          "output_ref": "store://r-demo-001/results/t-2",
+          "usage": {
+            "input_tokens": 4900,
+            "output_tokens": 1974,
+            "usd": 0.00123876
+          },
+          "self_check": {
+            "schema_valid": true,
+            "notes": "ok_after_escalation"
+          }
+        }
+      }
+    ],
+    "decisions": [
+      "[synthetic] Picked the plan with one manager and two operators.",
+      "[synthetic] t-2 moved from Lightning to Super after an interrupted stream; that call was charged its full reservation."
+    ],
+    "audit": {
+      "verdict": "accepted",
+      "model": "nemotron-3-ultra",
+      "checks": [
+        {
+          "criterion": "[synthetic] Covers the goal",
+          "passed": true,
+          "note": ""
+        },
+        {
+          "criterion": "[synthetic] Plain, specific prose",
+          "passed": true,
+          "note": ""
+        },
+        {
+          "criterion": "[synthetic] Sources listed",
+          "passed": true,
+          "note": ""
+        }
+      ],
+      "correction_cycles": 0,
+      "warning": null
+    }
+  }
+}
