@@ -175,3 +175,18 @@ def test_fixtures_are_labelled_synthetic_and_carry_nothing_secret():
         assert message["text"].startswith("[synthetic]")
     for deliverable in bundle["package"]["deliverables"]:
         assert deliverable["title"].startswith("[synthetic]")
+
+
+def _section(text: str, start: str, end: str) -> str:
+    return text.split(start, 1)[1].split(end, 1)[0]
+
+
+def test_every_example_in_the_api_doc_validates():
+    text = (ROOT / "docs" / "api.md").read_text(encoding="utf-8")
+    catalog = _section(text, "### Event catalog", "## Errors")
+    blocks = [b.split("```", 1)[0] for b in catalog.split("```json\n")[1:]]
+    seen = {SSE_EVENT_ADAPTER.validate_python(json.loads(b)).type for b in blocks}
+    assert seen == set(EVENT_TYPES)
+    errors = _section(text, "## Errors", "## Cancellation")
+    example = errors.split("```json\n", 1)[1].split("```", 1)[0]
+    SCHEMA_MODELS["ErrorResponse"].model_validate_json(example)
