@@ -18,6 +18,9 @@ Public surface:
 - Record and replay: `HARNESS_MODE` = live (default), record or replay. `Cassette`
   holds one recording file; replay never calls the API and raises `CassetteMiss`
   when a request was not recorded.
+- Tool loop: `ToolLoop(harness, tools).run(request, budget=None, cancel=None)` returns a
+  `LoopOutcome`; `Tool`, `ToolContext` and `TokenBudget` describe tools and ceilings.
+  The protocol per model (`native_tools` or `json_protocol`) is in config/harness.json.
 - `load_config`, `HarnessConfig`, `RateLimiter`, `RetryPolicy`, `Clock`.
 
 Every call reserves its worst case in the ledger before it is sent and is settled
@@ -40,6 +43,7 @@ from rookwise.harness.events import (
     UsageEvent,
     assemble_tool_calls,
 )
+from rookwise.harness.loop import LoopOutcome, TokenBudget, Tool, ToolContext, ToolLoop
 from rookwise.harness.ratelimit import Clock, RateLimiter
 from rookwise.harness.request import (
     ChatRequest,
@@ -66,6 +70,7 @@ __all__ = [
     "HarnessError",
     "JsonObjectFormat",
     "JsonSchemaFormat",
+    "LoopOutcome",
     "RateLimiter",
     "ReasoningDelta",
     "RequestError",
@@ -74,8 +79,12 @@ __all__ = [
     "StreamInterrupted",
     "StreamStart",
     "TextDelta",
+    "TokenBudget",
+    "Tool",
     "ToolCall",
     "ToolCallDelta",
+    "ToolContext",
+    "ToolLoop",
     "UsageEvent",
     "assemble_tool_calls",
     "build_request",

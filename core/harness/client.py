@@ -224,6 +224,18 @@ class Harness:
     def mode(self) -> str:
         return self._mode
 
+    @property
+    def config(self) -> HarnessConfig:
+        return self._config
+
+    @property
+    def ledger(self) -> Ledger:
+        return self._ledger
+
+    @property
+    def cassette(self) -> Cassette | None:
+        return self._cassette
+
     async def aclose(self) -> None:
         if self._http is not None:
             await self._http.aclose()

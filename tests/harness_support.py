@@ -225,3 +225,34 @@ def broken_after(head: bytes):
 
 def fails_to_connect(_: httpx.Request) -> httpx.Response:
     raise httpx.ConnectError("connection refused")
+
+
+# -- scripted model replies for the tool loop ---------------------------------------------
+
+
+def text_reply(text: str, prompt: int = 100, completion: int = 20, reason: str = "stop") -> bytes:
+    return sse(
+        [role(), content(text), finish(reason), final_usage(prompt=prompt, completion=completion)]
+    )
+
+
+def tool_reply(calls: list[tuple[str, str, str]], prompt: int = 100, completion: int = 20) -> bytes:
+    """Native tool calls: (id, name, arguments JSON text) each, streamed in two pieces."""
+    payloads = [role()]
+    for index, (call_id, name, arguments) in enumerate(calls):
+        payloads.append(tool_call(index=index, id=call_id, name=name, arguments=None))
+        payloads.append(tool_call(index=index, arguments=arguments))
+    payloads += [finish("tool_calls"), final_usage(prompt=prompt, completion=completion)]
+    return sse(payloads)
+
+
+def tool_action(name: str, args: dict[str, Any]) -> str:
+    return json.dumps({"action": "tool", "name": name, "args": args})
+
+
+def final_action(result: Any) -> str:
+    return json.dumps({"action": "final", "result": result})
+
+
+def replies(*bodies: bytes) -> Handler:
+    return Handler([respond(body) for body in bodies])
