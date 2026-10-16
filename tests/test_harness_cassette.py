@@ -298,7 +298,13 @@ def test_a_write_that_would_contain_a_secret_is_refused(tmp_path):
 
 def test_every_cassette_written_by_tests_is_free_of_secrets(tmp_path):
     _record(tmp_path / "scan.json")
-    files = sorted(CASSETTES.glob("**/*.json")) + sorted(tmp_path.glob("*.json"))
+    fixtures = CASSETTES.parent / "fixtures" / "cassettes"
+    files = (
+        sorted(CASSETTES.glob("**/*.json"))
+        + sorted(fixtures.glob("**/*.json"))
+        + sorted(tmp_path.glob("*.json"))
+    )
+    assert fixtures / "operator_tool_run.json" in files
     assert GOLDEN in files
     secrets = [TEST_KEY, *env_secrets()]
     for path in files:

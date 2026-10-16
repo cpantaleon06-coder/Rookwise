@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "interactions": [
+    {
+      "key": "43d334ecc6103f8e0911275163df5d3a98b57ff2ce713f84154e3151261bfcce",
+      "index": 0,
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an operator in a team of AI agents. Do exactly the task you are given, use tools only when they help, and keep to the required final result format.\n\n## Skill: stub-notes\n\nAnswer in one or two plain sentences and list the sources you used.\n\n## Final result\n\nThe final result must be one JSON object that matches this JSON Schema:\n{\"$defs\": {\"StubFindings\": {\"additionalProperties\": false, \"properties\": {\"answer\": {\"title\": \"Answer\", \"type\": \"string\"}, \"sources\": {\"items\": {\"type\": \"string\"}, \"title\": \"Sources\", \"type\": \"array\"}}, \"required\": [\"answer\", \"sources\"], \"title\": \"StubFindings\", \"type\": \"object\"}}, \"additionalProperties\": false, \"properties\": {\"notes\": {\"default\": \"\", \"title\": \"Notes\", \"type\": \"string\"}, \"output\": {\"$ref\": \"#/$defs/StubFindings\"}, \"status\": {\"enum\": [\"ok\", \"failed\"], \"title\": \"Status\", \"type\": \"string\"}}, \"required\": [\"status\", \"output\"], \"title\": \"StubFindingsPayload\", \"type\": \"object\"}\nUse \"status\": \"ok\" when you completed the task and \"failed\" when you could not, and say why in \"notes\".\n\n## Tool protocol\n\nCall a tool when you need one. Each tool result comes back as a tool message holding {\"ok\": true, \"result\": ...} or {\"ok\": false, \"error\": {\"type\": ..., \"message\": ...}}. When you are done, reply without a tool call, with only the final result as one JSON object and nothing else."
+          },
+          {
+            "role": "user",
+            "content": "Task t-1 (stub-operator).\n\nFind out which company makes the Nemotron models.\n\nInputs:\n\n[store://r-1/results/t-0]\n{\"hint\": \"Search the web once.\"}"
+          }
+        ],
+        "max_tokens": 2048,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "search",
+              "description": "Search the web and return the top results (title, url, content).",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "What to search the web for."
+                  },
+                  "max_results": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "How many results to return (default 5)."
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto"
+      },
+      "status": "ok",
+      "error": null,
+      "response_id": "chatcmpl-test",
+      "finish_reason": "tool_calls",
+      "done": true,
+      "usage": {
+        "input_tokens": 600,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0
+      },
+      "running_usage": null,
+      "events": [
+        {
+          "type": "tool_call_delta",
+          "index": 0,
+          "id": "call_1",
+          "name": "search",
+          "arguments": "",
+          "t": 0.0
+        },
+        {
+          "type": "tool_call_delta",
+          "index": 0,
+          "id": null,
+          "name": null,
+          "arguments": "{\"query\": \"Nemotron maker\", \"max_results\": 3}",
+          "t": 0.0
+        }
+      ]
+    },
+    {
+      "kind": "tool",
+      "key": "7eb37a4ee79ea802e2c1efbb1e9f422144ec2e1b72fdb0735bca7bbb2fdf8bf8",
+      "index": 0,
+      "request": {
+        "tool": "search",
+        "args": {
+          "query": "Nemotron maker",
+          "max_results": 3
+        }
+      },
+      "envelope": {
+        "ok": true,
+        "result": {
+          "results": [
+            {
+              "title": "Nemotron",
+              "url": "https://a.example",
+              "content": "NVIDIA Nemotron models."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "0c1323d328e31c6865c88e7497ebd6a900536e32ca954913ddb9d4fb73583546",
+      "index": 0,
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an operator in a team of AI agents. Do exactly the task you are given, use tools only when they help, and keep to the required final result format.\n\n## Skill: stub-notes\n\nAnswer in one or two plain sentences and list the sources you used.\n\n## Final result\n\nThe final result must be one JSON object that matches this JSON Schema:\n{\"$defs\": {\"StubFindings\": {\"additionalProperties\": false, \"properties\": {\"answer\": {\"title\": \"Answer\", \"type\": \"string\"}, \"sources\": {\"items\": {\"type\": \"string\"}, \"title\": \"Sources\", \"type\": \"array\"}}, \"required\": [\"answer\", \"sources\"], \"title\": \"StubFindings\", \"type\": \"object\"}}, \"additionalProperties\": false, \"properties\": {\"notes\": {\"default\": \"\", \"title\": \"Notes\", \"type\": \"string\"}, \"output\": {\"$ref\": \"#/$defs/StubFindings\"}, \"status\": {\"enum\": [\"ok\", \"failed\"], \"title\": \"Status\", \"type\": \"string\"}}, \"required\": [\"status\", \"output\"], \"title\": \"StubFindingsPayload\", \"type\": \"object\"}\nUse \"status\": \"ok\" when you completed the task and \"failed\" when you could not, and say why in \"notes\".\n\n## Tool protocol\n\nCall a tool when you need one. Each tool result comes back as a tool message holding {\"ok\": true, \"result\": ...} or {\"ok\": false, \"error\": {\"type\": ..., \"message\": ...}}. When you are done, reply without a tool call, with only the final result as one JSON object and nothing else."
+          },
+          {
+            "role": "user",
+            "content": "Task t-1 (stub-operator).\n\nFind out which company makes the Nemotron models.\n\nInputs:\n\n[store://r-1/results/t-0]\n{\"hint\": \"Search the web once.\"}"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                  "name": "search",
+                  "arguments": "{\"query\": \"Nemotron maker\", \"max_results\": 3}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "name": "search",
+            "content": "{\"ok\": true, \"result\": {\"results\": [{\"title\": \"Nemotron\", \"url\": \"https://a.example\", \"content\": \"NVIDIA Nemotron models.\"}]}}"
+          }
+        ],
+        "max_tokens": 2048,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        },
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "search",
+              "description": "Search the web and return the top results (title, url, content).",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "What to search the web for."
+                  },
+                  "max_results": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "How many results to return (default 5)."
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto"
+      },
+      "status": "ok",
+      "error": null,
+      "response_id": "chatcmpl-test",
+      "finish_reason": "stop",
+      "done": true,
+      "usage": {
+        "input_tokens": 700,
+        "output_tokens": 40,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0
+      },
+      "running_usage": null,
+      "events": [
+        {
+          "type": "text_delta",
+          "text": "{\"status\": \"ok\", \"output\": {\"answer\": \"NVIDIA makes the Nemotron models.\", \"sources\": [\"https://a.example\"]}, \"notes\": \"\"}",
+          "t": 0.0
+        }
+      ]
+    }
+  ]
+}
