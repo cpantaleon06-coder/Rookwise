@@ -156,21 +156,22 @@ def test_a_length_retry_on_the_first_model_is_ok_after_retry():
     assert result.label == "ok_after_retry" and result.attempts[0].length_retries == 1
 
 
-def test_escalation_then_success():
+def test_escalation_then_success_after_the_repairs_run_out():
     bad = text_reply(final_action({"status": "ok", "output": {}}))
-    handler = replies(bad, bad, text_reply(json.dumps(ok())))
+    repairs = config().escalation.max_repairs
+    handler = replies(*[bad] * (repairs + 1), text_reply(json.dumps(ok())))
     result, report = _run(handler)
     assert result.label == "ok_after_escalation" and result.final_model == SUPER
     assert [(a.model, a.reason, a.retry_reason) for a in result.attempts] == [
         (NANO, "first", None),
-        (NANO, "repair", "validation_failed"),
+        *[(NANO, "repair", "validation_failed")] * repairs,
         (SUPER, "escalation", "validation_failed"),
     ]
-    assert result.attempts[2].protocol == "native_tools"
-    escalated = handler.bodies[2]
+    assert result.attempts[-1].protocol == "native_tools"
+    escalated = handler.bodies[repairs + 1]
     assert escalated["model"] == config().model(SUPER).model_id
     assert [m["role"] for m in escalated["messages"]] == ["system", "user"]
-    assert [e.model for e in report.entries] == [NANO, NANO, SUPER]
+    assert [e.model for e in report.entries] == [NANO] * (repairs + 1) + [SUPER]
 
 
 def test_length_twice_escalates_as_a_failure():

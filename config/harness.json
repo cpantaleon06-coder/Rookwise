@@ -38,8 +38,8 @@
     "factor": 2.0
   },
   "escalation": {
-    "_note": "After a final answer fails validation, up to max_repairs repair attempts on the same model (the validation errors are fed back). Then the next model in `next`, as long as the ledger caps allow it. A model with no entry is the top of the ladder.",
-    "max_repairs": 1,
+    "_note": "After a final answer fails validation, up to max_repairs repair attempts on the same model (2, as in the failure table of docs/ARCHITECTURE.md) (the validation errors are fed back). Then the next model in `next`, as long as the ledger caps allow it. A model with no entry is the top of the ladder.",
+    "max_repairs": 2,
     "next": {
       "nemotron-3-nano": "nemotron-3-super",
       "nemotron-3.5-lightning": "nemotron-3-super",
