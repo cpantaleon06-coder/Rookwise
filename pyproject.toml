@@ -28,7 +28,7 @@ dev = [
 # as "rookwise.<name>".
 [tool.setuptools]
 package-dir = { "rookwise" = "core" }
-packages = ["rookwise", "rookwise.skills"]
+packages = ["rookwise", "rookwise.harness", "rookwise.skills"]
 
 [tool.setuptools.dynamic]
 version = { attr = "rookwise.__version__" }

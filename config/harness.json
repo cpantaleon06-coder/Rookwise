@@ -1,0 +1,55 @@
+{
+  "_note": "Settings for core/harness. Model-specific quirks live here, not in code. temperature and top_p null means the field is not sent and the server default applies: no recommended values are verified for Token Factory. reasoning_fields lists the delta fields that carry reasoning text, read in order and counted once (Super and Lightning send the same text in two fields). disallowed lists request values never sent to a model.",
+  "base_url": "https://api.tokenfactory.nebius.com/v1/",
+  "on_missing_usage": "charge_full_reservation",
+  "input_estimate": {
+    "_note": "Worst-case input tokens before a call: characters of the messages and response_format JSON divided by chars_per_token, plus margin_tokens for the chat template. Measured skill prompts ran about 4 characters per token, so 3 overestimates on purpose.",
+    "chars_per_token": 3,
+    "margin_tokens": 64
+  },
+  "timeout_s": { "connect": 10, "read": 120 },
+  "retry": {
+    "max_attempts": 4,
+    "base_delay_s": 1.0,
+    "max_delay_s": 30.0,
+    "jitter": 0.2,
+    "max_retry_after_s": 60.0
+  },
+  "max_concurrent_requests": 8,
+  "cassette": { "mode": "live", "dir": "runs/cassettes" },
+  "models": {
+    "nemotron-3-ultra": {
+      "max_tokens": 2048,
+      "reasoning": false,
+      "temperature": null,
+      "top_p": null,
+      "reasoning_fields": ["reasoning_content", "reasoning"],
+      "disallowed": {}
+    },
+    "nemotron-3-super": {
+      "max_tokens": 2048,
+      "reasoning": false,
+      "temperature": null,
+      "top_p": null,
+      "reasoning_fields": ["reasoning_content", "reasoning"],
+      "disallowed": {}
+    },
+    "nemotron-3.5-lightning": {
+      "max_tokens": 2048,
+      "reasoning": false,
+      "temperature": null,
+      "top_p": null,
+      "reasoning_fields": ["reasoning_content", "reasoning"],
+      "disallowed": {}
+    },
+    "nemotron-3-nano": {
+      "_note": "reasoning_effort \"none\" put the answer in the reasoning field with content null (smoke test 2026-10-13); use enable_thinking false instead.",
+      "max_tokens": 2048,
+      "reasoning": false,
+      "temperature": null,
+      "top_p": null,
+      "reasoning_fields": ["reasoning", "reasoning_content"],
+      "disallowed": { "reasoning_effort": ["none"] }
+    }
+  }
+}
