@@ -1,0 +1,184 @@
+{
+  "$defs": {
+    "LiveCaps": {
+      "additionalProperties": false,
+      "description": "Live demo caps. The two USD caps come from LIVE_DEMO_MAX_USD_PER_RUN and\nLIVE_DEMO_MAX_USD_PER_DAY (.env.example); the visitor limit has no setting yet.",
+      "properties": {
+        "max_runs_per_visitor_per_day": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Runs Per Visitor Per Day"
+        },
+        "max_usd_per_day": {
+          "minimum": 0,
+          "title": "Max Usd Per Day",
+          "type": "number"
+        },
+        "max_usd_per_run": {
+          "minimum": 0,
+          "title": "Max Usd Per Run",
+          "type": "number"
+        },
+        "spent_usd_today": {
+          "minimum": 0,
+          "title": "Spent Usd Today",
+          "type": "number"
+        },
+        "visitor_runs_today": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visitor Runs Today"
+        }
+      },
+      "required": [
+        "max_usd_per_run",
+        "max_usd_per_day",
+        "spent_usd_today"
+      ],
+      "title": "LiveCaps",
+      "type": "object"
+    },
+    "ModeAvailability": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "refusal": {
+          "anyOf": [
+            {
+              "enum": [
+                "live_disabled",
+                "run_cap_exceeded",
+                "daily_cap_reached",
+                "visitor_limit_reached"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refusal"
+        }
+      },
+      "required": [
+        "mode",
+        "available"
+      ],
+      "title": "ModeAvailability",
+      "type": "object"
+    },
+    "RecordingSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "goal": {
+          "title": "Goal",
+          "type": "string"
+        },
+        "recording_id": {
+          "title": "Recording Id",
+          "type": "string"
+        },
+        "simulated_case": {
+          "title": "Simulated Case",
+          "type": "boolean"
+        },
+        "spent_usd": {
+          "minimum": 0,
+          "title": "Spent Usd",
+          "type": "number"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "recording_id",
+        "title",
+        "goal",
+        "simulated_case",
+        "spent_usd"
+      ],
+      "title": "RecordingSummary",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/ModesView.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "GET /api/v1/modes.",
+  "properties": {
+    "api_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "default_mode": {
+      "enum": [
+        "recorded",
+        "live"
+      ],
+      "title": "Default Mode",
+      "type": "string"
+    },
+    "live_caps": {
+      "$ref": "#/$defs/LiveCaps"
+    },
+    "modes": {
+      "items": {
+        "$ref": "#/$defs/ModeAvailability"
+      },
+      "title": "Modes",
+      "type": "array"
+    },
+    "recordings": {
+      "items": {
+        "$ref": "#/$defs/RecordingSummary"
+      },
+      "title": "Recordings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "default_mode",
+    "modes",
+    "live_caps",
+    "recordings"
+  ],
+  "title": "ModesView",
+  "type": "object"
+}

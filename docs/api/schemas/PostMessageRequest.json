@@ -1,0 +1,18 @@
+{
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/PostMessageRequest.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "text": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "title": "PostMessageRequest",
+  "type": "object"
+}

@@ -1,0 +1,169 @@
+{
+  "$defs": {
+    "RunCaps": {
+      "additionalProperties": false,
+      "description": "The ledger's `Caps` for the run: `run_usd` and optional per-level caps.",
+      "properties": {
+        "level_usd": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": "Level Usd",
+          "type": "object"
+        },
+        "run_usd": {
+          "exclusiveMinimum": 0,
+          "title": "Run Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "run_usd"
+      ],
+      "title": "RunCaps",
+      "type": "object"
+    },
+    "RunView": {
+      "additionalProperties": false,
+      "description": "GET /api/v1/runs/{run_id}. `spent_usd` and `held_usd` are the ledger's RunReport\nfigures; `predicted_usd` is the sum of `usd_predicted` over its entries.",
+      "properties": {
+        "board": {
+          "default": false,
+          "title": "Board",
+          "type": "boolean"
+        },
+        "caps": {
+          "$ref": "#/$defs/RunCaps"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "events_url": {
+          "title": "Events Url",
+          "type": "string"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "goal": {
+          "title": "Goal",
+          "type": "string"
+        },
+        "held_usd": {
+          "minimum": 0,
+          "title": "Held Usd",
+          "type": "number"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "predicted_usd": {
+          "minimum": 0,
+          "title": "Predicted Usd",
+          "type": "number"
+        },
+        "recording_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recording Id"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "simulated_case": {
+          "title": "Simulated Case",
+          "type": "boolean"
+        },
+        "spent_usd": {
+          "minimum": 0,
+          "title": "Spent Usd",
+          "type": "number"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "planning",
+            "awaiting_approval",
+            "running",
+            "paused",
+            "finished",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "goal",
+        "mode",
+        "simulated_case",
+        "status",
+        "caps",
+        "spent_usd",
+        "held_usd",
+        "predicted_usd",
+        "created_at",
+        "events_url"
+      ],
+      "title": "RunView",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/RunList.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/RunView"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Cursor"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "title": "RunList",
+  "type": "object"
+}

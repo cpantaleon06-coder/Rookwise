@@ -1,0 +1,390 @@
+{
+  "$defs": {
+    "AuditCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion": {
+          "title": "Criterion",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "criterion",
+        "passed"
+      ],
+      "title": "AuditCheck",
+      "type": "object"
+    },
+    "AuditVerdict": {
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/AuditCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "correction_cycles": {
+          "minimum": 0,
+          "title": "Correction Cycles",
+          "type": "integer"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "accepted_with_warning"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Warning"
+        }
+      },
+      "required": [
+        "verdict",
+        "model",
+        "checks",
+        "correction_cycles"
+      ],
+      "title": "AuditVerdict",
+      "type": "object"
+    },
+    "ContractRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResultV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "task": {
+          "$ref": "#/$defs/TaskV1"
+        }
+      },
+      "required": [
+        "task",
+        "result"
+      ],
+      "title": "ContractRecord",
+      "type": "object"
+    },
+    "CostReport": {
+      "additionalProperties": false,
+      "description": "Predicted versus real. `prediction_error` is (real - predicted) / predicted, the\nbenchmark metric in docs/ARCHITECTURE.md; None when nothing was predicted.",
+      "properties": {
+        "predicted_usd": {
+          "minimum": 0,
+          "title": "Predicted Usd",
+          "type": "number"
+        },
+        "prediction_error": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Prediction Error"
+        },
+        "real_usd": {
+          "minimum": 0,
+          "title": "Real Usd",
+          "type": "number"
+        },
+        "spent_by_level": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": "Spent By Level",
+          "type": "object"
+        },
+        "usage_estimated_entries": {
+          "minimum": 0,
+          "title": "Usage Estimated Entries",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predicted_usd",
+        "real_usd",
+        "prediction_error",
+        "spent_by_level",
+        "usage_estimated_entries"
+      ],
+      "title": "CostReport",
+      "type": "object"
+    },
+    "Deliverable": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "title": "Content"
+        },
+        "output_ref": {
+          "title": "Output Ref",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "output_ref",
+        "title",
+        "content"
+      ],
+      "title": "Deliverable",
+      "type": "object"
+    },
+    "ResultUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "usd": {
+          "minimum": 0,
+          "title": "Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "usd"
+      ],
+      "title": "ResultUsage",
+      "type": "object"
+    },
+    "ResultV1": {
+      "additionalProperties": false,
+      "description": "result_v1: operator to manager.",
+      "properties": {
+        "output_ref": {
+          "title": "Output Ref",
+          "type": "string"
+        },
+        "self_check": {
+          "$ref": "#/$defs/SelfCheck"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/ResultUsage"
+        }
+      },
+      "required": [
+        "task_id",
+        "status",
+        "output_ref",
+        "usage",
+        "self_check"
+      ],
+      "title": "ResultV1",
+      "type": "object"
+    },
+    "SelfCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "schema_valid": {
+          "title": "Schema Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schema_valid",
+        "notes"
+      ],
+      "title": "SelfCheck",
+      "type": "object"
+    },
+    "TaskBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_input_tokens": {
+          "minimum": 0,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "minimum": 0,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_usd": {
+          "minimum": 0,
+          "title": "Max Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_usd"
+      ],
+      "title": "TaskBudget",
+      "type": "object"
+    },
+    "TaskV1": {
+      "additionalProperties": false,
+      "description": "task_v1: manager to operator.",
+      "properties": {
+        "budget": {
+          "$ref": "#/$defs/TaskBudget"
+        },
+        "deadline_s": {
+          "minimum": 0,
+          "title": "Deadline S",
+          "type": "integer"
+        },
+        "inputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "instruction_ref": {
+          "title": "Instruction Ref",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "run_id",
+        "role",
+        "instruction_ref",
+        "inputs",
+        "budget",
+        "deadline_s"
+      ],
+      "title": "TaskV1",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/DeliveryPackage.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "GET /api/v1/runs/{run_id}/package.",
+  "properties": {
+    "audit": {
+      "$ref": "#/$defs/AuditVerdict"
+    },
+    "contracts": {
+      "items": {
+        "$ref": "#/$defs/ContractRecord"
+      },
+      "title": "Contracts",
+      "type": "array"
+    },
+    "cost_report": {
+      "$ref": "#/$defs/CostReport"
+    },
+    "decisions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Decisions",
+      "type": "array"
+    },
+    "deliverables": {
+      "items": {
+        "$ref": "#/$defs/Deliverable"
+      },
+      "title": "Deliverables",
+      "type": "array"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "simulated_case": {
+      "title": "Simulated Case",
+      "type": "boolean"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "simulated_case",
+    "summary",
+    "deliverables",
+    "cost_report",
+    "contracts",
+    "decisions",
+    "audit"
+  ],
+  "title": "DeliveryPackage",
+  "type": "object"
+}

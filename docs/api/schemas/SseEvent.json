@@ -1,0 +1,1635 @@
+{
+  "$defs": {
+    "AgentHired": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AgentHiredPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "agent_hired",
+          "default": "agent_hired",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "AgentHired",
+      "type": "object"
+    },
+    "AgentHiredPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentNode"
+        }
+      },
+      "required": [
+        "agent"
+      ],
+      "title": "AgentHiredPayload",
+      "type": "object"
+    },
+    "AgentNode": {
+      "additionalProperties": false,
+      "description": "One hired agent. `operator_id`, `role`, `model` and `skills` are catalog fields\n(OperatorSpec); levels are `rookwise.schemas.Level`.",
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "vp",
+            "director",
+            "manager",
+            "operator",
+            "auditor"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "operator_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operator Id"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "hired",
+            "working",
+            "idle",
+            "done",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "required": [
+        "agent_id",
+        "level",
+        "role",
+        "model",
+        "status"
+      ],
+      "title": "AgentNode",
+      "type": "object"
+    },
+    "AttemptRecord": {
+      "additionalProperties": false,
+      "description": "One attempt, as the benchmark reads it.",
+      "properties": {
+        "attempt_index": {
+          "title": "Attempt Index",
+          "type": "integer"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "input_tokens": {
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "length_retries": {
+          "title": "Length Retries",
+          "type": "integer"
+        },
+        "loop_status": {
+          "title": "Loop Status",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "model_calls": {
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "output_tokens": {
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "protocol": {
+          "title": "Protocol",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "first",
+            "repair",
+            "escalation"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "retry_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Retry Reason"
+        },
+        "steps": {
+          "title": "Steps",
+          "type": "integer"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "tool_calls": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Tool Calls",
+          "type": "object"
+        },
+        "usage_estimated": {
+          "title": "Usage Estimated",
+          "type": "boolean"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "number"
+        },
+        "validation_errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Validation Errors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "attempt_index",
+        "model",
+        "protocol",
+        "reason",
+        "retry_reason",
+        "loop_status",
+        "ok",
+        "validation_errors",
+        "length_retries",
+        "steps",
+        "model_calls",
+        "tool_calls",
+        "usd",
+        "input_tokens",
+        "output_tokens",
+        "usage_estimated"
+      ],
+      "title": "AttemptRecord",
+      "type": "object"
+    },
+    "AttemptRecorded": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AttemptRecordedPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "attempt_recorded",
+          "default": "attempt_recorded",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "AttemptRecorded",
+      "type": "object"
+    },
+    "AttemptRecordedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "attempt": {
+          "$ref": "#/$defs/AttemptRecord"
+        }
+      },
+      "required": [
+        "agent_id",
+        "attempt"
+      ],
+      "title": "AttemptRecordedPayload",
+      "type": "object"
+    },
+    "AuditCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion": {
+          "title": "Criterion",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "criterion",
+        "passed"
+      ],
+      "title": "AuditCheck",
+      "type": "object"
+    },
+    "AuditResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AuditResultPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "audit_result",
+          "default": "audit_result",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "AuditResult",
+      "type": "object"
+    },
+    "AuditResultPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "audit": {
+          "$ref": "#/$defs/AuditVerdict"
+        }
+      },
+      "required": [
+        "audit"
+      ],
+      "title": "AuditResultPayload",
+      "type": "object"
+    },
+    "AuditVerdict": {
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/AuditCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "correction_cycles": {
+          "minimum": 0,
+          "title": "Correction Cycles",
+          "type": "integer"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "accepted_with_warning"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Warning"
+        }
+      },
+      "required": [
+        "verdict",
+        "model",
+        "checks",
+        "correction_cycles"
+      ],
+      "title": "AuditVerdict",
+      "type": "object"
+    },
+    "BudgetUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/BudgetUpdatePayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "budget_update",
+          "default": "budget_update",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "BudgetUpdate",
+      "type": "object"
+    },
+    "BudgetUpdatePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "cap_usd": {
+          "exclusiveMinimum": 0,
+          "title": "Cap Usd",
+          "type": "number"
+        },
+        "entry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LedgerEntry"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "held_usd": {
+          "minimum": 0,
+          "title": "Held Usd",
+          "type": "number"
+        },
+        "predicted_usd": {
+          "minimum": 0,
+          "title": "Predicted Usd",
+          "type": "number"
+        },
+        "spent_by_level": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": "Spent By Level",
+          "type": "object"
+        },
+        "spent_usd": {
+          "minimum": 0,
+          "title": "Spent Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "spent_usd",
+        "held_usd",
+        "predicted_usd",
+        "cap_usd",
+        "spent_by_level"
+      ],
+      "title": "BudgetUpdatePayload",
+      "type": "object"
+    },
+    "ChatMessage": {
+      "additionalProperties": false,
+      "description": "Only the director (or the VP with a board) talks to the user.",
+      "properties": {
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "sender": {
+          "enum": [
+            "user",
+            "director",
+            "vp"
+          ],
+          "title": "Sender",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id",
+        "run_id",
+        "sender",
+        "text",
+        "ts"
+      ],
+      "title": "ChatMessage",
+      "type": "object"
+    },
+    "ErrorBody": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Request Id"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ErrorBody",
+      "type": "object"
+    },
+    "LedgerEntry": {
+      "additionalProperties": false,
+      "description": "ledger_entry: one charged model call. `skills` lists the skill ids in its prompt.\n\n`usage_estimated` is true when the API sent no usage and the harness charged under\n`on_missing_usage` (the full reservation by default) instead of reported tokens.",
+      "properties": {
+        "cached_price_fallback": {
+          "title": "Cached Price Fallback",
+          "type": "boolean"
+        },
+        "cached_tokens": {
+          "minimum": 0,
+          "title": "Cached Tokens",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "level": {
+          "enum": [
+            "vp",
+            "director",
+            "manager",
+            "operator",
+            "auditor"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "reasoning_tokens": {
+          "minimum": 0,
+          "title": "Reasoning Tokens",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "usage_estimated": {
+          "default": false,
+          "title": "Usage Estimated",
+          "type": "boolean"
+        },
+        "usd_predicted": {
+          "minimum": 0,
+          "title": "Usd Predicted",
+          "type": "number"
+        },
+        "usd_real": {
+          "minimum": 0,
+          "title": "Usd Real",
+          "type": "number"
+        }
+      },
+      "required": [
+        "run_id",
+        "level",
+        "task_id",
+        "model",
+        "input_tokens",
+        "cached_tokens",
+        "output_tokens",
+        "reasoning_tokens",
+        "cached_price_fallback",
+        "usd_real",
+        "usd_predicted",
+        "ts"
+      ],
+      "title": "LedgerEntry",
+      "type": "object"
+    },
+    "Message": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/MessagePayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "message",
+          "default": "message",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "Message",
+      "type": "object"
+    },
+    "MessagePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "$ref": "#/$defs/ChatMessage"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "MessagePayload",
+      "type": "object"
+    },
+    "ModeNotice": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ModeNoticePayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "mode_notice",
+          "default": "mode_notice",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "ModeNotice",
+      "type": "object"
+    },
+    "ModeNoticePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "notice": {
+          "enum": [
+            "recorded_mode",
+            "live_refused",
+            "live_cap_warning"
+          ],
+          "title": "Notice",
+          "type": "string"
+        },
+        "refusal": {
+          "anyOf": [
+            {
+              "enum": [
+                "live_disabled",
+                "run_cap_exceeded",
+                "daily_cap_reached",
+                "visitor_limit_reached"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refusal"
+        }
+      },
+      "required": [
+        "notice",
+        "mode",
+        "detail"
+      ],
+      "title": "ModeNoticePayload",
+      "type": "object"
+    },
+    "ResultUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "usd": {
+          "minimum": 0,
+          "title": "Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "usd"
+      ],
+      "title": "ResultUsage",
+      "type": "object"
+    },
+    "ResultV1": {
+      "additionalProperties": false,
+      "description": "result_v1: operator to manager.",
+      "properties": {
+        "output_ref": {
+          "title": "Output Ref",
+          "type": "string"
+        },
+        "self_check": {
+          "$ref": "#/$defs/SelfCheck"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/ResultUsage"
+        }
+      },
+      "required": [
+        "task_id",
+        "status",
+        "output_ref",
+        "usage",
+        "self_check"
+      ],
+      "title": "ResultV1",
+      "type": "object"
+    },
+    "RunFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunFailedPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run_failed",
+          "default": "run_failed",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "RunFailed",
+      "type": "object"
+    },
+    "RunFailedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/ErrorBody"
+        },
+        "partial": {
+          "title": "Partial",
+          "type": "boolean"
+        },
+        "spent_usd": {
+          "minimum": 0,
+          "title": "Spent Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "error",
+        "partial",
+        "spent_usd"
+      ],
+      "title": "RunFailedPayload",
+      "type": "object"
+    },
+    "RunFinished": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunFinishedPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run_finished",
+          "default": "run_finished",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "RunFinished",
+      "type": "object"
+    },
+    "RunFinishedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "package_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Package Url"
+        },
+        "partial": {
+          "title": "Partial",
+          "type": "boolean"
+        },
+        "predicted_usd": {
+          "minimum": 0,
+          "title": "Predicted Usd",
+          "type": "number"
+        },
+        "spent_usd": {
+          "minimum": 0,
+          "title": "Spent Usd",
+          "type": "number"
+        },
+        "status": {
+          "enum": [
+            "finished",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "partial",
+        "spent_usd",
+        "predicted_usd"
+      ],
+      "title": "RunFinishedPayload",
+      "type": "object"
+    },
+    "RunStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunStartedPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run_started",
+          "default": "run_started",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "RunStarted",
+      "type": "object"
+    },
+    "RunStartedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "board": {
+          "title": "Board",
+          "type": "boolean"
+        },
+        "budget_usd": {
+          "exclusiveMinimum": 0,
+          "title": "Budget Usd",
+          "type": "number"
+        },
+        "goal": {
+          "title": "Goal",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "recording_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recording Id"
+        },
+        "simulated_case": {
+          "title": "Simulated Case",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "goal",
+        "mode",
+        "budget_usd",
+        "board",
+        "simulated_case"
+      ],
+      "title": "RunStartedPayload",
+      "type": "object"
+    },
+    "SelfCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "schema_valid": {
+          "title": "Schema Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schema_valid",
+        "notes"
+      ],
+      "title": "SelfCheck",
+      "type": "object"
+    },
+    "TaskAssigned": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TaskAssignedPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "task_assigned",
+          "default": "task_assigned",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "TaskAssigned",
+      "type": "object"
+    },
+    "TaskAssignedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "operator_id": {
+          "title": "Operator Id",
+          "type": "string"
+        },
+        "task": {
+          "$ref": "#/$defs/TaskV1"
+        }
+      },
+      "required": [
+        "task",
+        "agent_id",
+        "operator_id"
+      ],
+      "title": "TaskAssignedPayload",
+      "type": "object"
+    },
+    "TaskBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_input_tokens": {
+          "minimum": 0,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "minimum": 0,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_usd": {
+          "minimum": 0,
+          "title": "Max Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_usd"
+      ],
+      "title": "TaskBudget",
+      "type": "object"
+    },
+    "TaskResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TaskResultPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "task_result",
+          "default": "task_result",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "TaskResult",
+      "type": "object"
+    },
+    "TaskResultPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "label": {
+          "enum": [
+            "first_pass_ok",
+            "ok_after_retry",
+            "ok_after_escalation",
+            "failed"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/$defs/ResultV1"
+        }
+      },
+      "required": [
+        "agent_id",
+        "result",
+        "label"
+      ],
+      "title": "TaskResultPayload",
+      "type": "object"
+    },
+    "TaskStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TaskStartedPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "task_started",
+          "default": "task_started",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "TaskStarted",
+      "type": "object"
+    },
+    "TaskStartedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "attempt_index": {
+          "minimum": 0,
+          "title": "Attempt Index",
+          "type": "integer"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "agent_id",
+        "model",
+        "attempt_index"
+      ],
+      "title": "TaskStartedPayload",
+      "type": "object"
+    },
+    "TaskV1": {
+      "additionalProperties": false,
+      "description": "task_v1: manager to operator.",
+      "properties": {
+        "budget": {
+          "$ref": "#/$defs/TaskBudget"
+        },
+        "deadline_s": {
+          "minimum": 0,
+          "title": "Deadline S",
+          "type": "integer"
+        },
+        "inputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "instruction_ref": {
+          "title": "Instruction Ref",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "run_id",
+        "role",
+        "instruction_ref",
+        "inputs",
+        "budget",
+        "deadline_s"
+      ],
+      "title": "TaskV1",
+      "type": "object"
+    },
+    "ToolCalled": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ToolCalledPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_called",
+          "default": "tool_called",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "ts",
+        "payload"
+      ],
+      "title": "ToolCalled",
+      "type": "object"
+    },
+    "ToolCalledPayload": {
+      "additionalProperties": false,
+      "description": "One tool execution. `args` is only sent with the debug flag (docs/api.md).",
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "args": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Args"
+        },
+        "error_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Type"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "run_tool_count": {
+          "minimum": 0,
+          "title": "Run Tool Count",
+          "type": "integer"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "task_id",
+        "agent_id",
+        "tool",
+        "ok",
+        "run_tool_count"
+      ],
+      "title": "ToolCalledPayload",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/SseEvent.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "agent_hired": "#/$defs/AgentHired",
+      "attempt_recorded": "#/$defs/AttemptRecorded",
+      "audit_result": "#/$defs/AuditResult",
+      "budget_update": "#/$defs/BudgetUpdate",
+      "message": "#/$defs/Message",
+      "mode_notice": "#/$defs/ModeNotice",
+      "run_failed": "#/$defs/RunFailed",
+      "run_finished": "#/$defs/RunFinished",
+      "run_started": "#/$defs/RunStarted",
+      "task_assigned": "#/$defs/TaskAssigned",
+      "task_result": "#/$defs/TaskResult",
+      "task_started": "#/$defs/TaskStarted",
+      "tool_called": "#/$defs/ToolCalled"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/RunStarted"
+    },
+    {
+      "$ref": "#/$defs/AgentHired"
+    },
+    {
+      "$ref": "#/$defs/TaskAssigned"
+    },
+    {
+      "$ref": "#/$defs/TaskStarted"
+    },
+    {
+      "$ref": "#/$defs/AttemptRecorded"
+    },
+    {
+      "$ref": "#/$defs/ToolCalled"
+    },
+    {
+      "$ref": "#/$defs/BudgetUpdate"
+    },
+    {
+      "$ref": "#/$defs/Message"
+    },
+    {
+      "$ref": "#/$defs/TaskResult"
+    },
+    {
+      "$ref": "#/$defs/AuditResult"
+    },
+    {
+      "$ref": "#/$defs/RunFinished"
+    },
+    {
+      "$ref": "#/$defs/RunFailed"
+    },
+    {
+      "$ref": "#/$defs/ModeNotice"
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "AgentNode": {
+      "additionalProperties": false,
+      "description": "One hired agent. `operator_id`, `role`, `model` and `skills` are catalog fields\n(OperatorSpec); levels are `rookwise.schemas.Level`.",
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "vp",
+            "director",
+            "manager",
+            "operator",
+            "auditor"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "operator_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operator Id"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "hired",
+            "working",
+            "idle",
+            "done",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "required": [
+        "agent_id",
+        "level",
+        "role",
+        "model",
+        "status"
+      ],
+      "title": "AgentNode",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/OrgChart.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "GET /api/v1/runs/{run_id}/org: a snapshot as of one event.",
+  "properties": {
+    "as_of_event_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "As Of Event Id"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/AgentNode"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "as_of_event_id",
+    "nodes"
+  ],
+  "title": "OrgChart",
+  "type": "object"
+}

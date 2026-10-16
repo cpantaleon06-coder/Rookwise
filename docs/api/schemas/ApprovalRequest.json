@@ -1,0 +1,23 @@
+{
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/ApprovalRequest.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "POST /api/v1/runs/{run_id}/approval: the user approves or adjusts the plan.",
+  "properties": {
+    "approved": {
+      "title": "Approved",
+      "type": "boolean"
+    },
+    "note": {
+      "default": "",
+      "maxLength": 2000,
+      "title": "Note",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approved"
+  ],
+  "title": "ApprovalRequest",
+  "type": "object"
+}

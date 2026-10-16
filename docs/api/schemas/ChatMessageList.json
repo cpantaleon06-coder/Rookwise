@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "ChatMessage": {
+      "additionalProperties": false,
+      "description": "Only the director (or the VP with a board) talks to the user.",
+      "properties": {
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "sender": {
+          "enum": [
+            "user",
+            "director",
+            "vp"
+          ],
+          "title": "Sender",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id",
+        "run_id",
+        "sender",
+        "text",
+        "ts"
+      ],
+      "title": "ChatMessage",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/ChatMessageList.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ChatMessage"
+      },
+      "title": "Items",
+      "type": "array"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "title": "ChatMessageList",
+  "type": "object"
+}

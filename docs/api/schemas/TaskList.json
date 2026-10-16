@@ -1,0 +1,372 @@
+{
+  "$defs": {
+    "AttemptRecord": {
+      "additionalProperties": false,
+      "description": "One attempt, as the benchmark reads it.",
+      "properties": {
+        "attempt_index": {
+          "title": "Attempt Index",
+          "type": "integer"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "input_tokens": {
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "length_retries": {
+          "title": "Length Retries",
+          "type": "integer"
+        },
+        "loop_status": {
+          "title": "Loop Status",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "model_calls": {
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "output_tokens": {
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "protocol": {
+          "title": "Protocol",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "first",
+            "repair",
+            "escalation"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "retry_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Retry Reason"
+        },
+        "steps": {
+          "title": "Steps",
+          "type": "integer"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "tool_calls": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Tool Calls",
+          "type": "object"
+        },
+        "usage_estimated": {
+          "title": "Usage Estimated",
+          "type": "boolean"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "number"
+        },
+        "validation_errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Validation Errors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "attempt_index",
+        "model",
+        "protocol",
+        "reason",
+        "retry_reason",
+        "loop_status",
+        "ok",
+        "validation_errors",
+        "length_retries",
+        "steps",
+        "model_calls",
+        "tool_calls",
+        "usd",
+        "input_tokens",
+        "output_tokens",
+        "usage_estimated"
+      ],
+      "title": "AttemptRecord",
+      "type": "object"
+    },
+    "ResultUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "usd": {
+          "minimum": 0,
+          "title": "Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "usd"
+      ],
+      "title": "ResultUsage",
+      "type": "object"
+    },
+    "ResultV1": {
+      "additionalProperties": false,
+      "description": "result_v1: operator to manager.",
+      "properties": {
+        "output_ref": {
+          "title": "Output Ref",
+          "type": "string"
+        },
+        "self_check": {
+          "$ref": "#/$defs/SelfCheck"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/ResultUsage"
+        }
+      },
+      "required": [
+        "task_id",
+        "status",
+        "output_ref",
+        "usage",
+        "self_check"
+      ],
+      "title": "ResultV1",
+      "type": "object"
+    },
+    "SelfCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "schema_valid": {
+          "title": "Schema Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schema_valid",
+        "notes"
+      ],
+      "title": "SelfCheck",
+      "type": "object"
+    },
+    "TaskBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_input_tokens": {
+          "minimum": 0,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "max_output_tokens": {
+          "minimum": 0,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "max_usd": {
+          "minimum": 0,
+          "title": "Max Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_usd"
+      ],
+      "title": "TaskBudget",
+      "type": "object"
+    },
+    "TaskV1": {
+      "additionalProperties": false,
+      "description": "task_v1: manager to operator.",
+      "properties": {
+        "budget": {
+          "$ref": "#/$defs/TaskBudget"
+        },
+        "deadline_s": {
+          "minimum": 0,
+          "title": "Deadline S",
+          "type": "integer"
+        },
+        "inputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "instruction_ref": {
+          "title": "Instruction Ref",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "run_id",
+        "role",
+        "instruction_ref",
+        "inputs",
+        "budget",
+        "deadline_s"
+      ],
+      "title": "TaskV1",
+      "type": "object"
+    },
+    "TaskView": {
+      "additionalProperties": false,
+      "description": "One operator task with its contracts and attempt records.",
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "attempts": {
+          "items": {
+            "$ref": "#/$defs/AttemptRecord"
+          },
+          "title": "Attempts",
+          "type": "array"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "enum": [
+                "first_pass_ok",
+                "ok_after_retry",
+                "ok_after_escalation",
+                "failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "operator_id": {
+          "title": "Operator Id",
+          "type": "string"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResultV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "assigned",
+            "running",
+            "ok",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "task": {
+          "$ref": "#/$defs/TaskV1"
+        },
+        "tool_calls": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": "Tool Calls",
+          "type": "object"
+        }
+      },
+      "required": [
+        "task",
+        "agent_id",
+        "operator_id",
+        "status"
+      ],
+      "title": "TaskView",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/TaskList.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/TaskView"
+      },
+      "title": "Items",
+      "type": "array"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "title": "TaskList",
+  "type": "object"
+}

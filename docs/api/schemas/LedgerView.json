@@ -1,0 +1,234 @@
+{
+  "$defs": {
+    "CapStop": {
+      "additionalProperties": false,
+      "description": "A stopped scope, with the fields of `rookwise.ledger.CapReached`.",
+      "properties": {
+        "cap_usd": {
+          "minimum": 0,
+          "title": "Cap Usd",
+          "type": "number"
+        },
+        "committed_usd": {
+          "minimum": 0,
+          "title": "Committed Usd",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "requested_usd": {
+          "minimum": 0,
+          "title": "Requested Usd",
+          "type": "number"
+        },
+        "scope": {
+          "enum": [
+            "run",
+            "level",
+            "task"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope",
+        "key",
+        "cap_usd",
+        "committed_usd",
+        "requested_usd"
+      ],
+      "title": "CapStop",
+      "type": "object"
+    },
+    "LedgerEntry": {
+      "additionalProperties": false,
+      "description": "ledger_entry: one charged model call. `skills` lists the skill ids in its prompt.\n\n`usage_estimated` is true when the API sent no usage and the harness charged under\n`on_missing_usage` (the full reservation by default) instead of reported tokens.",
+      "properties": {
+        "cached_price_fallback": {
+          "title": "Cached Price Fallback",
+          "type": "boolean"
+        },
+        "cached_tokens": {
+          "minimum": 0,
+          "title": "Cached Tokens",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "level": {
+          "enum": [
+            "vp",
+            "director",
+            "manager",
+            "operator",
+            "auditor"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "reasoning_tokens": {
+          "minimum": 0,
+          "title": "Reasoning Tokens",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "usage_estimated": {
+          "default": false,
+          "title": "Usage Estimated",
+          "type": "boolean"
+        },
+        "usd_predicted": {
+          "minimum": 0,
+          "title": "Usd Predicted",
+          "type": "number"
+        },
+        "usd_real": {
+          "minimum": 0,
+          "title": "Usd Real",
+          "type": "number"
+        }
+      },
+      "required": [
+        "run_id",
+        "level",
+        "task_id",
+        "model",
+        "input_tokens",
+        "cached_tokens",
+        "output_tokens",
+        "reasoning_tokens",
+        "cached_price_fallback",
+        "usd_real",
+        "usd_predicted",
+        "ts"
+      ],
+      "title": "LedgerEntry",
+      "type": "object"
+    },
+    "RunCaps": {
+      "additionalProperties": false,
+      "description": "The ledger's `Caps` for the run: `run_usd` and optional per-level caps.",
+      "properties": {
+        "level_usd": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "title": "Level Usd",
+          "type": "object"
+        },
+        "run_usd": {
+          "exclusiveMinimum": 0,
+          "title": "Run Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "run_usd"
+      ],
+      "title": "RunCaps",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/LedgerView.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "GET /api/v1/runs/{run_id}/ledger: `RunReport` plus predictions.",
+  "properties": {
+    "caps": {
+      "$ref": "#/$defs/RunCaps"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/LedgerEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "held_usd": {
+      "minimum": 0,
+      "title": "Held Usd",
+      "type": "number"
+    },
+    "predicted_usd": {
+      "minimum": 0,
+      "title": "Predicted Usd",
+      "type": "number"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "spent_by_level": {
+      "additionalProperties": {
+        "minimum": 0,
+        "type": "number"
+      },
+      "title": "Spent By Level",
+      "type": "object"
+    },
+    "spent_usd": {
+      "minimum": 0,
+      "title": "Spent Usd",
+      "type": "number"
+    },
+    "stops": {
+      "items": {
+        "$ref": "#/$defs/CapStop"
+      },
+      "title": "Stops",
+      "type": "array"
+    },
+    "usage_estimated_entries": {
+      "minimum": 0,
+      "title": "Usage Estimated Entries",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "caps",
+    "spent_usd",
+    "held_usd",
+    "predicted_usd",
+    "spent_by_level",
+    "usage_estimated_entries",
+    "entries"
+  ],
+  "title": "LedgerView",
+  "type": "object"
+}

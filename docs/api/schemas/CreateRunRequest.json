@@ -1,0 +1,65 @@
+{
+  "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/CreateRunRequest.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "POST /api/v1/runs. Live runs need a goal; recorded runs need a recording_id.",
+  "properties": {
+    "board": {
+      "default": false,
+      "title": "Board",
+      "type": "boolean"
+    },
+    "budget_usd": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Budget Usd"
+    },
+    "goal": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Goal"
+    },
+    "mode": {
+      "enum": [
+        "recorded",
+        "live"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "recording_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recording Id"
+    }
+  },
+  "required": [
+    "mode"
+  ],
+  "title": "CreateRunRequest",
+  "type": "object"
+}
