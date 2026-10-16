@@ -21,6 +21,11 @@ Public surface:
 - Tool loop: `ToolLoop(harness, tools).run(request, budget=None, cancel=None)` returns a
   `LoopOutcome`; `Tool`, `ToolContext` and `TokenBudget` describe tools and ceilings.
   The protocol per model (`native_tools` or `json_protocol`) is in config/harness.json.
+- Final answers: `validate_final` checks the payload against an operator's output model;
+  `run_with_escalation(loop, request, output_model, config=...)` adds repairs and the
+  escalation ladder and returns an `EscalationResult` with one `AttemptRecord` per
+  attempt and a label (`first_pass_ok`, `ok_after_retry`, `ok_after_escalation`,
+  `failed`).
 - `load_config`, `HarnessConfig`, `RateLimiter`, `RetryPolicy`, `Clock`.
 
 Every call reserves its worst case in the ledger before it is sent and is settled
@@ -31,6 +36,7 @@ exactly once (see client.py). The API key is read from the environment
 from rookwise.harness.cassette import Cassette, CassetteMiss
 from rookwise.harness.client import CancelHandle, Harness, Result
 from rookwise.harness.config import ConfigError, HarnessConfig, load_config
+from rookwise.harness.escalate import AttemptRecord, EscalationResult, run_with_escalation
 from rookwise.harness.events import (
     ErrorEvent,
     Event,
@@ -53,9 +59,11 @@ from rookwise.harness.request import (
     build_request,
 )
 from rookwise.harness.retry import ApiError, HarnessError, RetryPolicy, StreamInterrupted
+from rookwise.harness.validate import Validation, validate_final
 
 __all__ = [
     "ApiError",
+    "AttemptRecord",
     "CancelHandle",
     "Cassette",
     "CassetteMiss",
@@ -63,6 +71,7 @@ __all__ = [
     "Clock",
     "ConfigError",
     "ErrorEvent",
+    "EscalationResult",
     "Event",
     "Finish",
     "Harness",
@@ -86,7 +95,10 @@ __all__ = [
     "ToolContext",
     "ToolLoop",
     "UsageEvent",
+    "Validation",
     "assemble_tool_calls",
     "build_request",
     "load_config",
+    "run_with_escalation",
+    "validate_final",
 ]
