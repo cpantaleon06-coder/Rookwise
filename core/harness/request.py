@@ -39,6 +39,14 @@ class JsonSchemaFormat:
 
 
 @dataclass(frozen=True)
+class JsonObjectFormat:
+    """`{"type": "json_object"}`: any JSON object (the JSON action protocol uses it)."""
+
+    def to_api(self) -> dict[str, Any]:
+        return {"type": "json_object"}
+
+
+@dataclass(frozen=True)
 class ChatRequest:
     """One model call. `model` is an alias from config/prices.json.
 
@@ -58,7 +66,9 @@ class ChatRequest:
     reasoning_effort: str | None = None
     temperature: float | None = None
     top_p: float | None = None
-    response_format: JsonSchemaFormat | None = None
+    response_format: JsonSchemaFormat | JsonObjectFormat | None = None
+    tools: tuple[Mapping[str, Any], ...] = ()
+    tool_choice: str | Mapping[str, Any] | None = None
     usd_predicted: float = 0.0
     skills: tuple[str, ...] = ()
     input_tokens_estimate: int | None = None
@@ -96,8 +106,8 @@ def build_request(request: ChatRequest, config: HarnessConfig) -> BuiltRequest:
         if not isinstance(message, Mapping) or "role" not in message:
             raise RequestError("every message needs a role")
     max_tokens = request.max_tokens if request.max_tokens is not None else model.max_tokens
-    if max_tokens <= 0:
-        raise RequestError("max_tokens must be positive")
+    if not 0 < max_tokens <= model.max_tokens_cap:
+        raise RequestError(f"max_tokens must be in 1..{model.max_tokens_cap} for {model.alias}")
     reasoning = request.reasoning if request.reasoning is not None else model.reasoning
 
     body: dict[str, Any] = {
@@ -118,6 +128,16 @@ def build_request(request: ChatRequest, config: HarnessConfig) -> BuiltRequest:
     body.update({k: v for k, v in optional.items() if v is not None})
     if request.response_format is not None:
         body["response_format"] = request.response_format.to_api()
+    if request.tools:
+        if request.response_format is not None:
+            # In the tool-calling probe every model skipped the tools when a json_schema
+            # response_format came with them, so the combination is refused.
+            raise RequestError("tools cannot be combined with response_format")
+        body["tools"] = [dict(tool) for tool in request.tools]
+        if request.tool_choice is not None:
+            body["tool_choice"] = request.tool_choice
+    elif request.tool_choice is not None:
+        raise RequestError("tool_choice needs tools")
 
     for name, values in model.disallowed.items():
         if name in body and body[name] in values:
@@ -129,7 +149,7 @@ def build_request(request: ChatRequest, config: HarnessConfig) -> BuiltRequest:
     if estimate is None:
         estimate = estimate_input_tokens(
             body["messages"],
-            body.get("response_format"),
+            body.get("response_format") or body.get("tools"),
             config.chars_per_token,
             config.margin_tokens,
         )

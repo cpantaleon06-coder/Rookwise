@@ -1,5 +1,5 @@
 {
-  "_note": "Settings for core/harness. Model-specific quirks live here, not in code. temperature and top_p null means the field is not sent and the server default applies: no recommended values are verified for Token Factory. reasoning_fields lists the delta fields that carry reasoning text, read in order and counted once (Super and Lightning send the same text in two fields). disallowed lists request values never sent to a model.",
+  "_note": "Settings for core/harness. Model-specific quirks live here, not in code. temperature and top_p null means the field is not sent and the server default applies: no recommended values are verified for Token Factory. reasoning_fields lists the delta fields that carry reasoning text, read in order and counted once (Super and Lightning send the same text in two fields). disallowed lists request values never sent to a model. max_tokens_cap is the largest max_tokens the harness will send (UNVERIFIED as the API limit). loop_protocol is native_tools where the tool-calling probe saw native tool calls work, otherwise json_protocol.",
   "base_url": "https://api.tokenfactory.nebius.com/v1/",
   "on_missing_usage": "charge_full_reservation",
   "input_estimate": {
@@ -7,7 +7,10 @@
     "chars_per_token": 3,
     "margin_tokens": 64
   },
-  "timeout_s": { "connect": 10, "read": 120 },
+  "timeout_s": {
+    "connect": 10,
+    "read": 120
+  },
   "retry": {
     "max_attempts": 4,
     "base_delay_s": 1.0,
@@ -16,40 +19,90 @@
     "max_retry_after_s": 60.0
   },
   "max_concurrent_requests": 8,
-  "cassette": { "mode": "live", "dir": "runs/cassettes" },
+  "cassette": {
+    "mode": "live",
+    "dir": "runs/cassettes"
+  },
+  "loop": {
+    "_note": "Tool loop limits per loop run (core/harness/loop.py). max_repeats: how many times one identical tool call (same name and arguments) may be repeated; the next identical call stops the loop. tool_result_max_tokens is converted to characters with input_estimate.chars_per_token. json_protocol_response_format json_object was accepted by all four models in the tool-calling probe (2026-10-16, one sample each).",
+    "max_steps": 8,
+    "tool_timeout_s": 30.0,
+    "tool_result_max_tokens": 1500,
+    "max_repeats": 1,
+    "max_protocol_errors": 2,
+    "json_protocol_response_format": "json_object"
+  },
+  "length_retry": {
+    "_note": "finish_reason length is never a success: the content is discarded and the call is retried this many times with max_tokens multiplied by factor, up to the model's max_tokens_cap. After that the attempt fails and escalation decides.",
+    "retries": 1,
+    "factor": 2.0
+  },
+  "escalation": {
+    "_note": "After a final answer fails validation, up to max_repairs repair attempts on the same model (the validation errors are fed back). Then the next model in `next`, as long as the ledger caps allow it. A model with no entry is the top of the ladder.",
+    "max_repairs": 1,
+    "next": {
+      "nemotron-3-nano": "nemotron-3-super",
+      "nemotron-3.5-lightning": "nemotron-3-super",
+      "nemotron-3-super": "nemotron-3-ultra"
+    }
+  },
   "models": {
     "nemotron-3-ultra": {
       "max_tokens": 2048,
       "reasoning": false,
       "temperature": null,
       "top_p": null,
-      "reasoning_fields": ["reasoning_content", "reasoning"],
-      "disallowed": {}
+      "reasoning_fields": [
+        "reasoning_content",
+        "reasoning"
+      ],
+      "disallowed": {},
+      "max_tokens_cap": 8192,
+      "loop_protocol": "native_tools"
     },
     "nemotron-3-super": {
       "max_tokens": 2048,
       "reasoning": false,
       "temperature": null,
       "top_p": null,
-      "reasoning_fields": ["reasoning_content", "reasoning"],
-      "disallowed": {}
+      "reasoning_fields": [
+        "reasoning_content",
+        "reasoning"
+      ],
+      "disallowed": {},
+      "max_tokens_cap": 8192,
+      "loop_protocol": "native_tools"
     },
     "nemotron-3.5-lightning": {
       "max_tokens": 2048,
       "reasoning": false,
       "temperature": null,
       "top_p": null,
-      "reasoning_fields": ["reasoning_content", "reasoning"],
-      "disallowed": {}
+      "reasoning_fields": [
+        "reasoning_content",
+        "reasoning"
+      ],
+      "disallowed": {},
+      "max_tokens_cap": 8192,
+      "loop_protocol": "native_tools"
     },
     "nemotron-3-nano": {
-      "_note": "reasoning_effort \"none\" put the answer in the reasoning field with content null (smoke test 2026-10-13); use enable_thinking false instead.",
+      "_note": "reasoning_effort \"none\" put the answer in the reasoning field with content null (smoke test 2026-10-13); use enable_thinking false instead. json_protocol: native tool calls were unreliable in the tool-calling probe (2026-10-16).",
       "max_tokens": 2048,
       "reasoning": false,
       "temperature": null,
       "top_p": null,
-      "reasoning_fields": ["reasoning", "reasoning_content"],
-      "disallowed": { "reasoning_effort": ["none"] }
+      "reasoning_fields": [
+        "reasoning",
+        "reasoning_content"
+      ],
+      "disallowed": {
+        "reasoning_effort": [
+          "none"
+        ]
+      },
+      "max_tokens_cap": 8192,
+      "loop_protocol": "json_protocol"
     }
   }
 }

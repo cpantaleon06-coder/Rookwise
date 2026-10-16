@@ -86,6 +86,22 @@ def reasoning(text: str, fields: Iterable[str] = ("reasoning", "reasoning_conten
     return chunk([{"index": 0, "delta": {name: text for name in fields}}])
 
 
+def tool_call(
+    index: int = 0, id: str | None = None, name: str | None = None, arguments: str | None = None
+) -> str:
+    """One `delta.tool_calls` fragment, shaped like the tool-calling probe saw them."""
+    piece: dict[str, Any] = {"index": index}
+    if id is not None or name is not None:
+        piece |= {"id": id, "type": "function"}
+    function: dict[str, Any] = {}
+    if name is not None:
+        function["name"] = name
+    if arguments is not None:
+        function["arguments"] = arguments
+    piece["function"] = function
+    return chunk([{"index": 0, "delta": {"tool_calls": [piece]}}])
+
+
 def finish(reason: str = "stop") -> str:
     return chunk([{"index": 0, "delta": {}, "finish_reason": reason}])
 

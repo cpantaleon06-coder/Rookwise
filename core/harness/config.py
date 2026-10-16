@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = REPO_ROOT / "config"
 
 Mode = Literal["live", "record", "replay"]
+LoopProtocol = Literal["native_tools", "json_protocol"]
 MissingUsagePolicy = Literal["charge_full_reservation", "estimate_from_text"]
 
 
@@ -36,6 +37,8 @@ class ModelConfig:
     top_p: float | None
     reasoning_fields: tuple[str, ...]
     disallowed: Mapping[str, tuple[Any, ...]]
+    max_tokens_cap: int
+    loop_protocol: LoopProtocol
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,28 @@ class RetryConfig:
 
 
 @dataclass(frozen=True)
+class LoopConfig:
+    max_steps: int
+    tool_timeout_s: float
+    tool_result_max_tokens: int
+    max_repeats: int
+    max_protocol_errors: int
+    json_protocol_response_format: Literal["json_object", "none"]
+
+
+@dataclass(frozen=True)
+class LengthRetryConfig:
+    retries: int
+    factor: float
+
+
+@dataclass(frozen=True)
+class EscalationConfig:
+    max_repairs: int
+    next: Mapping[str, str]
+
+
+@dataclass(frozen=True)
 class HarnessConfig:
     base_url: str
     models: Mapping[str, ModelConfig]
@@ -67,6 +92,9 @@ class HarnessConfig:
     max_concurrent_requests: int
     mode: Mode
     cassette_dir: Path
+    loop: LoopConfig
+    length_retry: LengthRetryConfig
+    escalation: EscalationConfig
 
     def model(self, alias: str) -> ModelConfig:
         try:
@@ -102,8 +130,8 @@ def load_config(
             raise ConfigError(f"model {alias} has no id in config/prices.json")
         if alias not in per_model_limits:
             raise ConfigError(f"model {alias} has no entry in config/rate_limits.json")
-        if raw["max_tokens"] <= 0:
-            raise ConfigError(f"model {alias}: max_tokens must be positive")
+        if not 0 < raw["max_tokens"] <= raw["max_tokens_cap"]:
+            raise ConfigError(f"model {alias}: need 0 < max_tokens <= max_tokens_cap")
         models[alias] = ModelConfig(
             alias=alias,
             model_id=model_ids[alias],
@@ -113,6 +141,10 @@ def load_config(
             top_p=raw.get("top_p"),
             reasoning_fields=tuple(raw["reasoning_fields"]),
             disallowed={k: tuple(v) for k, v in raw.get("disallowed", {}).items()},
+            max_tokens_cap=int(raw["max_tokens_cap"]),
+            loop_protocol=_choice(  # type: ignore[arg-type]
+                raw["loop_protocol"], get_args(LoopProtocol), f"{alias}.loop_protocol"
+            ),
         )
     limits = {
         alias: ModelLimit(v["requests_per_minute"], v["tokens_per_minute"])
@@ -131,6 +163,14 @@ def load_config(
         raise ConfigError("max_concurrent_requests must be at least 1")
     if retry["max_attempts"] < 1:
         raise ConfigError("retry.max_attempts must be at least 1")
+    loop, length, escalation = data["loop"], data["length_retry"], data["escalation"]
+    if loop["max_steps"] < 1 or loop["max_repeats"] < 0 or loop["max_protocol_errors"] < 0:
+        raise ConfigError("loop: max_steps >= 1, max_repeats >= 0, max_protocol_errors >= 0")
+    if length["retries"] < 0 or length["factor"] <= 1:
+        raise ConfigError("length_retry: retries >= 0 and factor > 1")
+    for low, high in escalation["next"].items():
+        if low not in models or high not in models:
+            raise ConfigError(f"escalation.next: unknown model in {low} -> {high}")
     return HarnessConfig(
         base_url=env.get("NEBIUS_BASE_URL") or data["base_url"],
         models=models,
@@ -152,4 +192,18 @@ def load_config(
         max_concurrent_requests=int(concurrency),
         mode=_choice(mode, get_args(Mode), "HARNESS_MODE"),  # type: ignore[arg-type]
         cassette_dir=cassette_dir,
+        loop=LoopConfig(
+            max_steps=int(loop["max_steps"]),
+            tool_timeout_s=float(loop["tool_timeout_s"]),
+            tool_result_max_tokens=int(loop["tool_result_max_tokens"]),
+            max_repeats=int(loop["max_repeats"]),
+            max_protocol_errors=int(loop["max_protocol_errors"]),
+            json_protocol_response_format=_choice(  # type: ignore[arg-type]
+                loop["json_protocol_response_format"],
+                ("json_object", "none"),
+                "loop.json_protocol_response_format",
+            ),
+        ),
+        length_retry=LengthRetryConfig(int(length["retries"]), float(length["factor"])),
+        escalation=EscalationConfig(int(escalation["max_repairs"]), dict(escalation["next"])),
     )

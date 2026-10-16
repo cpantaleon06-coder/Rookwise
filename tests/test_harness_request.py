@@ -5,7 +5,12 @@ import json
 import pytest
 from harness_support import LIGHTNING, ULTRA, config, request
 
-from rookwise.harness.request import JsonSchemaFormat, RequestError, build_request
+from rookwise.harness.request import (
+    JsonObjectFormat,
+    JsonSchemaFormat,
+    RequestError,
+    build_request,
+)
 
 NANO = "nemotron-3-nano"
 SCHEMA = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}
@@ -61,3 +66,48 @@ def test_invalid_requests_are_refused():
         build_request(request(messages=[{"content": "no role"}]), config())
     with pytest.raises(RequestError):
         build_request(request(max_tokens=0), config())
+
+
+ADD = {
+    "type": "function",
+    "function": {"name": "add", "description": "Add.", "parameters": {"type": "object"}},
+}
+
+
+def test_tools_and_tool_choice_are_sent():
+    body = build_request(request(tools=(ADD,), tool_choice="auto"), config()).body
+    assert body["tools"] == [ADD] and body["tool_choice"] == "auto"
+    assert "tools" not in build_request(request(), config()).body
+
+
+def test_tools_with_response_format_or_tool_choice_alone_are_refused():
+    fmt = JsonSchemaFormat(name="x", schema=SCHEMA)
+    with pytest.raises(RequestError, match="tools cannot be combined"):
+        build_request(request(tools=(ADD,), response_format=fmt), config())
+    with pytest.raises(RequestError, match="tool_choice needs tools"):
+        build_request(request(tool_choice="auto"), config())
+
+
+def test_json_object_format_and_the_max_tokens_cap():
+    body = build_request(request(response_format=JsonObjectFormat()), config()).body
+    assert body["response_format"] == {"type": "json_object"}
+    cap = config().model(LIGHTNING).max_tokens_cap
+    assert build_request(request(max_tokens=cap), config()).max_tokens == cap
+    with pytest.raises(RequestError):
+        build_request(request(max_tokens=cap + 1), config())
+
+
+def test_loop_protocols_and_ladder_follow_the_tool_probe():
+    cfg = config()
+    protocols = {alias: m.loop_protocol for alias, m in cfg.models.items()}
+    assert protocols == {
+        "nemotron-3-ultra": "native_tools",
+        "nemotron-3-super": "native_tools",
+        "nemotron-3.5-lightning": "native_tools",
+        "nemotron-3-nano": "json_protocol",
+    }
+    assert cfg.escalation.next[LIGHTNING] == "nemotron-3-super"
+    assert cfg.escalation.next[NANO] == "nemotron-3-super"
+    assert cfg.escalation.next["nemotron-3-super"] == ULTRA
+    assert ULTRA not in cfg.escalation.next
+    assert cfg.length_retry.retries == 1

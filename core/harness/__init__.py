@@ -8,8 +8,9 @@ Public surface:
   a `Result`. Use it as an async context manager, or call `aclose()`.
 - `ChatRequest`, `JsonSchemaFormat`: what to send. Model defaults and quirks come from
   config/harness.json; `build_request` shows the exact body.
-- Events: `StreamStart`, `TextDelta`, `ReasoningDelta`, `UsageEvent`, `Finish`,
-  `ErrorEvent` (the `Event` union).
+- Events: `StreamStart`, `TextDelta`, `ReasoningDelta`, `ToolCallDelta`, `UsageEvent`,
+  `Finish`, `ErrorEvent` (the `Event` union); `ToolCall` and `assemble_tool_calls` for
+  native tool calls.
 - `CancelHandle`: cancel a call from outside; asyncio cancellation works too.
 - Errors: `HarnessError` (base), `ApiError` (with a `kind` from the taxonomy),
   `StreamInterrupted`, `RequestError`, `ConfigError`. Budget refusals raise the
@@ -34,10 +35,19 @@ from rookwise.harness.events import (
     ReasoningDelta,
     StreamStart,
     TextDelta,
+    ToolCall,
+    ToolCallDelta,
     UsageEvent,
+    assemble_tool_calls,
 )
 from rookwise.harness.ratelimit import Clock, RateLimiter
-from rookwise.harness.request import ChatRequest, JsonSchemaFormat, RequestError, build_request
+from rookwise.harness.request import (
+    ChatRequest,
+    JsonObjectFormat,
+    JsonSchemaFormat,
+    RequestError,
+    build_request,
+)
 from rookwise.harness.retry import ApiError, HarnessError, RetryPolicy, StreamInterrupted
 
 __all__ = [
@@ -54,6 +64,7 @@ __all__ = [
     "Harness",
     "HarnessConfig",
     "HarnessError",
+    "JsonObjectFormat",
     "JsonSchemaFormat",
     "RateLimiter",
     "ReasoningDelta",
@@ -63,7 +74,10 @@ __all__ = [
     "StreamInterrupted",
     "StreamStart",
     "TextDelta",
+    "ToolCall",
+    "ToolCallDelta",
     "UsageEvent",
+    "assemble_tool_calls",
     "build_request",
     "load_config",
 ]

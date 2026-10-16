@@ -408,3 +408,30 @@ def test_a_missing_key_is_refused_before_any_call(monkeypatch):
     monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
     with pytest.raises(HarnessError, match="NEBIUS_API_KEY"):
         Harness(ledger(), config=config())
+
+
+def test_native_tool_calls_stream_and_assemble():
+    async def main():
+        from harness_support import tool_call
+
+        book = ledger()
+        body = sse(
+            [
+                role(),
+                content("I need the add tool."),
+                tool_call(id="call_9", name="add", arguments='{"a": '),
+                tool_call(arguments="1}"),
+                finish("tool_calls"),
+                final_usage(prompt=300, completion=30),
+            ]
+        )
+        async with _harness(Handler([respond(body)]), book) as harness:
+            result = await harness.complete(request())
+        assert result.finish_reason == "tool_calls"
+        assert [(c.id, c.name, c.arguments) for c in result.tool_calls] == [
+            ("call_9", "add", '{"a": 1}')
+        ]
+        assert result.text == "I need the add tool."
+        _assert_no_hold(book)
+
+    run(main())

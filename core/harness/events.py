@@ -1,14 +1,15 @@
 """Normalized stream events, the same for every model and for live, record and replay.
 
-A successful stream is: `StreamStart`, any number of `TextDelta` and `ReasoningDelta`,
-one `UsageEvent`, then `Finish`. A failed attempt yields an `ErrorEvent`; the stream
-then either retries (a new `StreamStart` follows) or raises. Events are frozen pydantic
-models with a `type` tag, like the contracts in `rookwise.schemas`, so a cassette can
-store them as JSON and read them back unchanged.
+A successful stream is: `StreamStart`, any number of `TextDelta`, `ReasoningDelta` and
+`ToolCallDelta`, one `UsageEvent`, then `Finish`. A failed attempt yields an
+`ErrorEvent`; the stream then either retries (a new `StreamStart` follows) or raises.
+Events are frozen pydantic models with a `type` tag, like the contracts in
+`rookwise.schemas`, so a cassette can store them as JSON and read them back unchanged.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt, TypeAdapter
@@ -53,6 +54,20 @@ class ReasoningDelta(_Event):
     text: str
 
 
+class ToolCallDelta(_Event):
+    """A fragment of a native tool call, as streamed (see `assemble_tool_calls`).
+
+    The first fragment of a call carries `id` and `name`; later ones only an `arguments`
+    piece (VERIFIED in the tool-calling probe, HARNESS_RESEARCH.md).
+    """
+
+    type: Literal["tool_call_delta"] = "tool_call_delta"
+    index: int = Field(ge=0)
+    id: str | None = None
+    name: str | None = None
+    arguments: str = ""
+
+
 class UsageEvent(_Event):
     """Token counts charged to the ledger. `estimated` is true when the API sent none."""
 
@@ -86,7 +101,31 @@ class ErrorEvent(_Event):
 
 
 Event = Annotated[
-    StreamStart | TextDelta | ReasoningDelta | UsageEvent | Finish | ErrorEvent,
+    StreamStart | TextDelta | ReasoningDelta | ToolCallDelta | UsageEvent | Finish | ErrorEvent,
     Field(discriminator="type"),
 ]
 EVENT_ADAPTER: TypeAdapter[Event] = TypeAdapter(Event)
+
+
+class ToolCall(_Event):
+    """A complete native tool call. `arguments` is the raw JSON text the model sent."""
+
+    id: str
+    name: str
+    arguments: str
+
+
+def assemble_tool_calls(fragments: Iterable[ToolCallDelta]) -> tuple[ToolCall, ...]:
+    """Join fragments per `index`: the first non-empty id and name win, arguments are
+    concatenated. Nano sent a late fragment that repeated `id` as null, which is ignored.
+    A call without an id gets `call_<index>`; one without a name gets ""."""
+    calls: dict[int, dict[str, str]] = {}
+    for piece in fragments:
+        call = calls.setdefault(piece.index, {"id": "", "name": "", "arguments": ""})
+        call["id"] = call["id"] or (piece.id or "")
+        call["name"] = call["name"] or (piece.name or "")
+        call["arguments"] += piece.arguments
+    return tuple(
+        ToolCall(id=c["id"] or f"call_{i}", name=c["name"], arguments=c["arguments"])
+        for i, c in sorted(calls.items())
+    )

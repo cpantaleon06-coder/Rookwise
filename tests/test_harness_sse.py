@@ -1,9 +1,25 @@
 """SSE decoding and chunk normalization, with chunks shaped like the streaming probe saw them."""
 
 import pytest
-from harness_support import chunk, content, final_usage, finish, reasoning, role, sse, usage
+from harness_support import (
+    chunk,
+    content,
+    final_usage,
+    finish,
+    reasoning,
+    role,
+    sse,
+    tool_call,
+    usage,
+)
 
-from rookwise.harness.events import ReasoningDelta, TextDelta
+from rookwise.harness.events import (
+    ReasoningDelta,
+    TextDelta,
+    ToolCall,
+    ToolCallDelta,
+    assemble_tool_calls,
+)
 from rookwise.harness.retry import ApiError
 from rookwise.harness.sse import ChunkNormalizer, SSEDecoder
 from rookwise.ledger import Usage
@@ -80,3 +96,76 @@ def test_error_chunk_and_bad_json_raise():
     with pytest.raises(ApiError) as caught:
         normalizer.feed("{not json")
     assert caught.value.kind == "protocol"
+
+
+def _tool_events(payloads: list[str]) -> list[ToolCallDelta]:
+    normalizer = ChunkNormalizer(["reasoning"])
+    events = [e for p in payloads for e in normalizer.feed(p)]
+    assert all(isinstance(e, ToolCallDelta) for e in events)
+    return events
+
+
+def test_tool_call_fragments_like_ultra_assemble():
+    events = _tool_events(
+        [
+            tool_call(id="chatcmpl-tool-1", name="add", arguments=None),
+            tool_call(arguments='{"a": '),
+            tool_call(arguments='17, "b": '),
+            tool_call(arguments="25}"),
+        ]
+    )
+    assert events[0] == ToolCallDelta(index=0, id="chatcmpl-tool-1", name="add")
+    assert assemble_tool_calls(events) == (
+        ToolCall(id="chatcmpl-tool-1", name="add", arguments='{"a": 17, "b": 25}'),
+    )
+
+
+def test_tool_call_in_one_piece_like_lightning_and_late_null_id_like_nano():
+    lightning = _tool_events(
+        [tool_call(id="call_1", name="add", arguments=None), tool_call(arguments='{"a":1}')]
+    )
+    assert assemble_tool_calls(lightning)[0].arguments == '{"a":1}'
+    nano = _tool_events(
+        [
+            tool_call(id="call_2", name="add", arguments=""),
+            tool_call(arguments="{"),
+            tool_call(arguments='"a": 1'),
+            chunk(
+                [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": "function",
+                                    "function": {"arguments": "}"},
+                                }
+                            ]
+                        },
+                    }
+                ]
+            ),
+        ]
+    )
+    assert assemble_tool_calls(nano) == (ToolCall(id="call_2", name="add", arguments='{"a": 1}'),)
+
+
+def test_parallel_tool_calls_keep_their_index():
+    events = _tool_events(
+        [
+            tool_call(index=0, id="a", name="add", arguments="{}"),
+            tool_call(index=1, id="b", name="mul", arguments="{}"),
+        ]
+    )
+    assert [c.name for c in assemble_tool_calls(events)] == ["add", "mul"]
+
+
+def test_tool_call_stream_ends_with_tool_calls_finish():
+    body = sse([role(), tool_call(id="c", name="add", arguments="{}"), finish("tool_calls")])
+    decoder = SSEDecoder()
+    normalizer = ChunkNormalizer(["reasoning"])
+    for payload in decoder.feed(body):
+        normalizer.feed(payload)
+    assert normalizer.outcome.finish_reason == "tool_calls" and normalizer.outcome.done

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from rookwise.harness.cost import parse_usage
-from rookwise.harness.events import ReasoningDelta, TextDelta
+from rookwise.harness.events import ReasoningDelta, TextDelta, ToolCallDelta
 from rookwise.harness.retry import ApiError, classify_status
 from rookwise.ledger import Usage
 
@@ -106,7 +106,7 @@ class ChunkNormalizer:
         self._reasoning_fields = tuple(reasoning_fields)
         self.outcome = StreamOutcome()
 
-    def feed(self, payload: str) -> list[TextDelta | ReasoningDelta]:
+    def feed(self, payload: str) -> list[TextDelta | ReasoningDelta | ToolCallDelta]:
         if payload.strip() == DONE:
             self.outcome.done = True
             return []
@@ -127,7 +127,7 @@ class ChunkNormalizer:
         outcome = self.outcome
         outcome.response_id = outcome.response_id or chunk.get("id")
         choices = chunk.get("choices")
-        events: list[TextDelta | ReasoningDelta] = []
+        events: list[TextDelta | ReasoningDelta | ToolCallDelta] = []
         for choice in choices or []:
             if choice.get("index", 0) != 0:
                 continue  # the harness never asks for n > 1
@@ -140,6 +140,16 @@ class ChunkNormalizer:
             content = delta.get("content")
             if isinstance(content, str) and content:
                 events.append(TextDelta(text=content))
+            for piece in delta.get("tool_calls") or []:
+                function = piece.get("function") or {}
+                events.append(
+                    ToolCallDelta(
+                        index=piece.get("index") or 0,
+                        id=piece.get("id") or None,
+                        name=function.get("name") or None,
+                        arguments=function.get("arguments") or "",
+                    )
+                )
             if choice.get("finish_reason") is not None:
                 outcome.finish_reason = choice["finish_reason"]
         usage = chunk.get("usage")

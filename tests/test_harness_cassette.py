@@ -313,3 +313,32 @@ def test_mode_and_cassette_dir_come_from_the_environment(tmp_path):
     assert load_config(env={}).mode == "live"
     with pytest.raises(ConfigError):
         load_config(env={"HARNESS_MODE": "sometimes"})
+
+
+def test_tool_call_deltas_are_recorded_and_replayed(tmp_path, monkeypatch):
+    from harness_support import tool_call
+
+    path = tmp_path / "tools.json"
+    body = sse(
+        [
+            role(),
+            tool_call(id="c1", name="add", arguments='{"a":1}'),
+            finish("tool_calls"),
+            final_usage(prompt=10, completion=5),
+        ]
+    )
+
+    async def record():
+        async with _harness(ledger(), Cassette(path, "record"), Handler([respond(body)])) as h:
+            return await h.complete(request())
+
+    recorded = run(record())
+    monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
+
+    async def replay():
+        async with _harness(ledger(), Cassette(path, "replay")) as h:
+            return await h.complete(request())
+
+    replayed = run(replay())
+    assert replayed.tool_calls == recorded.tool_calls and len(recorded.tool_calls) == 1
+    assert replayed.events == recorded.events

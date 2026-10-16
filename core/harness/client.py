@@ -45,7 +45,10 @@ from rookwise.harness.events import (
     ReasoningDelta,
     StreamStart,
     TextDelta,
+    ToolCall,
+    ToolCallDelta,
     UsageEvent,
+    assemble_tool_calls,
 )
 from rookwise.harness.ratelimit import Clock, Permit, RateLimiter, SystemClock
 from rookwise.harness.request import BuiltRequest, ChatRequest, build_request
@@ -109,6 +112,7 @@ class Result:
     cancelled: bool
     attempts: int
     events: tuple[Event, ...]
+    tool_calls: tuple[ToolCall, ...] = ()
 
 
 class _Marker:
@@ -256,6 +260,7 @@ class Harness:
             cancelled=finish.cancelled,
             attempts=max(attempts, default=0),
             events=tuple(events),
+            tool_calls=assemble_tool_calls(e for e in events if isinstance(e, ToolCallDelta)),
         )
 
     async def stream(
@@ -361,9 +366,12 @@ class Harness:
                             attempt=state.number,
                         )
                         continue
-                    (state.text if isinstance(item, TextDelta) else state.reasoning).append(
-                        item.text
-                    )
+                    if isinstance(item, ToolCallDelta):
+                        state.text.append(item.arguments)  # only feeds the output estimate
+                    else:
+                        (state.text if isinstance(item, TextDelta) else state.reasoning).append(
+                            item.text
+                        )
                     yield item
             finally:
                 unsubscribe()
@@ -467,7 +475,7 @@ class Harness:
         status, error = "ok", None
         try:
             async for item in source:
-                if isinstance(item, TextDelta | ReasoningDelta):
+                if isinstance(item, TextDelta | ReasoningDelta | ToolCallDelta):
                     events.append({**item.model_dump(), "t": round(self._clock.now() - start, 3)})
                 yield item
         except ApiError as failure:
