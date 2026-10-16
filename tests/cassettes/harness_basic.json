@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "interactions": [
+    {
+      "key": "b54e2826d9d8af1c34dfaad5ef7783aa914259b05bf04c8f09f58bb3e4b77ce0",
+      "index": 0,
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Count from 1 to 3."
+          }
+        ],
+        "max_tokens": 64,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "status": "ok",
+      "error": null,
+      "response_id": "chatcmpl-test",
+      "finish_reason": "stop",
+      "done": true,
+      "usage": {
+        "input_tokens": 35,
+        "output_tokens": 21,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0
+      },
+      "running_usage": null,
+      "events": [
+        {
+          "type": "text_delta",
+          "text": "1 2 3",
+          "t": 0.0
+        }
+      ]
+    },
+    {
+      "key": "b54e2826d9d8af1c34dfaad5ef7783aa914259b05bf04c8f09f58bb3e4b77ce0",
+      "index": 1,
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Count from 1 to 3."
+          }
+        ],
+        "max_tokens": 64,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "status": "ok",
+      "error": null,
+      "response_id": "chatcmpl-test",
+      "finish_reason": "stop",
+      "done": true,
+      "usage": {
+        "input_tokens": 35,
+        "output_tokens": 22,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0
+      },
+      "running_usage": null,
+      "events": [
+        {
+          "type": "text_delta",
+          "text": "4 5 6",
+          "t": 0.0
+        }
+      ]
+    },
+    {
+      "key": "99b8462907d87483c6c09dff76586b767c4ce236fbce36411da64ded07fbe348",
+      "index": 0,
+      "request": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Count from 1 to 3."
+          }
+        ],
+        "max_tokens": 256,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      },
+      "status": "ok",
+      "error": null,
+      "response_id": "chatcmpl-test",
+      "finish_reason": "stop",
+      "done": true,
+      "usage": {
+        "input_tokens": 41,
+        "output_tokens": 99,
+        "cached_tokens": 0,
+        "reasoning_tokens": 95
+      },
+      "running_usage": null,
+      "events": [
+        {
+          "type": "reasoning_delta",
+          "text": "3 pens cost $2, so 12 cost $8.",
+          "t": 0.0
+        },
+        {
+          "type": "text_delta",
+          "text": "$8",
+          "t": 0.0
+        }
+      ]
+    },
+    {
+      "key": "61cc429b8be0d901131601f67c7e04101907b1e94dddf68c65463f32de509b2f",
+      "index": 0,
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Bad request."
+          }
+        ],
+        "max_tokens": 64,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "status": "error",
+      "error": {
+        "kind": "validation",
+        "message": "{\"detail\": [{\"type\": \"missing\", \"loc\": [\"body\", \"x\"]}]}",
+        "status_code": 422,
+        "retry_after_s": null,
+        "after_start": false
+      },
+      "response_id": null,
+      "finish_reason": null,
+      "done": false,
+      "usage": null,
+      "running_usage": null,
+      "events": []
+    },
+    {
+      "key": "3b6e4a3612b637c75e0808f2615f718ab9085f43320feeb445ac472a5b2bad99",
+      "index": 0,
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "messages": [
+          {
+            "role": "user",
+            "content": "No usage."
+          }
+        ],
+        "max_tokens": 64,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "status": "ok",
+      "error": null,
+      "response_id": "chatcmpl-test",
+      "finish_reason": "stop",
+      "done": true,
+      "usage": null,
+      "running_usage": null,
+      "events": [
+        {
+          "type": "text_delta",
+          "text": "partial",
+          "t": 0.0
+        }
+      ]
+    }
+  ]
+}

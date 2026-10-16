@@ -115,6 +115,8 @@ Responsibilities:
 
 What is verified and what is not is tracked in `docs/HARNESS_RESEARCH.md`.
 
+Built so far (Stage 1, 2026-10-15): streaming calls with `stream_options.include_usage`, the reserve, charge and release cycle with the ledger, per-model limits on requests and tokens per minute plus a concurrency cap, bounded retries, cancellation, and record and replay of calls (`HARNESS_MODE`: live, record or replay). Settings and model quirks live in `config/harness.json`. When a stream ends or is cut without usage, the harness charges the full reservation and marks the usage estimated (`on_missing_usage`). Not built yet (Stage 2): the tool loop, schema validation with retries, the `finish_reason: "length"` retry and reading `x-ratelimit-*` headers. The public surface is documented at the top of `core/harness/__init__.py`.
+
 ## Operator catalog
 
 Each operator is a catalog entry with role, model, price estimate, latency, reputation, tools, skills and schemas. `skills` lists the ids of the Nemotron-adapted skills composed into the operator's system prompt; `config/skills.json` maps each role to its skills.
