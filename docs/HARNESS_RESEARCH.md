@@ -384,3 +384,13 @@ Summary across the four models (details per model below):
 - VERIFIED (`json_action`): no `delta.tool_calls` fragments.
 - VERIFIED (`json_action`): content `"{\"action\": \"tool\", \"name\": \"add\", \"args\": {\"a\": 17, \"b\": 25}}"`.
 - VERIFIED (`json_action`): final usage `{"prompt_tokens": 111, "total_tokens": 141, "completion_tokens": 30}`.
+
+## Tavily probe (2026-10-16)
+
+Observed with `scripts/tavily_probe.py` (raw reply in `runs/tavily_probe.json`, gitignored): one search, query `"What is the capital of France?"`, `max_results` 3, sent exactly as `core/tools/tavily.py` sends it. One sample. Tavily bills by its own plan; no price is recorded.
+
+- VERIFIED: `POST https://api.tavily.com/search` with a JSON body `{"query", "max_results"}` and `Authorization: Bearer <key>` returned HTTP 200.
+- VERIFIED: response keys `["answer", "follow_up_questions", "images", "query", "request_id", "response_time", "results"]`.
+- VERIFIED: 3 results; keys per result `["content", "id", "raw_content", "score", "title", "url"]`.
+- VERIFIED: the reply had no field named like usage, credit, cost, billing or quota. UNVERIFIED: credits used per search (check the Tavily dashboard).
+- VERIFIED: `core/tools/tavily.py` parsed this reply into 3 results with `title`, `url` and `content`; no change to the tool was needed. A test pins the observed shape.

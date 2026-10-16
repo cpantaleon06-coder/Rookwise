@@ -4,15 +4,16 @@ The key is read from `TAVILY_API_KEY` in the environment (or passed in) and neve
 logged. Without a key the tool is unavailable: the loop does not offer it, and a call
 returns an `unavailable` error to the model instead of failing the run.
 
-API shape, UNVERIFIED in this repo (no live Tavily call has been made yet; from Tavily's
-public docs): `POST https://api.tavily.com/search` with a JSON body
-`{"query", "max_results"}` and the key in an `Authorization: Bearer` header; the reply
-has a `results` list of objects with `title`, `url` and `content`. Only those three
-fields are passed back to the model.
+API shape, VERIFIED with one live search on 2026-10-16 (scripts/tavily_probe.py,
+HARNESS_RESEARCH.md "Tavily probe"): `POST https://api.tavily.com/search` with a JSON
+body `{"query", "max_results"}` and the key in an `Authorization: Bearer` header returned
+HTTP 200 and a `results` list whose items have `title`, `url`, `content`, `score`,
+`raw_content` and `id`. Only `title`, `url` and `content` are passed back to the model.
 
-Cost: Tavily bills by its own plan, not from the Nebius credits. No dollar price is
-recorded here (UNVERIFIED); queries are counted per run instead (`query_count`), and the
-tool loop counts calls per tool name in its outcome, which is what the run record uses.
+Cost: Tavily bills by its own plan, not from the Nebius credits. The reply carried no
+usage or credit field, so no dollar price is recorded here (UNVERIFIED); queries are
+counted per run instead (`query_count`), and the tool loop counts calls per tool name in
+its outcome, which is what the run record uses.
 """
 
 from __future__ import annotations

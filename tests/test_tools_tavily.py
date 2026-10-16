@@ -98,3 +98,36 @@ def test_errors_and_bad_arguments_raise_for_the_loop_to_report():
         await odd.aclose()
 
     run(main())
+
+
+def test_the_reply_shape_seen_in_the_tavily_probe_parses():
+    # Keys and value types as observed on 2026-10-16 (HARNESS_RESEARCH.md, "Tavily probe");
+    # the values are made up.
+    observed = {
+        "query": "q",
+        "follow_up_questions": None,
+        "answer": None,
+        "images": [],
+        "results": [
+            {
+                "url": "https://a.example",
+                "title": "A",
+                "content": "Paris.",
+                "score": 0.98,
+                "raw_content": None,
+                "id": "abc123def",
+            }
+        ],
+        "response_time": 0.8,
+        "request_id": "req-1",
+    }
+
+    async def main():
+        tavily = _client(body=observed)
+        result = await tavily.search({"query": "q", "max_results": 3}, CTX)
+        await tavily.aclose()
+        return result
+
+    assert run(main()) == {
+        "results": [{"title": "A", "url": "https://a.example", "content": "Paris."}]
+    }
