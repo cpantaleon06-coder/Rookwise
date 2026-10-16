@@ -37,8 +37,11 @@ def parse_usage(raw: Mapping[str, Any]) -> Usage:
       undocumented `prompt_cache_hit_tokens` field is not used: it was 0 in every call so
       far and its billing meaning is UNVERIFIED.
     - `reasoning_tokens` is `completion_tokens_details.reasoning_tokens`, 0 when absent.
-      Billing of reasoning tokens is UNVERIFIED: the ledger counts them as output tokens,
-      and adds them only when they exceed `completion_tokens` (call_cost).
+      `completion_tokens` already includes them (VERIFIED on all four models,
+      HARNESS_RESEARCH.md, "Reasoning token accounting"), so they are billed once, as
+      part of the output. `call_cost` adds them only if a response ever reports more
+      reasoning than completion tokens, which no observed call did. Whether Token
+      Factory bills them at the output price is still UNVERIFIED (no console check).
     """
     prompt_details = raw.get("prompt_tokens_details") or {}
     completion_details = raw.get("completion_tokens_details") or {}

@@ -239,3 +239,16 @@ Summary across the four models (details per model below):
 - VERIFIED (reasoning on): `[DONE]` seen: True; only blank lines between events (non-data lines `[]`); `"usage": null` chunks: 0.
 - VERIFIED (client close): closed after 4 JSON chunks; `usage` chunks received before the close: 4 (final `choices: []` chunk received: False); error raised by the close: `null`.
 - VERIFIED (headers, `off` call): `retry-after` present: False; x-ratelimit headers `{"x-ratelimit-dynamic-period-remaining": "900s", "x-ratelimit-dynamic-period-usage-requests": "0%", "x-ratelimit-dynamic-period-usage-tokens": "0%", "x-ratelimit-dynamic-scale-requests": "1.00", "x-ratelimit-dynamic-scale-tokens": "1.00", "x-ratelimit-limit-requests": "100", "x-ratelimit-limit-tokens": "800000", "x-ratelimit-remaining-requests": "99", "x-ratelimit-remaining-tokens": "799935", "x-ratelimit-reset-requests": "1s", "x-ratelimit-reset-tokens": "1s"}`.
+
+## Reasoning token accounting (2026-10-16)
+
+Checked without API calls on the saved streaming probe data (`runs/stream_probe.json`, the run in "Streaming probe" above).
+
+- VERIFIED: on all eight streaming probe calls, `total_tokens` equals `prompt_tokens` plus `completion_tokens`.
+- VERIFIED: `completion_tokens` includes the reasoning tokens on all four models.
+  - Ultra, reasoning on: the running `completion_tokens` rose from 1 to 97 over 22 chunks that carried only reasoning text. Final: `completion_tokens` 99, `reasoning_tokens` 95, 2 characters of content.
+  - Nano, reasoning on (no `reasoning_tokens` field): the running `completion_tokens` rose from 1 to 97 over 96 reasoning-only chunks. Final: `completion_tokens` 101, 2 characters of content.
+  - Super, reasoning on: `completion_tokens` 135, `reasoning_tokens` 131, 2 characters of content. If the reasoning were not included, 135 completion tokens would have produced only 2 characters.
+  - Lightning, reasoning on: `completion_tokens` 256 equals `reasoning_tokens` 256 equals `max_tokens`. The 758 characters of reasoning repeated as content (see the streaming probe) were not counted a second time.
+- UNVERIFIED: whether Token Factory bills reasoning tokens at the output price. No console comparison yet.
+- Consequence: the ledger bills `completion_tokens` as output, which already holds the reasoning, so reasoning is billed once. `call_cost` adds `reasoning_tokens` only when they exceed `completion_tokens`, which no observed call did. The cost code is unchanged; a regression test pins the Ultra numbers above.

@@ -4,6 +4,7 @@ import pytest
 from harness_support import usage
 
 from rookwise.harness.cost import (
+    call_cost,
     cost_usd,
     estimate_usage_from_text,
     full_reservation_usage,
@@ -35,6 +36,16 @@ def test_reasoning_tokens_count_as_output():
     price = ModelPrice(0.0, 1.0)
     assert cost_usd(price, Usage(0, 1_000_000, reasoning_tokens=900_000)) == 1.0
     assert cost_usd(price, Usage(0, 100_000, reasoning_tokens=200_000)) == 0.3
+
+
+def test_reasoning_inside_completion_tokens_is_billed_once():
+    # Ultra, reasoning on, from the streaming probe: completion_tokens 99 already holds
+    # the 95 reasoning tokens (HARNESS_RESEARCH.md, "Reasoning token accounting").
+    raw = usage(prompt=41, completion=99, cached=0, reasoning_tokens=95)
+    price = load_prices()["nemotron-3-ultra"]
+    cost = call_cost(price, parse_usage(raw))
+    assert cost.billed_output_tokens == 99
+    assert cost.usd == pytest.approx((41 * 1.00 + 99 * 3.00) / 1_000_000)
 
 
 def test_full_reservation_costs_exactly_the_worst_case():
