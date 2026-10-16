@@ -394,3 +394,24 @@ Observed with `scripts/tavily_probe.py` (raw reply in `runs/tavily_probe.json`, 
 - VERIFIED: 3 results; keys per result `["content", "id", "raw_content", "score", "title", "url"]`.
 - VERIFIED: the reply had no field named like usage, credit, cost, billing or quota. UNVERIFIED: credits used per search (check the Tavily dashboard).
 - VERIFIED: `core/tools/tavily.py` parsed this reply into 3 results with `title`, `url` and `content`; no change to the tool was needed. A test pins the observed shape.
+
+## Tool-calling reliability (2026-10-16)
+
+Observed with `scripts/tool_reliability.py` (raw results in `runs/tool_reliability.json`, gitignored): the Stage 2 tool task (use `add` for 17 + 25, then answer `{"sum": 42}`) through the harness tool loop, reasoning off, `max_tokens` 128 per step, 15 runs planned per model and protocol, interleaved. A run succeeds when the final answer is `{"sum": 42}` and the tool ran exactly once with `{"a": 17, "b": 25}`. Estimated spend (ledger): USD 0.037607, cap USD 0.10. All 120 runs completed; no reservation was refused.
+
+| Model | Protocol | Successes | Failures by kind | Mean model calls |
+|---|---|---|---|---|
+| nemotron-3-ultra | native_tools | 15 / 15 (100%) | none | 2.0 |
+| nemotron-3-ultra | json_protocol | 15 / 15 (100%) | none | 2.0 |
+| nemotron-3-super | native_tools | 15 / 15 (100%) | none | 2.0 |
+| nemotron-3-super | json_protocol | 15 / 15 (100%) | none | 2.0 |
+| nemotron-3.5-lightning | native_tools | 15 / 15 (100%) | none | 2.0 |
+| nemotron-3.5-lightning | json_protocol | 15 / 15 (100%) | none | 2.0 |
+| nemotron-3-nano | native_tools | 15 / 15 (100%) | none | 2.1 |
+| nemotron-3-nano | json_protocol | 14 / 15 (93%) | wrong_final 1 | 2.4 |
+
+- VERIFIED: the table above, for these runs only (one prompt, one tool, reasoning off). Rates from 15 runs are rough; they say nothing about other tasks or tools.
+- VERIFIED: Ultra, Super and Lightning needed exactly 2 model calls in every run (tool call, then final answer) under both protocols.
+- VERIFIED: Nano needed a third call after a `PROTOCOL ERROR` reply in 6 of 15 `json_protocol` runs (5 then succeeded; the other ended with the final result `42` instead of `{"sum": 42}`, counted as a failure) and in 1 of 15 `native_tools` runs (it then succeeded).
+- Conflict with the tool-calling probe above: there, one sample per case put Nano on `json_protocol` (failures in `forced`, `reasoning_on` and `follow_up`). Here, through the harness loop with reasoning off and `tool_choice: "auto"`, Nano `native_tools` succeeded 15 of 15. The two runs differ in prompt, system message and tool choice. `config/harness.json` still sets Nano to `json_protocol`; changing it is the user's decision.
+- UNVERIFIED: reliability with reasoning on, several tools, parallel calls and long tool results.
