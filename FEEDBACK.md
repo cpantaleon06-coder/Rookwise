@@ -37,3 +37,17 @@ Kept from day one for the hackathon feedback requirement. One entry per finding:
   - Observed: the reference documents `reasoning_effort` (none, minimal, low, medium, high, xhigh, max) and no `chat_template_kwargs`. With `enable_thinking` false, Lightning and Ultra returned schema-valid JSON in 60 of 60 calls, with `reasoning_tokens` 0 and no length cutoffs. In the 2026-10-13 smoke test it gave correct short answers on all four models, while `reasoning_effort: "none"` on Nano returned `content: null`.
   - Reproduce: `python scripts/skill_check.py`, and `python scripts/smoke_test.py` for the four-model comparison.
   - What would help: document `chat_template_kwargs.enable_thinking` for Nemotron models, and say which reasoning control each model honors.
+
+## 2026-10-16
+- API: `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` tool calling was unreliable in streaming calls with one function tool (`add(a, b)`). Source: real calls, one sample each.
+  - Sent: streaming chat completions with `tools`, reasoning off unless stated, prompt "Use the add tool to compute 17 + 25. Do not compute it yourself."
+  - Observed, `tool_choice` naming the function: the response carried a tool call, but `finish_reason` was `"stop"`, not `"tool_calls"`.
+  - Observed, `tool_choice: "auto"` with reasoning on (`chat_template_kwargs.enable_thinking: true`): `finish_reason: "tool_calls"`, but the streamed argument pieces were `{`, `"a": 17` and `{}`, which do not join into valid JSON.
+  - Observed, follow-up turn (the tool call plus a `tool` message with the result `42`): the model called `add` again, with text content, instead of answering.
+  - Observed: a late tool-call fragment repeated the `id` and `type` keys with `id: null`.
+  - For comparison: Ultra, Super and Lightning returned well-formed tool calls in the same cases and answered after the tool result.
+  - Reproduce: `python scripts/tool_probe.py` (calls `forced`, `reasoning_on`, `follow_up`); details in `docs/HARNESS_RESEARCH.md`, "Tool-calling probe".
+- API: sending `tools` together with a json_schema `response_format` made all four Nemotron models skip the tool. Source: real calls, one sample each.
+  - Sent: `tools` with `add(a, b)`, `tool_choice: "auto"`, and `response_format: {"type": "json_schema", "json_schema": {"name": "sum_answer", "schema": {"sum": integer}, "strict": true}}`, prompt asking to use the tool and then answer as JSON.
+  - Observed: HTTP 200 on Ultra, Super, Lightning and Nano, no tool call, `finish_reason: "stop"`, content `{"sum": 42}` (Nano: `{ "sum": 42 }`).
+  - Reproduce: `python scripts/tool_probe.py` (call `with_schema`).
