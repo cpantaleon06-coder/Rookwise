@@ -156,7 +156,12 @@ class Ledger(Protocol):
     ) -> Reservation: ...
 
     def charge(
-        self, reservation: Reservation, usage: Usage, ts: datetime | None = None
+        self,
+        reservation: Reservation,
+        usage: Usage,
+        ts: datetime | None = None,
+        *,
+        usage_estimated: bool = False,
     ) -> LedgerEntry: ...
 
     def release(self, reservation: Reservation) -> None: ...
@@ -232,9 +237,17 @@ class InMemoryLedger:
             return reservation
 
     def charge(
-        self, reservation: Reservation, usage: Usage, ts: datetime | None = None
+        self,
+        reservation: Reservation,
+        usage: Usage,
+        ts: datetime | None = None,
+        *,
+        usage_estimated: bool = False,
     ) -> LedgerEntry:
-        """Charge the real cost of a finished call and release the rest of its hold."""
+        """Charge the real cost of a finished call and release the rest of its hold.
+
+        `usage_estimated` marks a charge made without reported usage (see LedgerEntry).
+        """
         with self._lock:
             run = self._run(reservation.run_id)
             if run.held.pop(reservation.id, None) is None:
@@ -254,6 +267,7 @@ class InMemoryLedger:
                 usd_predicted=reservation.usd_predicted,
                 ts=ts or datetime.now(UTC),
                 skills=list(reservation.skills),
+                usage_estimated=usage_estimated,
             )
             run.entries.append(entry)
             # Money already spent counts even when it passes a cap; the scope stops.

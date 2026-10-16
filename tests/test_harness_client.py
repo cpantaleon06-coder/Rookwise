@@ -84,6 +84,7 @@ def test_success_streams_events_and_charges_real_usage():
         report = _assert_no_hold(book)
         (entry,) = report.entries
         assert entry.input_tokens == 35 and entry.output_tokens == 21
+        assert entry.usage_estimated is False
         assert entry.skills == ["prose-style"]
         assert (
             result.usd
@@ -147,6 +148,7 @@ def test_missing_usage_charges_the_full_reservation_by_default():
         )
         (entry,) = _assert_no_hold(book).entries
         assert entry.usd_real == result.usd == _reservation_usd(request())
+        assert entry.usage_estimated is True
 
     run(main())
 
@@ -339,6 +341,7 @@ def test_a_stream_broken_after_the_start_is_charged_and_not_retried():
         assert len(handler.requests) == 1
         (entry,) = _assert_no_hold(book).entries
         assert caught.value.usd == entry.usd_real == _reservation_usd(request())
+        assert entry.usage_estimated is True
 
     run(main())
 

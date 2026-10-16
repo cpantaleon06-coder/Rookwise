@@ -60,7 +60,11 @@ class ResultV1(_Contract):
 
 
 class LedgerEntry(_Contract):
-    """ledger_entry: one charged model call. `skills` lists the skill ids in its prompt."""
+    """ledger_entry: one charged model call. `skills` lists the skill ids in its prompt.
+
+    `usage_estimated` is true when the API sent no usage and the harness charged under
+    `on_missing_usage` (the full reservation by default) instead of reported tokens.
+    """
 
     run_id: str
     level: Level
@@ -75,3 +79,4 @@ class LedgerEntry(_Contract):
     usd_predicted: NonNegativeFloat
     ts: datetime
     skills: list[str] = Field(default_factory=list)
+    usage_estimated: bool = False

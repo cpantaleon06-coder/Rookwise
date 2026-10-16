@@ -104,6 +104,15 @@ def test_charge_records_the_entry_and_releases_the_rest_of_the_hold():
         ledger.charge(reservation, Usage(1, 1), ts=TS)
 
 
+def test_charge_can_mark_the_usage_as_estimated():
+    ledger = InMemoryLedger()
+    ledger.open_run("r-1", Caps(run_usd=1.0))
+    real = ledger.charge(_reserve(ledger), Usage(10, 2), ts=TS)
+    estimated = ledger.charge(_reserve(ledger), Usage(10, 2), ts=TS, usage_estimated=True)
+    assert real.usage_estimated is False and estimated.usage_estimated is True
+    assert [e.usage_estimated for e in ledger.report("r-1").entries] == [False, True]
+
+
 def test_release_frees_a_hold_without_a_charge():
     ledger = InMemoryLedger()
     ledger.open_run("r-1", Caps(run_usd=1.0))

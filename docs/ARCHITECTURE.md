@@ -188,9 +188,12 @@ Messages carry ids and references, not content. Content lives in the store (Supa
   "cached_price_fallback": true,
   "usd_real": 0.00105,
   "usd_predicted": 0.00120,
-  "ts": "2026-10-20T15:02:11Z"
+  "ts": "2026-10-20T15:02:11Z",
+  "usage_estimated": false
 }
 ```
+
+Contract change on 2026-10-16: `ledger_entry` gained `usage_estimated` (boolean, default false). It is true when the API sent no usage and the harness charged under `on_missing_usage` in `config/harness.json` (the full reservation by default), so estimated charges stay visible in the ledger. The contracts carry no version number (`task_v1` and `result_v1` are unchanged); a reader that does not know the field can treat a missing value as false.
 
 ## Models, prices and cost estimate
 

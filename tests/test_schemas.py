@@ -27,6 +27,13 @@ def test_architecture_examples_validate():
     ResultV1.model_validate(examples["result_v1"])
     entry = LedgerEntry.model_validate(examples["ledger_entry"])
     assert entry.skills == []
+    assert entry.usage_estimated is False
+
+
+def test_usage_estimated_defaults_to_false_when_absent():
+    data = _examples()["ledger_entry"]
+    data.pop("usage_estimated")
+    assert LedgerEntry.model_validate(data).usage_estimated is False
 
 
 def test_ledger_entry_round_trips_with_skills():

@@ -553,5 +553,5 @@ class Harness:
             )
         else:
             usage = full_reservation_usage(built.input_tokens_estimate, built.max_tokens)
-        entry = self._ledger.charge(state.reservation, usage)
+        entry = self._ledger.charge(state.reservation, usage, usage_estimated=True)
         return _Settlement(usage, True, entry.usd_real)
