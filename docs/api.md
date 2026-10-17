@@ -16,7 +16,7 @@ Sources of truth, in order:
 - Base path `/api/v1`. JSON in UTF-8 everywhere except the event stream (Server-Sent Events).
 - Timestamps are ISO 8601 in UTC (`2026-10-20T15:00:00Z`).
 - Money is USD as a JSON number, unrounded, as the ledger computes it (`usd_real` and friends). The UI rounds for display.
-- Ids are opaque strings: `run_id` (for example `r-demo-001`), `task_id`, `agent_id`, `message_id`, `recording_id`. Event ids are `<run_id>:<seq>`.
+- Ids are opaque strings: `run_id` (for example `run_8f2c1a7d4b`), `task_id`, `agent_id`, `message_id`, `recording_id`. Event ids are `<run_id>:<seq>`.
 - Roles, skills, tools and models are plain strings (`"researcher"`, `"prose-style"`, `"tavily_search"`, `"nemotron-3.5-lightning"`). The demo domain only changes data, never the API.
 - Unknown fields are rejected in requests (HTTP 422) and never sent in responses; every object in the schemas has `additionalProperties: false`.
 
@@ -77,9 +77,9 @@ X-Accel-Buffering: no
 The stream starts with `retry: 3000` (reconnect after 3 s). Each event is one frame, with the JSON on a single `data:` line:
 
 ```
-id: r-demo-001:12
+id: run_8f2c1a7d4b:12
 event: tool_called
-data: {"id": "r-demo-001:12", "seq": 12, "run_id": "r-demo-001", "ts": "...", "type": "tool_called", "payload": {...}}
+data: {"id": "run_8f2c1a7d4b:12", "seq": 12, "run_id": "run_8f2c1a7d4b", "mode": "recorded", "ts": "...", "type": "tool_called", "payload": {...}}
 
 ```
 
@@ -118,9 +118,10 @@ Every example below is copied from the synthetic fixtures and validated by `test
 
 ```json
 {
-  "id": "r-demo-001:1",
+  "id": "run_8f2c1a7d4b:1",
   "seq": 1,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:00Z",
   "type": "run_started",
   "payload": {
@@ -138,9 +139,10 @@ Every example below is copied from the synthetic fixtures and validated by `test
 
 ```json
 {
-  "id": "r-demo-001:3",
+  "id": "run_8f2c1a7d4b:3",
   "seq": 3,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:00.350000Z",
   "type": "agent_hired",
   "payload": {
@@ -163,17 +165,18 @@ Every example below is copied from the synthetic fixtures and validated by `test
 
 ```json
 {
-  "id": "r-demo-001:10",
+  "id": "run_8f2c1a7d4b:10",
   "seq": 10,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:05.950000Z",
   "type": "task_assigned",
   "payload": {
     "task": {
       "task_id": "t-1",
-      "run_id": "r-demo-001",
+      "run_id": "run_8f2c1a7d4b",
       "role": "researcher",
-      "instruction_ref": "store://r-demo-001/briefs/t-1",
+      "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-1",
       "inputs": [],
       "budget": {
         "max_input_tokens": 20000,
@@ -192,9 +195,10 @@ Every example below is copied from the synthetic fixtures and validated by `test
 
 ```json
 {
-  "id": "r-demo-001:11",
+  "id": "run_8f2c1a7d4b:11",
   "seq": 11,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:06.050000Z",
   "type": "task_started",
   "payload": {
@@ -212,9 +216,10 @@ Example (first):
 
 ```json
 {
-  "id": "r-demo-001:13",
+  "id": "run_8f2c1a7d4b:13",
   "seq": 13,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:07.650000Z",
   "type": "attempt_recorded",
   "payload": {
@@ -249,9 +254,10 @@ Example (repair):
 
 ```json
 {
-  "id": "r-demo-001:22",
+  "id": "run_8f2c1a7d4b:22",
   "seq": 22,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:10.600000Z",
   "type": "attempt_recorded",
   "payload": {
@@ -286,9 +292,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:28",
+  "id": "run_8f2c1a7d4b:28",
   "seq": 28,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:13.200000Z",
   "type": "attempt_recorded",
   "payload": {
@@ -321,9 +328,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:12",
+  "id": "run_8f2c1a7d4b:12",
   "seq": 12,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:06.750000Z",
   "type": "tool_called",
   "payload": {
@@ -343,9 +351,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:4",
+  "id": "run_8f2c1a7d4b:4",
   "seq": 4,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:02.150000Z",
   "type": "budget_update",
   "payload": {
@@ -357,7 +366,7 @@ Example (escalation):
       "director": 0.0048
     },
     "entry": {
-      "run_id": "r-demo-001",
+      "run_id": "run_8f2c1a7d4b",
       "level": "director",
       "task_id": "plan",
       "model": "nemotron-3-ultra",
@@ -380,15 +389,16 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:5",
+  "id": "run_8f2c1a7d4b:5",
   "seq": 5,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:02.250000Z",
   "type": "message",
   "payload": {
     "message": {
       "message_id": "m-1",
-      "run_id": "r-demo-001",
+      "run_id": "run_8f2c1a7d4b",
       "sender": "director",
       "text": "[synthetic] Plan: one manager, a researcher and a copywriter, within the USD 0.25 cap. Approve?",
       "ts": "2026-10-20T15:00:02.250000Z"
@@ -401,9 +411,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:15",
+  "id": "run_8f2c1a7d4b:15",
   "seq": 15,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:07.750000Z",
   "type": "task_result",
   "payload": {
@@ -411,7 +422,7 @@ Example (escalation):
     "result": {
       "task_id": "t-1",
       "status": "ok",
-      "output_ref": "store://r-demo-001/results/t-1",
+      "output_ref": "store://run_8f2c1a7d4b/results/t-1",
       "usage": {
         "input_tokens": 2000,
         "output_tokens": 220,
@@ -431,9 +442,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:32",
+  "id": "run_8f2c1a7d4b:32",
   "seq": 32,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:15Z",
   "type": "audit_result",
   "payload": {
@@ -468,9 +480,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:36",
+  "id": "run_8f2c1a7d4b:36",
   "seq": 36,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:16.250000Z",
   "type": "run_finished",
   "payload": {
@@ -478,7 +491,7 @@ Example (escalation):
     "partial": false,
     "spent_usd": 0.013171559999999999,
     "predicted_usd": 0.013499999999999998,
-    "package_url": "/api/v1/runs/r-demo-001/package"
+    "package_url": "/api/v1/runs/run_8f2c1a7d4b/package"
   }
 }
 ```
@@ -487,9 +500,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-002:2",
+  "id": "run_3e9d0b6a51:2",
   "seq": 2,
-  "run_id": "r-demo-002",
+  "run_id": "run_3e9d0b6a51",
+  "mode": "live",
   "ts": "2026-10-20T16:00:00.020000+00:00",
   "type": "run_failed",
   "payload": {
@@ -510,9 +524,10 @@ Example (escalation):
 
 ```json
 {
-  "id": "r-demo-001:2",
+  "id": "run_8f2c1a7d4b:2",
   "seq": 2,
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
   "ts": "2026-10-20T15:00:00.050000Z",
   "type": "mode_notice",
   "payload": {
@@ -528,9 +543,10 @@ Example (live_refused):
 
 ```json
 {
-  "id": "r-demo-002:1",
+  "id": "run_3e9d0b6a51:1",
   "seq": 1,
-  "run_id": "r-demo-002",
+  "run_id": "run_3e9d0b6a51",
+  "mode": "live",
   "ts": "2026-10-20T16:00:00+00:00",
   "type": "mode_notice",
   "payload": {

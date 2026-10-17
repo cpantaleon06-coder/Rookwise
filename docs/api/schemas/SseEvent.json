@@ -7,6 +7,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/AgentHiredPayload"
         },
@@ -35,6 +43,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -266,6 +275,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/AttemptRecordedPayload"
         },
@@ -294,6 +311,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -349,6 +367,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/AuditResultPayload"
         },
@@ -377,6 +403,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -453,6 +480,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/BudgetUpdatePayload"
         },
@@ -481,6 +516,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -720,6 +756,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/MessagePayload"
         },
@@ -748,6 +792,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -772,6 +817,14 @@
       "properties": {
         "id": {
           "title": "Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
           "type": "string"
         },
         "payload": {
@@ -802,6 +855,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -926,6 +980,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/RunFailedPayload"
         },
@@ -954,6 +1016,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -991,6 +1054,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/RunFinishedPayload"
         },
@@ -1019,6 +1090,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -1079,6 +1151,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/RunStartedPayload"
         },
@@ -1107,6 +1187,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -1190,6 +1271,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/TaskAssignedPayload"
         },
@@ -1218,6 +1307,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -1281,6 +1371,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/TaskResultPayload"
         },
@@ -1309,6 +1407,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -1351,6 +1450,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/TaskStartedPayload"
         },
@@ -1379,6 +1486,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],
@@ -1470,6 +1578,14 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "payload": {
           "$ref": "#/$defs/ToolCalledPayload"
         },
@@ -1498,6 +1614,7 @@
         "id",
         "seq",
         "run_id",
+        "mode",
         "ts",
         "payload"
       ],

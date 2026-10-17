@@ -18,14 +18,14 @@ Options: `--port 8787` (default), `--host 127.0.0.1` (default), `--speed 1` (rep
 |---|---|
 | `GET /modes` | `recorded_run.json` `modes` (live available) |
 | `GET /runs` | `recorded_run.json` `runs` |
-| `POST /runs` with `{"mode": "recorded", "recording_id": "rec-demo-bakery-001"}` | 201, the recorded run (`r-demo-001`) |
+| `POST /runs` with `{"mode": "recorded", "recording_id": "rec-demo-bakery-001"}` | 201, the recorded run (`run_8f2c1a7d4b`) |
 | `POST /runs` with `{"mode": "live", ...}` | 429 with `Retry-After: 3600` and the `live_refused` error from `live_refused.json`, so the refusal UI can be built |
 | `POST /runs` with anything else | 422 `validation_failed` |
-| `GET /runs/r-demo-001` and `/org`, `/ledger`, `/tasks`, `/messages`, `/package` | The matching section of `recorded_run.json` |
-| `GET /runs/r-demo-001/events` | The SSE replay of `recorded_run.events.json` |
-| `GET /runs/r-demo-002/events` | A live run refused after creation: `mode_notice` (`live_refused`), then `run_failed` |
-| `POST /runs/r-demo-001/cancel` | 202 with the run |
-| `POST /runs/r-demo-001/messages`, `/approval`, `/pause`, `/resume` | 409 `recorded_run` |
+| `GET /runs/run_8f2c1a7d4b` and `/org`, `/ledger`, `/tasks`, `/messages`, `/package` | The matching section of `recorded_run.json` |
+| `GET /runs/run_8f2c1a7d4b/events` | The SSE replay of `recorded_run.events.json` |
+| `GET /runs/run_3e9d0b6a51/events` | A live run refused after creation: `mode_notice` (`live_refused`), then `run_failed` |
+| `POST /runs/run_8f2c1a7d4b/cancel` | 202 with the run |
+| `POST /runs/run_8f2c1a7d4b/messages`, `/approval`, `/pause`, `/resume` | 409 `recorded_run` |
 | Anything else | 404 `not_found` |
 
 Every response carries `X-Request-Id`; error bodies follow `ErrorResponse`.
@@ -35,9 +35,9 @@ Every response carries `X-Request-Id`; error bodies follow `ErrorResponse`.
 Headers: `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`. The stream starts with `retry: 3000`, then sends one frame per event, waiting `delay_ms` (divided by `--speed`) before each:
 
 ```
-id: r-demo-001:12
+id: run_8f2c1a7d4b:12
 event: tool_called
-data: {"id": "r-demo-001:12", "seq": 12, ...}
+data: {"id": "run_8f2c1a7d4b:12", "seq": 12, ...}
 
 ```
 
@@ -45,7 +45,7 @@ A `: keep-alive` comment goes out every 15 s during long waits. After the termin
 
 Resume behaves as in the contract:
 
-- `Last-Event-ID: r-demo-001:10` (sent by the browser's `EventSource` on reconnect) or `?last_event_id=r-demo-001:10` replays from `seq` 11.
+- `Last-Event-ID: run_8f2c1a7d4b:10` (sent by the browser's `EventSource` on reconnect) or `?last_event_id=run_8f2c1a7d4b:10` replays from `seq` 11.
 - An id at or after the terminal event returns 204, which makes `EventSource` stop reconnecting.
 - An id from another run returns 400 `invalid_last_event_id`.
 
@@ -54,7 +54,7 @@ To try a reconnect: open the stream at `--speed 1`, stop it after a few events, 
 In the browser:
 
 ```js
-const source = new EventSource("http://127.0.0.1:8787/api/v1/runs/r-demo-001/events");
+const source = new EventSource("http://127.0.0.1:8787/api/v1/runs/run_8f2c1a7d4b/events");
 source.addEventListener("budget_update", (e) => render(JSON.parse(e.data)));
 source.addEventListener("run_finished", () => source.close());
 ```

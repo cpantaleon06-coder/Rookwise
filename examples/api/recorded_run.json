@@ -25,8 +25,8 @@
       "max_usd_per_run": 0.25,
       "max_usd_per_day": 3.0,
       "spent_usd_today": 0.42,
-      "max_runs_per_visitor_per_day": null,
-      "visitor_runs_today": null
+      "max_runs_per_visitor_per_day": 1,
+      "visitor_runs_today": 0
     },
     "recordings": [
       {
@@ -39,7 +39,7 @@
     ]
   },
   "run": {
-    "run_id": "r-demo-001",
+    "run_id": "run_8f2c1a7d4b",
     "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
     "mode": "recorded",
     "recording_id": "rec-demo-bakery-001",
@@ -55,12 +55,12 @@
     "predicted_usd": 0.013499999999999998,
     "created_at": "2026-10-20T15:00:00Z",
     "finished_at": "2026-10-20T15:00:16.250000Z",
-    "events_url": "/api/v1/runs/r-demo-001/events"
+    "events_url": "/api/v1/runs/run_8f2c1a7d4b/events"
   },
   "runs": {
     "items": [
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
         "mode": "recorded",
         "recording_id": "rec-demo-bakery-001",
@@ -76,14 +76,15 @@
         "predicted_usd": 0.013499999999999998,
         "created_at": "2026-10-20T15:00:00Z",
         "finished_at": "2026-10-20T15:00:16.250000Z",
-        "events_url": "/api/v1/runs/r-demo-001/events"
+        "events_url": "/api/v1/runs/run_8f2c1a7d4b/events"
       }
     ],
     "next_cursor": null
   },
   "org": {
-    "run_id": "r-demo-001",
-    "as_of_event_id": "r-demo-001:36",
+    "run_id": "run_8f2c1a7d4b",
+    "mode": "recorded",
+    "as_of_event_id": "run_8f2c1a7d4b:36",
     "nodes": [
       {
         "agent_id": "a-director",
@@ -151,7 +152,8 @@
     ]
   },
   "ledger": {
-    "run_id": "r-demo-001",
+    "run_id": "run_8f2c1a7d4b",
+    "mode": "recorded",
     "caps": {
       "run_usd": 0.25,
       "level_usd": {}
@@ -168,7 +170,7 @@
     "usage_estimated_entries": 1,
     "entries": [
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "director",
         "task_id": "plan",
         "model": "nemotron-3-ultra",
@@ -184,7 +186,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "manager",
         "task_id": "manage-1",
         "model": "nemotron-3-super",
@@ -200,7 +202,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "operator",
         "task_id": "t-1",
         "model": "nemotron-3.5-lightning",
@@ -218,7 +220,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "operator",
         "task_id": "t-1",
         "model": "nemotron-3.5-lightning",
@@ -236,7 +238,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "operator",
         "task_id": "t-2",
         "model": "nemotron-3.5-lightning",
@@ -254,7 +256,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "operator",
         "task_id": "t-2",
         "model": "nemotron-3.5-lightning",
@@ -272,7 +274,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "operator",
         "task_id": "t-2",
         "model": "nemotron-3.5-lightning",
@@ -290,7 +292,7 @@
         "usage_estimated": true
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "operator",
         "task_id": "t-2",
         "model": "nemotron-3-super",
@@ -308,7 +310,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "auditor",
         "task_id": "audit",
         "model": "nemotron-3-ultra",
@@ -326,7 +328,7 @@
         "usage_estimated": false
       },
       {
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "level": "director",
         "task_id": "deliver",
         "model": "nemotron-3-ultra",
@@ -345,24 +347,26 @@
     "stops": []
   },
   "messages": {
+    "run_id": "run_8f2c1a7d4b",
+    "mode": "recorded",
     "items": [
       {
         "message_id": "m-1",
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "sender": "director",
         "text": "[synthetic] Plan: one manager, a researcher and a copywriter, within the USD 0.25 cap. Approve?",
         "ts": "2026-10-20T15:00:02.250000Z"
       },
       {
         "message_id": "m-2",
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "sender": "user",
         "text": "[synthetic] Approved.",
         "ts": "2026-10-20T15:00:04.250000Z"
       },
       {
         "message_id": "m-3",
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
         "sender": "director",
         "text": "[synthetic] Done: research notes and website copy, audited and accepted. See the delivery package.",
         "ts": "2026-10-20T15:00:16.150000Z"
@@ -370,13 +374,15 @@
     ]
   },
   "tasks": {
+    "run_id": "run_8f2c1a7d4b",
+    "mode": "recorded",
     "items": [
       {
         "task": {
           "task_id": "t-1",
-          "run_id": "r-demo-001",
+          "run_id": "run_8f2c1a7d4b",
           "role": "researcher",
-          "instruction_ref": "store://r-demo-001/briefs/t-1",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-1",
           "inputs": [],
           "budget": {
             "max_input_tokens": 20000,
@@ -392,7 +398,7 @@
         "result": {
           "task_id": "t-1",
           "status": "ok",
-          "output_ref": "store://r-demo-001/results/t-1",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-1",
           "usage": {
             "input_tokens": 2000,
             "output_tokens": 220,
@@ -434,11 +440,11 @@
       {
         "task": {
           "task_id": "t-2",
-          "run_id": "r-demo-001",
+          "run_id": "run_8f2c1a7d4b",
           "role": "copywriter",
-          "instruction_ref": "store://r-demo-001/briefs/t-2",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-2",
           "inputs": [
-            "store://r-demo-001/results/t-1"
+            "store://run_8f2c1a7d4b/results/t-1"
           ],
           "budget": {
             "max_input_tokens": 20000,
@@ -454,7 +460,7 @@
         "result": {
           "task_id": "t-2",
           "status": "ok",
-          "output_ref": "store://r-demo-001/results/t-2",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-2",
           "usage": {
             "input_tokens": 4900,
             "output_tokens": 1974,
@@ -558,13 +564,14 @@
     ]
   },
   "package": {
-    "run_id": "r-demo-001",
+    "run_id": "run_8f2c1a7d4b",
+    "mode": "recorded",
     "simulated_case": true,
     "summary": "[synthetic] A one-page site plan: research notes and the page copy.",
     "deliverables": [
       {
         "task_id": "t-1",
-        "output_ref": "store://r-demo-001/results/t-1",
+        "output_ref": "store://run_8f2c1a7d4b/results/t-1",
         "title": "[synthetic] Research notes",
         "content": {
           "answer": "[synthetic] Three things neighbours look for: opening hours, today's bread, how to order.",
@@ -575,7 +582,7 @@
       },
       {
         "task_id": "t-2",
-        "output_ref": "store://r-demo-001/results/t-2",
+        "output_ref": "store://run_8f2c1a7d4b/results/t-2",
         "title": "[synthetic] Page copy",
         "content": {
           "headline": "[synthetic] Fresh bread, around the corner",
@@ -599,9 +606,9 @@
       {
         "task": {
           "task_id": "t-1",
-          "run_id": "r-demo-001",
+          "run_id": "run_8f2c1a7d4b",
           "role": "researcher",
-          "instruction_ref": "store://r-demo-001/briefs/t-1",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-1",
           "inputs": [],
           "budget": {
             "max_input_tokens": 20000,
@@ -613,7 +620,7 @@
         "result": {
           "task_id": "t-1",
           "status": "ok",
-          "output_ref": "store://r-demo-001/results/t-1",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-1",
           "usage": {
             "input_tokens": 2000,
             "output_tokens": 220,
@@ -628,11 +635,11 @@
       {
         "task": {
           "task_id": "t-2",
-          "run_id": "r-demo-001",
+          "run_id": "run_8f2c1a7d4b",
           "role": "copywriter",
-          "instruction_ref": "store://r-demo-001/briefs/t-2",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-2",
           "inputs": [
-            "store://r-demo-001/results/t-1"
+            "store://run_8f2c1a7d4b/results/t-1"
           ],
           "budget": {
             "max_input_tokens": 20000,
@@ -644,7 +651,7 @@
         "result": {
           "task_id": "t-2",
           "status": "ok",
-          "output_ref": "store://r-demo-001/results/t-2",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-2",
           "usage": {
             "input_tokens": 4900,
             "output_tokens": 1974,

@@ -28,7 +28,7 @@
   "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/RunView.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "GET /api/v1/runs/{run_id}. `spent_usd` and `held_usd` are the ledger's RunReport\nfigures; `predicted_usd` is the sum of `usd_predicted` over its entries.",
+  "description": "GET /api/v1/runs/{run_id}. `run_id` is opaque (`run_...`). `spent_usd` and\n`held_usd` are the ledger's RunReport figures; `predicted_usd` is the sum of\n`usd_predicted` over its entries. A recorded run keeps the run_id of the run it was\nrecorded from.",
   "properties": {
     "board": {
       "default": false,

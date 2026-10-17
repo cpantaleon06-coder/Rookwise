@@ -190,3 +190,29 @@ def test_every_example_in_the_api_doc_validates():
     errors = _section(text, "## Errors", "## Cancellation")
     example = errors.split("```json\n", 1)[1].split("```", 1)[0]
     SCHEMA_MODELS["ErrorResponse"].model_validate_json(example)
+
+
+def test_recorded_runs_are_labelled_recorded_everywhere():
+    bundle = _load("recorded_run.json")
+    assert bundle["run"]["mode"] == "recorded"
+    for section in ("org", "ledger", "messages", "tasks", "package"):
+        assert bundle[section]["mode"] == "recorded", section
+    events = [item["event"] for item in _load("recorded_run.events.json")["events"]]
+    assert {e["mode"] for e in events} == {"recorded"}
+    assert events[0]["payload"]["mode"] == "recorded"
+
+
+def test_run_ids_are_prefixed_and_the_visitor_limit_example_validates():
+    bundle = _load("recorded_run.json")
+    refused = _load("live_refused.json")
+    assert bundle["run"]["run_id"].startswith("run_")
+    assert refused["refused_after_creation"]["run_id"].startswith("run_")
+    visitor = refused["visitor_limit"]
+    assert visitor["status"] == 429
+    error = SCHEMA_MODELS["ErrorResponse"].model_validate(visitor["response"])
+    assert error.error.details["refusal"] == "visitor_limit_reached"
+    modes = SCHEMA_MODELS["ModesView"].model_validate(visitor["modes"])
+    assert modes.live_caps.max_runs_per_visitor_per_day == 1
+    assert modes.live_caps.visitor_runs_today == 1
+    live = next(m for m in modes.modes if m.mode == "live")
+    assert (live.available, live.refusal) == (False, "visitor_limit_reached")

@@ -11,6 +11,11 @@ Field names come from core/ wherever a model exists there: `TaskV1`, `ResultV1` 
 other field is new in this contract; docs/api.md lists them.
 
 The contract is domain-neutral: roles, skills, tools and models are plain strings.
+
+Decided on 2026-10-16 (docs/DECISIONS.md): every run-scoped payload and every event
+carries `mode`, so a recorded run is labelled as recorded everywhere; ids such as
+`run_id` are opaque strings with a prefix (`run_...`) that the UI must not parse; USD
+values are sent exactly as the ledger computes them (floats today) and the UI formats.
 """
 
 from __future__ import annotations
@@ -78,14 +83,16 @@ class ErrorResponse(_Api):
 
 
 class LiveCaps(_Api):
-    """Live demo caps. The two USD caps come from LIVE_DEMO_MAX_USD_PER_RUN and
-    LIVE_DEMO_MAX_USD_PER_DAY (.env.example); the visitor limit has no setting yet."""
+    """Live demo caps from .env.example: LIVE_DEMO_MAX_USD_PER_RUN,
+    LIVE_DEMO_MAX_USD_PER_DAY and LIVE_DEMO_MAX_RUNS_PER_VISITOR_PER_DAY. The visitor is
+    known by a signed, anonymous, HttpOnly cookie; `visitor_runs_today` is 0 without one.
+    A visitor can clear cookies, so the USD caps are the backstop that cannot be bypassed."""
 
     max_usd_per_run: NonNegativeFloat
     max_usd_per_day: NonNegativeFloat
     spent_usd_today: NonNegativeFloat
-    max_runs_per_visitor_per_day: NonNegativeInt | None = None
-    visitor_runs_today: NonNegativeInt | None = None
+    max_runs_per_visitor_per_day: NonNegativeInt
+    visitor_runs_today: NonNegativeInt
 
 
 class ModeAvailability(_Api):
@@ -142,8 +149,10 @@ class CreateRunRequest(_Api):
 
 
 class RunView(_Api):
-    """GET /api/v1/runs/{run_id}. `spent_usd` and `held_usd` are the ledger's RunReport
-    figures; `predicted_usd` is the sum of `usd_predicted` over its entries."""
+    """GET /api/v1/runs/{run_id}. `run_id` is opaque (`run_...`). `spent_usd` and
+    `held_usd` are the ledger's RunReport figures; `predicted_usd` is the sum of
+    `usd_predicted` over its entries. A recorded run keeps the run_id of the run it was
+    recorded from."""
 
     run_id: str
     goal: str
@@ -195,6 +204,7 @@ class OrgChart(_Api):
     """GET /api/v1/runs/{run_id}/org: a snapshot as of one event."""
 
     run_id: str
+    mode: Mode
     as_of_event_id: str | None
     nodes: list[AgentNode]
 
@@ -216,6 +226,7 @@ class LedgerView(_Api):
     """GET /api/v1/runs/{run_id}/ledger: `RunReport` plus predictions."""
 
     run_id: str
+    mode: Mode
     caps: RunCaps
     spent_usd: NonNegativeFloat
     held_usd: NonNegativeFloat
@@ -240,6 +251,8 @@ class ChatMessage(_Api):
 
 
 class ChatMessageList(_Api):
+    run_id: str
+    mode: Mode
     items: list[ChatMessage]
 
 
@@ -264,6 +277,8 @@ class TaskView(_Api):
 
 
 class TaskList(_Api):
+    run_id: str
+    mode: Mode
     items: list[TaskView]
 
 
@@ -311,6 +326,7 @@ class DeliveryPackage(_Api):
     """GET /api/v1/runs/{run_id}/package."""
 
     run_id: str
+    mode: Mode
     simulated_case: bool
     summary: str
     deliverables: list[Deliverable]
@@ -324,11 +340,13 @@ class DeliveryPackage(_Api):
 
 
 class _EventBase(_Api):
-    """Common envelope. `id` is "<run_id>:<seq>" and is also the SSE `id:` line."""
+    """Common envelope. `id` is "<run_id>:<seq>" and is also the SSE `id:` line; the UI
+    treats it as opaque. `mode` labels every event of a recorded run as recorded."""
 
     id: str
     seq: int = Field(ge=1)
     run_id: str
+    mode: Mode
     ts: datetime
 
 

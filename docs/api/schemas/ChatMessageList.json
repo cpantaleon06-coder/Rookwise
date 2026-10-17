@@ -52,9 +52,23 @@
       },
       "title": "Items",
       "type": "array"
+    },
+    "mode": {
+      "enum": [
+        "recorded",
+        "live"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
     }
   },
   "required": [
+    "run_id",
+    "mode",
     "items"
   ],
   "title": "ChatMessageList",

@@ -104,6 +104,14 @@
       ],
       "title": "As Of Event Id"
     },
+    "mode": {
+      "enum": [
+        "recorded",
+        "live"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
     "nodes": {
       "items": {
         "$ref": "#/$defs/AgentNode"
@@ -118,6 +126,7 @@
   },
   "required": [
     "run_id",
+    "mode",
     "as_of_event_id",
     "nodes"
   ],

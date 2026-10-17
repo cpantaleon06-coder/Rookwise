@@ -89,9 +89,9 @@ def test_static_views_are_the_fixtures(base_url):
     for path, section in (
         ("/modes", "modes"),
         ("/runs", "runs"),
-        ("/runs/r-demo-001", "run"),
-        ("/runs/r-demo-001/ledger", "ledger"),
-        ("/runs/r-demo-001/package", "package"),
+        ("/runs/run_8f2c1a7d4b", "run"),
+        ("/runs/run_8f2c1a7d4b/ledger", "ledger"),
+        ("/runs/run_8f2c1a7d4b/package", "package"),
     ):
         status, headers, body = _get(base_url + path)
         assert status == 200 and json.loads(body) == bundle[section], path
@@ -110,13 +110,13 @@ def test_live_is_refused_and_recorded_is_created(base_url):
     status, _, body = _post(
         base_url + "/runs", {"mode": "recorded", "recording_id": "rec-demo-bakery-001"}
     )
-    assert status == 201 and body["run_id"] == "r-demo-001"
-    status, _, body = _post(base_url + "/runs/r-demo-001/messages", {"text": "hi"})
+    assert status == 201 and body["run_id"] == "run_8f2c1a7d4b"
+    status, _, body = _post(base_url + "/runs/run_8f2c1a7d4b/messages", {"text": "hi"})
     assert status == 409 and body["error"]["code"] == "recorded_run"
 
 
 def test_the_stream_has_sse_headers_and_every_event_in_order(base_url):
-    status, headers, text = _get(base_url + "/runs/r-demo-001/events")
+    status, headers, text = _get(base_url + "/runs/run_8f2c1a7d4b/events")
     assert status == 200
     assert headers["Content-Type"] == "text/event-stream; charset=utf-8"
     assert headers["Cache-Control"] == "no-cache"
@@ -131,18 +131,23 @@ def test_the_stream_has_sse_headers_and_every_event_in_order(base_url):
 
 def test_resume_with_last_event_id_header_or_query(base_url):
     expected = _fixture_events()
-    _, _, text = _get(base_url + "/runs/r-demo-001/events", {"Last-Event-ID": "r-demo-001:10"})
+    _, _, text = _get(
+        base_url + "/runs/run_8f2c1a7d4b/events", {"Last-Event-ID": "run_8f2c1a7d4b:10"}
+    )
     assert [f[2]["seq"] for f in _frames(text)] == list(range(11, len(expected) + 1))
-    _, _, text = _get(base_url + "/runs/r-demo-001/events?last_event_id=r-demo-001:30")
+    _, _, text = _get(base_url + "/runs/run_8f2c1a7d4b/events?last_event_id=run_8f2c1a7d4b:30")
     assert [f[2]["seq"] for f in _frames(text)] == list(range(31, len(expected) + 1))
     status, _, _ = _get(
-        base_url + "/runs/r-demo-001/events", {"Last-Event-ID": f"r-demo-001:{len(expected)}"}
+        base_url + "/runs/run_8f2c1a7d4b/events",
+        {"Last-Event-ID": f"run_8f2c1a7d4b:{len(expected)}"},
     )
     assert status == 204
-    status, _, body = _get(base_url + "/runs/r-demo-001/events", {"Last-Event-ID": "r-other:3"})
+    status, _, body = _get(
+        base_url + "/runs/run_8f2c1a7d4b/events", {"Last-Event-ID": "run_other:3"}
+    )
     assert status == 400 and json.loads(body)["error"]["code"] == "invalid_last_event_id"
 
 
 def test_the_refused_live_stream_ends_with_run_failed(base_url):
-    _, _, text = _get(base_url + "/runs/r-demo-002/events")
+    _, _, text = _get(base_url + "/runs/run_3e9d0b6a51/events")
     assert [f[1] for f in _frames(text)] == ["mode_notice", "run_failed"]

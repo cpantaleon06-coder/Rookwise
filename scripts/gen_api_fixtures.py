@@ -36,7 +36,7 @@ from rookwise.ledger import Caps, InMemoryLedger, Usage  # noqa: E402
 from rookwise.schemas import ResultV1, TaskV1  # noqa: E402
 
 OUT_DIR = REPO_ROOT / "examples" / "api"
-RUN_ID = "r-demo-001"
+RUN_ID = "run_8f2c1a7d4b"
 RECORDING_ID = "rec-demo-bakery-001"
 GOAL = "[synthetic] Plan a one-page website for a simulated corner bakery."
 BUDGET_USD = 0.25
@@ -74,6 +74,7 @@ class Timeline:
                 "id": f"{RUN_ID}:{seq}",
                 "seq": seq,
                 "run_id": RUN_ID,
+                "mode": "recorded",
                 "ts": self.clock,
                 "type": event_type,
                 "payload": payload,
@@ -472,6 +473,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     )
     org = api.OrgChart(
         run_id=RUN_ID,
+        mode="recorded",
         as_of_event_id=t.events[-1]["event"]["id"],
         nodes=[
             n.model_copy(update={"status": "done"})
@@ -481,6 +483,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     estimated = sum(e.usage_estimated for e in report.entries)
     ledger_view = api.LedgerView(
         run_id=RUN_ID,
+        mode="recorded",
         caps=caps,
         spent_usd=report.spent_usd,
         held_usd=report.held_usd,
@@ -490,6 +493,8 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         entries=list(report.entries),
     )
     tasks = api.TaskList(
+        run_id=RUN_ID,
+        mode="recorded",
         items=[
             api.TaskView(
                 task=task1,
@@ -510,10 +515,11 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
                 result=result2,
                 attempts=attempts2,
             ),
-        ]
+        ],
     )
     package = api.DeliveryPackage(
         run_id=RUN_ID,
+        mode="recorded",
         simulated_case=True,
         summary="[synthetic] A one-page site plan: research notes and the page copy.",
         deliverables=[
@@ -563,7 +569,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         "runs": _dump(api.RunList(items=[run])),
         "org": _dump(org),
         "ledger": _dump(ledger_view),
-        "messages": _dump(api.ChatMessageList(items=messages)),
+        "messages": _dump(api.ChatMessageList(run_id=RUN_ID, mode="recorded", items=messages)),
         "tasks": _dump(tasks),
         "package": _dump(package),
     }
@@ -571,7 +577,17 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     return bundle, replay
 
 
-def _modes(live_available: bool, refusal: str | None = None, spent_today: float = 0.42):
+DAILY_CAP_DETAIL = "[synthetic] The daily live budget is used up. Recorded runs still work."
+VISITOR_DETAIL = "[synthetic] You already used your live run for today. Recorded runs still work."
+
+
+def _modes(
+    live_available: bool,
+    refusal: str | None = None,
+    spent_today: float = 0.42,
+    visitor_runs: int = 0,
+    detail: str = DAILY_CAP_DETAIL,
+):
     return api.ModesView(
         default_mode="recorded",
         modes=[
@@ -580,13 +596,15 @@ def _modes(live_available: bool, refusal: str | None = None, spent_today: float 
                 mode="live",
                 available=live_available,
                 refusal=refusal,
-                detail=""
-                if live_available
-                else "[synthetic] The daily live budget is used up. Recorded runs still work.",
+                detail="" if live_available else detail,
             ),
         ],
         live_caps=api.LiveCaps(
-            max_usd_per_run=0.25, max_usd_per_day=3.00, spent_usd_today=spent_today
+            max_usd_per_run=0.25,
+            max_usd_per_day=3.00,
+            spent_usd_today=spent_today,
+            max_runs_per_visitor_per_day=1,
+            visitor_runs_today=visitor_runs,
         ),
         recordings=[
             api.RecordingSummary(
@@ -617,7 +635,7 @@ def live_refused() -> dict[str, Any]:
             request_id="req-synthetic-1",
         )
     )
-    run_id = "r-demo-002"
+    run_id = "run_3e9d0b6a51"
     ts = START + timedelta(hours=1)
     stream = [
         {
@@ -626,6 +644,7 @@ def live_refused() -> dict[str, Any]:
                 "id": f"{run_id}:1",
                 "seq": 1,
                 "run_id": run_id,
+                "mode": "live",
                 "ts": ts.isoformat(),
                 "type": "mode_notice",
                 "payload": {
@@ -643,6 +662,7 @@ def live_refused() -> dict[str, Any]:
                 "id": f"{run_id}:2",
                 "seq": 2,
                 "run_id": run_id,
+                "mode": "live",
                 "ts": (ts + timedelta(milliseconds=20)).isoformat(),
                 "type": "run_failed",
                 "payload": {
@@ -659,6 +679,19 @@ def live_refused() -> dict[str, Any]:
     ]
     for item in stream:
         api.SSE_EVENT_ADAPTER.validate_python(item["event"])
+    visitor_error = api.ErrorResponse(
+        error=api.ErrorBody(
+            code="live_refused",
+            message=VISITOR_DETAIL,
+            details={
+                "refusal": "visitor_limit_reached",
+                "max_runs_per_visitor_per_day": 1,
+                "visitor_runs_today": 1,
+                "retry": "recorded",
+            },
+            request_id="req-synthetic-2",
+        )
+    )
     return {
         "_fixture": FIXTURE_NOTE,
         "request": _dump(request),
@@ -666,6 +699,18 @@ def live_refused() -> dict[str, Any]:
         "response": _dump(error),
         "modes": _dump(_modes(live_available=False, refusal="daily_cap_reached", spent_today=3.00)),
         "refused_after_creation": {"run_id": run_id, "events": stream},
+        "visitor_limit": {
+            "status": 429,
+            "response": _dump(visitor_error),
+            "modes": _dump(
+                _modes(
+                    live_available=False,
+                    refusal="visitor_limit_reached",
+                    visitor_runs=1,
+                    detail=VISITOR_DETAIL,
+                )
+            ),
+        },
     }
 
 

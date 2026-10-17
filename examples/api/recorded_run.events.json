@@ -4,14 +4,15 @@
     "api_version": "v1",
     "note": "SYNTHETIC FIXTURE written by scripts/gen_api_fixtures.py. It is not real model output and not a measured run; texts are marked [synthetic] and numbers are arithmetic on config/prices.json. The demo case itself is simulated."
   },
-  "run_id": "r-demo-001",
+  "run_id": "run_8f2c1a7d4b",
   "events": [
     {
       "delay_ms": 0,
       "event": {
-        "id": "r-demo-001:1",
+        "id": "run_8f2c1a7d4b:1",
         "seq": 1,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:00Z",
         "type": "run_started",
         "payload": {
@@ -27,9 +28,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:2",
+        "id": "run_8f2c1a7d4b:2",
         "seq": 2,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:00.050000Z",
         "type": "mode_notice",
         "payload": {
@@ -43,9 +45,10 @@
     {
       "delay_ms": 300,
       "event": {
-        "id": "r-demo-001:3",
+        "id": "run_8f2c1a7d4b:3",
         "seq": 3,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:00.350000Z",
         "type": "agent_hired",
         "payload": {
@@ -66,9 +69,10 @@
     {
       "delay_ms": 1800,
       "event": {
-        "id": "r-demo-001:4",
+        "id": "run_8f2c1a7d4b:4",
         "seq": 4,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:02.150000Z",
         "type": "budget_update",
         "payload": {
@@ -80,7 +84,7 @@
             "director": 0.0048
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "director",
             "task_id": "plan",
             "model": "nemotron-3-ultra",
@@ -101,15 +105,16 @@
     {
       "delay_ms": 100,
       "event": {
-        "id": "r-demo-001:5",
+        "id": "run_8f2c1a7d4b:5",
         "seq": 5,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:02.250000Z",
         "type": "message",
         "payload": {
           "message": {
             "message_id": "m-1",
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "sender": "director",
             "text": "[synthetic] Plan: one manager, a researcher and a copywriter, within the USD 0.25 cap. Approve?",
             "ts": "2026-10-20T15:00:02.250000Z"
@@ -120,15 +125,16 @@
     {
       "delay_ms": 2000,
       "event": {
-        "id": "r-demo-001:6",
+        "id": "run_8f2c1a7d4b:6",
         "seq": 6,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:04.250000Z",
         "type": "message",
         "payload": {
           "message": {
             "message_id": "m-2",
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "sender": "user",
             "text": "[synthetic] Approved.",
             "ts": "2026-10-20T15:00:04.250000Z"
@@ -139,9 +145,10 @@
     {
       "delay_ms": 200,
       "event": {
-        "id": "r-demo-001:7",
+        "id": "run_8f2c1a7d4b:7",
         "seq": 7,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:04.450000Z",
         "type": "agent_hired",
         "payload": {
@@ -162,9 +169,10 @@
     {
       "delay_ms": 1200,
       "event": {
-        "id": "r-demo-001:8",
+        "id": "run_8f2c1a7d4b:8",
         "seq": 8,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:05.650000Z",
         "type": "budget_update",
         "payload": {
@@ -177,7 +185,7 @@
             "manager": 0.00096
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "manager",
             "task_id": "manage-1",
             "model": "nemotron-3-super",
@@ -198,9 +206,10 @@
     {
       "delay_ms": 200,
       "event": {
-        "id": "r-demo-001:9",
+        "id": "run_8f2c1a7d4b:9",
         "seq": 9,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:05.850000Z",
         "type": "agent_hired",
         "payload": {
@@ -225,17 +234,18 @@
     {
       "delay_ms": 100,
       "event": {
-        "id": "r-demo-001:10",
+        "id": "run_8f2c1a7d4b:10",
         "seq": 10,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:05.950000Z",
         "type": "task_assigned",
         "payload": {
           "task": {
             "task_id": "t-1",
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "role": "researcher",
-            "instruction_ref": "store://r-demo-001/briefs/t-1",
+            "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-1",
             "inputs": [],
             "budget": {
               "max_input_tokens": 20000,
@@ -252,9 +262,10 @@
     {
       "delay_ms": 100,
       "event": {
-        "id": "r-demo-001:11",
+        "id": "run_8f2c1a7d4b:11",
         "seq": 11,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:06.050000Z",
         "type": "task_started",
         "payload": {
@@ -268,9 +279,10 @@
     {
       "delay_ms": 700,
       "event": {
-        "id": "r-demo-001:12",
+        "id": "run_8f2c1a7d4b:12",
         "seq": 12,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:06.750000Z",
         "type": "tool_called",
         "payload": {
@@ -288,9 +300,10 @@
     {
       "delay_ms": 900,
       "event": {
-        "id": "r-demo-001:13",
+        "id": "run_8f2c1a7d4b:13",
         "seq": 13,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:07.650000Z",
         "type": "attempt_recorded",
         "payload": {
@@ -323,9 +336,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:14",
+        "id": "run_8f2c1a7d4b:14",
         "seq": 14,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:07.700000Z",
         "type": "budget_update",
         "payload": {
@@ -339,7 +353,7 @@
             "operator": 0.0001728
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "operator",
             "task_id": "t-1",
             "model": "nemotron-3.5-lightning",
@@ -362,9 +376,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:15",
+        "id": "run_8f2c1a7d4b:15",
         "seq": 15,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:07.750000Z",
         "type": "task_result",
         "payload": {
@@ -372,7 +387,7 @@
           "result": {
             "task_id": "t-1",
             "status": "ok",
-            "output_ref": "store://r-demo-001/results/t-1",
+            "output_ref": "store://run_8f2c1a7d4b/results/t-1",
             "usage": {
               "input_tokens": 2000,
               "output_tokens": 220,
@@ -390,9 +405,10 @@
     {
       "delay_ms": 200,
       "event": {
-        "id": "r-demo-001:16",
+        "id": "run_8f2c1a7d4b:16",
         "seq": 16,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:07.950000Z",
         "type": "agent_hired",
         "payload": {
@@ -415,19 +431,20 @@
     {
       "delay_ms": 100,
       "event": {
-        "id": "r-demo-001:17",
+        "id": "run_8f2c1a7d4b:17",
         "seq": 17,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:08.050000Z",
         "type": "task_assigned",
         "payload": {
           "task": {
             "task_id": "t-2",
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "role": "copywriter",
-            "instruction_ref": "store://r-demo-001/briefs/t-2",
+            "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-2",
             "inputs": [
-              "store://r-demo-001/results/t-1"
+              "store://run_8f2c1a7d4b/results/t-1"
             ],
             "budget": {
               "max_input_tokens": 20000,
@@ -444,9 +461,10 @@
     {
       "delay_ms": 150,
       "event": {
-        "id": "r-demo-001:18",
+        "id": "run_8f2c1a7d4b:18",
         "seq": 18,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:08.200000Z",
         "type": "task_started",
         "payload": {
@@ -460,9 +478,10 @@
     {
       "delay_ms": 1100,
       "event": {
-        "id": "r-demo-001:19",
+        "id": "run_8f2c1a7d4b:19",
         "seq": 19,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:09.300000Z",
         "type": "attempt_recorded",
         "payload": {
@@ -495,9 +514,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:20",
+        "id": "run_8f2c1a7d4b:20",
         "seq": 20,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:09.350000Z",
         "type": "budget_update",
         "payload": {
@@ -511,7 +531,7 @@
             "operator": 0.00030480000000000004
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "operator",
             "task_id": "t-2",
             "model": "nemotron-3.5-lightning",
@@ -534,9 +554,10 @@
     {
       "delay_ms": 150,
       "event": {
-        "id": "r-demo-001:21",
+        "id": "run_8f2c1a7d4b:21",
         "seq": 21,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:09.500000Z",
         "type": "task_started",
         "payload": {
@@ -550,9 +571,10 @@
     {
       "delay_ms": 1100,
       "event": {
-        "id": "r-demo-001:22",
+        "id": "run_8f2c1a7d4b:22",
         "seq": 22,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:10.600000Z",
         "type": "attempt_recorded",
         "payload": {
@@ -585,9 +607,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:23",
+        "id": "run_8f2c1a7d4b:23",
         "seq": 23,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:10.650000Z",
         "type": "budget_update",
         "payload": {
@@ -601,7 +624,7 @@
             "operator": 0.0004548
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "operator",
             "task_id": "t-2",
             "model": "nemotron-3.5-lightning",
@@ -624,9 +647,10 @@
     {
       "delay_ms": 150,
       "event": {
-        "id": "r-demo-001:24",
+        "id": "run_8f2c1a7d4b:24",
         "seq": 24,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:10.800000Z",
         "type": "task_started",
         "payload": {
@@ -640,9 +664,10 @@
     {
       "delay_ms": 1100,
       "event": {
-        "id": "r-demo-001:25",
+        "id": "run_8f2c1a7d4b:25",
         "seq": 25,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:11.900000Z",
         "type": "attempt_recorded",
         "payload": {
@@ -675,9 +700,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:26",
+        "id": "run_8f2c1a7d4b:26",
         "seq": 26,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:11.950000Z",
         "type": "budget_update",
         "payload": {
@@ -691,7 +717,7 @@
             "operator": 0.00079656
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "operator",
             "task_id": "t-2",
             "model": "nemotron-3.5-lightning",
@@ -714,9 +740,10 @@
     {
       "delay_ms": 150,
       "event": {
-        "id": "r-demo-001:27",
+        "id": "run_8f2c1a7d4b:27",
         "seq": 27,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:12.100000Z",
         "type": "task_started",
         "payload": {
@@ -730,9 +757,10 @@
     {
       "delay_ms": 1100,
       "event": {
-        "id": "r-demo-001:28",
+        "id": "run_8f2c1a7d4b:28",
         "seq": 28,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:13.200000Z",
         "type": "attempt_recorded",
         "payload": {
@@ -763,9 +791,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:29",
+        "id": "run_8f2c1a7d4b:29",
         "seq": 29,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:13.250000Z",
         "type": "budget_update",
         "payload": {
@@ -779,7 +808,7 @@
             "operator": 0.00141156
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "operator",
             "task_id": "t-2",
             "model": "nemotron-3-super",
@@ -802,9 +831,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:30",
+        "id": "run_8f2c1a7d4b:30",
         "seq": 30,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:13.300000Z",
         "type": "task_result",
         "payload": {
@@ -812,7 +842,7 @@
           "result": {
             "task_id": "t-2",
             "status": "ok",
-            "output_ref": "store://r-demo-001/results/t-2",
+            "output_ref": "store://run_8f2c1a7d4b/results/t-2",
             "usage": {
               "input_tokens": 4900,
               "output_tokens": 1974,
@@ -830,9 +860,10 @@
     {
       "delay_ms": 200,
       "event": {
-        "id": "r-demo-001:31",
+        "id": "run_8f2c1a7d4b:31",
         "seq": 31,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:13.500000Z",
         "type": "agent_hired",
         "payload": {
@@ -855,9 +886,10 @@
     {
       "delay_ms": 1500,
       "event": {
-        "id": "r-demo-001:32",
+        "id": "run_8f2c1a7d4b:32",
         "seq": 32,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:15Z",
         "type": "audit_result",
         "payload": {
@@ -890,9 +922,10 @@
     {
       "delay_ms": 50,
       "event": {
-        "id": "r-demo-001:33",
+        "id": "run_8f2c1a7d4b:33",
         "seq": 33,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:15.050000Z",
         "type": "budget_update",
         "payload": {
@@ -907,7 +940,7 @@
             "auditor": 0.0031
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "auditor",
             "task_id": "audit",
             "model": "nemotron-3-ultra",
@@ -930,9 +963,10 @@
     {
       "delay_ms": 1000,
       "event": {
-        "id": "r-demo-001:34",
+        "id": "run_8f2c1a7d4b:34",
         "seq": 34,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:16.050000Z",
         "type": "budget_update",
         "payload": {
@@ -947,7 +981,7 @@
             "auditor": 0.0031
           },
           "entry": {
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "level": "director",
             "task_id": "deliver",
             "model": "nemotron-3-ultra",
@@ -968,15 +1002,16 @@
     {
       "delay_ms": 100,
       "event": {
-        "id": "r-demo-001:35",
+        "id": "run_8f2c1a7d4b:35",
         "seq": 35,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:16.150000Z",
         "type": "message",
         "payload": {
           "message": {
             "message_id": "m-3",
-            "run_id": "r-demo-001",
+            "run_id": "run_8f2c1a7d4b",
             "sender": "director",
             "text": "[synthetic] Done: research notes and website copy, audited and accepted. See the delivery package.",
             "ts": "2026-10-20T15:00:16.150000Z"
@@ -987,9 +1022,10 @@
     {
       "delay_ms": 100,
       "event": {
-        "id": "r-demo-001:36",
+        "id": "run_8f2c1a7d4b:36",
         "seq": 36,
-        "run_id": "r-demo-001",
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
         "ts": "2026-10-20T15:00:16.250000Z",
         "type": "run_finished",
         "payload": {
@@ -997,7 +1033,7 @@
           "partial": false,
           "spent_usd": 0.013171559999999999,
           "predicted_usd": 0.013499999999999998,
-          "package_url": "/api/v1/runs/r-demo-001/package"
+          "package_url": "/api/v1/runs/run_8f2c1a7d4b/package"
         }
       }
     }

@@ -184,6 +184,14 @@
       "title": "Held Usd",
       "type": "number"
     },
+    "mode": {
+      "enum": [
+        "recorded",
+        "live"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
     "predicted_usd": {
       "minimum": 0,
       "title": "Predicted Usd",
@@ -221,6 +229,7 @@
   },
   "required": [
     "run_id",
+    "mode",
     "caps",
     "spent_usd",
     "held_usd",
