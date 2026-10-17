@@ -1,8 +1,8 @@
 # Rookwise API v1 (core/ to web/)
 
-Status: **draft, frontend may start.** Field names may still change before the server is built (Stage 3); any change is made here first, in the models in `core/api/models.py`, and in the generated schemas. Written on 2026-10-16.
+Status: **v1, decided** (2026-10-16) for visitors, modes, refusal behavior, hosting, ids, money and where the models live; see [docs/DECISIONS.md](DECISIONS.md). The rest is **draft, frontend may start**: field names may still change before the server is built (Stage 3), and any change is made here first, in the models in `core/api/models.py`, and in the generated schemas. Written on 2026-10-16.
 
-This is the only interface between `core/` (Python, built with Claude Code) and `web/` (built with GLM). The web app never calls Token Factory, Tavily or any model API: it calls this API only.
+This is the only interface between `core/` (Python) and `web/`, both built with Claude Code. The web app never calls Token Factory, Tavily or any model API: it calls this API only. The frontend consumes the generated JSON Schemas in `docs/api/schemas/`; the pydantic models in `core/api/models.py` stay their single source.
 
 Sources of truth, in order:
 
@@ -15,8 +15,8 @@ Sources of truth, in order:
 
 - Base path `/api/v1`. JSON in UTF-8 everywhere except the event stream (Server-Sent Events).
 - Timestamps are ISO 8601 in UTC (`2026-10-20T15:00:00Z`).
-- Money is USD as a JSON number, unrounded, as the ledger computes it (`usd_real` and friends). The UI rounds for display.
-- Ids are opaque strings: `run_id` (for example `run_8f2c1a7d4b`), `task_id`, `agent_id`, `message_id`, `recording_id`. Event ids are `<run_id>:<seq>`.
+- Money is USD as a JSON number, sent exactly as the ledger computes it (`usd_real` and friends); the UI formats it and never does money arithmetic for decisions. The ledger (`core/ledger.py`) uses Python floats today, so sums can carry floating-point noise: the fixture's run total is `0.013171559999999999`. Format for display only (for example to 4 or 6 decimals). Proposed follow-up, not done: `Decimal` or integer micro-USD in the ledger.
+- Ids are opaque strings with a type prefix: `run_id` is `run_` plus a random identifier (for example `run_8f2c1a7d4b`); `task_id`, `agent_id`, `message_id` and `recording_id` are opaque too. The UI must not parse any id. Event ids are `<run_id>:<seq>`; only the server reads them back (for `Last-Event-ID`).
 - Roles, skills, tools and models are plain strings (`"researcher"`, `"prose-style"`, `"tavily_search"`, `"nemotron-3.5-lightning"`). The demo domain only changes data, never the API.
 - Unknown fields are rejected in requests (HTTP 422) and never sent in responses; every object in the schemas has `additionalProperties: false`.
 
@@ -24,7 +24,7 @@ Sources of truth, in order:
 
 | Mode | What it does | Cost |
 |---|---|---|
-| `recorded` | Replays a saved run, event by event, with its original timing | Nothing |
+| `recorded` | Replays the stored event log of an earlier run, with its original event ids and delays (not a re-execution through harness cassettes) | Nothing |
 | `live` | Runs the agents on Token Factory under the live caps | Real credits |
 
 `GET /api/v1/modes` (`ModesView`) says which modes are available now, and why live is not: `refusal` is one of
@@ -36,7 +36,26 @@ Sources of truth, in order:
 | `daily_cap_reached` | Live spend today reached `max_usd_per_day` | 429, with `Retry-After` (seconds to the daily reset) |
 | `visitor_limit_reached` | This visitor used up their live runs for today | 429, with `Retry-After` |
 
-The caps come from `LIVE_DEMO_MAX_USD_PER_RUN` and `LIVE_DEMO_MAX_USD_PER_DAY` (`.env.example`). The visitor limit has no setting yet (see "Not in core yet"). The server never switches a run from live to recorded on its own: a refused live request gets an error, and the UI may then offer a recorded run. Every run states its mode (`RunView.mode`); a recorded run also starts with a `mode_notice` event (`recorded_mode`). If the caps run out between creating a live run and starting it, the stream sends `mode_notice` (`live_refused`) and then `run_failed` with code `live_refused`, and nothing is spent. Example: `examples/api/live_refused.json`.
+The caps come from `.env.example`: `LIVE_DEMO_MAX_USD_PER_RUN`, `LIVE_DEMO_MAX_USD_PER_DAY` and `LIVE_DEMO_MAX_RUNS_PER_VISITOR_PER_DAY` (1).
+
+Refusals (decided 2026-10-16): a refused live request gets its error and nothing else; there is **no automatic fallback** to recorded. The UI shows the refusal reason and offers a recorded run as an explicit user action (a new `POST /runs` with `mode: "recorded"`). The statuses above stay as listed: 429 for the daily cap and the visitor limit, 422 for a budget above the per-run cap, 503 when live is off.
+
+Recorded runs are labelled as recorded everywhere: `mode` is `"recorded"` in `RunView`, in every run-scoped view (`OrgChart`, `LedgerView`, `TaskList`, `ChatMessageList`, `DeliveryPackage`) and in the envelope of every event, and the stream starts with a `mode_notice` event (`recorded_mode`). The UI shows that label on every screen of a recorded run. Which real run becomes the recorded demo is still open: it is chosen after the benchmark (docs/DECISIONS.md). If the caps run out between creating a live run and starting it, the stream sends `mode_notice` (`live_refused`) and then `run_failed` with code `live_refused`, and nothing is spent. Examples: `examples/api/live_refused.json` (the daily cap, the visitor limit, and a refusal after creation).
+
+### Visitors
+
+- The visitor key is a signed, anonymous, HttpOnly cookie set by the server on the first request. It holds a random id and a signature, nothing about the person. Attributes: `HttpOnly`, `Secure`, `SameSite=Lax` when the API is on the same site as the web app, `SameSite=None` when it is on another site.
+- Limit: 1 live run per visitor per day (`LIVE_DEMO_MAX_RUNS_PER_VISITOR_PER_DAY`). A live run counts when `POST /runs` accepts it. `LiveCaps.visitor_runs_today` is 0 for a request without the cookie.
+- A visitor can clear cookies and get a fresh key, so the visitor limit is a courtesy limit. The global daily USD cap (`LIVE_DEMO_MAX_USD_PER_DAY`) and the per-run cap (`LIVE_DEMO_MAX_USD_PER_RUN`) are the protection that cannot be bypassed, and the ledger enforces them for every call.
+- When the API is on another host than the web app, the client sends credentials: `fetch(url, {credentials: "include"})` and `new EventSource(url, {withCredentials: true})`, and the server answers with `Access-Control-Allow-Credentials: true` and the exact web origin (not `*`).
+
+### Hosting
+
+Decided 2026-10-16: the web app runs on Vercel; the run executor and the live event stream run on a separate host. The concrete host is not chosen yet; it is chosen after measuring how long a real run takes.
+
+- VERIFIED (https://vercel.com/docs/functions/limitations, page dated 2026-08-24, read 2026-10-16): with Fluid compute, the maximum duration of a Vercel Function is 300 s (default and maximum) on Hobby, and 300 s by default with an 800 s maximum on Pro and Enterprise (1800 s extended maximum in beta). The limit covers the time spent sending the response, including streamed responses.
+- NOT MEASURED: the duration of a real Rookwise run.
+- The contract stays host-agnostic: the web app takes the API base URL from its configuration, `RunView.events_url` may be an absolute URL on another host, and `Last-Event-ID` resume is the reconnection mechanism wherever the stream is served.
 
 ## Endpoints
 
@@ -53,12 +72,12 @@ The caps come from `LIVE_DEMO_MAX_USD_PER_RUN` and `LIVE_DEMO_MAX_USD_PER_DAY` (
 | `GET /api/v1/runs/{run_id}/messages` | | 200 `ChatMessageList` | Chat with the director (or the VP with a board) |
 | `POST /api/v1/runs/{run_id}/messages` | `PostMessageRequest` | 202 `ChatMessageList` (the new user message) | The answer arrives as a `message` event |
 | `POST /api/v1/runs/{run_id}/approval` | `ApprovalRequest` | 202 `RunView` | Only while `status` is `awaiting_approval` (flow step 4) |
-| `POST /api/v1/runs/{run_id}/pause` | | 202 `RunView` | The user's brake: pending calls are frozen |
-| `POST /api/v1/runs/{run_id}/resume` | | 202 `RunView` | |
-| `POST /api/v1/runs/{run_id}/cancel` | | 202 `RunView` | See "Cancellation" |
+| `POST /api/v1/runs/{run_id}/pause` | | 501 `not_implemented` | Reserved: core cannot pause yet. The UI shows no pause control |
+| `POST /api/v1/runs/{run_id}/resume` | | 501 `not_implemented` | Reserved, as pause |
+| `POST /api/v1/runs/{run_id}/cancel` | | 202 `RunView` | Live runs only; see "Cancellation". The only brake the UI shows |
 | `GET /api/v1/runs/{run_id}/package` | | 200 `DeliveryPackage`, or 409 `package_not_ready` | Summary, deliverables, cost report, contracts, decisions, audit verdict |
 
-Run `status` values: `queued`, `planning`, `awaiting_approval`, `running`, `paused`, `finished`, `failed`, `cancelled`. In a recorded run, `POST /messages`, `/approval`, `/pause` and `/resume` return 409 `recorded_run` (the replay cannot change); `/cancel` stops the replay.
+Run `status` values: `queued`, `planning`, `awaiting_approval`, `running`, `paused` (reserved until core supports pause), `finished`, `failed`, `cancelled`. A recorded run keeps the `run_id` and status of the run it was recorded from; `POST /runs` with `mode: "recorded"` returns it. In a recorded run, `POST /messages`, `/approval` and `/cancel` return 409 `recorded_run` (the replay cannot change; to stop watching, close the stream).
 
 Agent levels (`AgentNode.level`) are the ledger's levels: `vp`, `director`, `manager`, `operator`, `auditor`. Attempt records (`AttemptRecord`) are exactly the harness's: `reason` is `first`, `repair` (a retry on the same model) or `escalation` (the next model on the ladder), and a task's `label` is `first_pass_ok`, `ok_after_retry`, `ok_after_escalation` or `failed`. The UI shows "first pass", "retry" and "escalation" from these two fields.
 
@@ -92,7 +111,7 @@ A comment line `: keep-alive` is sent every 15 s without events. Every event has
 - `agent_hired` comes before any event that names its `agent_id`. For a task: `task_assigned`, then per attempt `task_started`, the attempt's `tool_called` events and `attempt_recorded`, then `task_result`.
 - A `budget_update` follows each charged ledger entry (`payload.entry`). Its numbers are absolute totals, not deltas, and every payload is a full snapshot of what it describes, so applying an event twice is harmless. Clients deduplicate by `id`.
 - Resume: on reconnect the browser sends `Last-Event-ID`; clients that cannot set headers pass `?last_event_id=`. The server resends every event with a larger `seq`, in order. An id from another run gets 400 `invalid_last_event_id`. When the run already ended and the client has its terminal event, the server answers 204 (an `EventSource` then stops reconnecting).
-- Recorded runs replay the stored events with their original `seq`, payloads and delays; the server rewrites `run_id` and `id` to the new run.
+- Recorded runs replay the stored event log with its original `id`, `seq`, payloads and delays. The only thing the server sets is `mode: "recorded"` (in the envelope and in `run_started`), so a recording never passes for a live run.
 
 ### Event catalog
 
@@ -574,13 +593,14 @@ Every non-2xx response has the body `ErrorResponse`:
 | 422 | `validation_failed`, `live_refused` (with `refusal: run_cap_exceeded`) | The body does not match its schema (`details.errors` lists them); budget above the per-run cap |
 | 429 | `live_refused` (with `refusal: daily_cap_reached` or `visitor_limit_reached`) | Live caps; `Retry-After` header in seconds |
 | 500 | `internal_error` | Unexpected; the body never carries a traceback |
+| 501 | `not_implemented` | Pause and resume, until core supports them |
 | 503 | `live_refused` (with `refusal: live_disabled`) | Live mode is off |
 
 `details` is an object whose keys depend on `code`; `request_id` matches the `X-Request-Id` response header.
 
 ## Cancellation
 
-`POST /api/v1/runs/{run_id}/cancel` returns 202 with the run. The server stops sending model calls; calls in flight are cancelled and settled by the harness (a call already sent and cut off is charged under `on_missing_usage`, marked `usage_estimated: true`). The stream then ends with `run_finished` with `status: "cancelled"` and `partial: true`, after a final `budget_update`. Cancelling a finished run returns 409 `run_not_active`.
+`POST /api/v1/runs/{run_id}/cancel` returns 202 with the run (live runs only; a recorded run answers 409 `recorded_run`, and the client simply closes the stream). The server stops sending model calls; calls in flight are cancelled and settled by the harness (a call already sent and cut off is charged under `on_missing_usage`, marked `usage_estimated: true`). The stream then ends with `run_finished` with `status: "cancelled"` and `partial: true`, after a final `budget_update`. Cancelling a finished run returns 409 `run_not_active`.
 
 ## What the UI never receives
 
@@ -602,10 +622,8 @@ Everything below is defined by this contract only; `core/` has no field, model o
 - Tasks: `TaskView.agent_id` and task `status`. (`label`, `attempts` and `tool_calls` come from the runner.)
 - Delivery package: `summary`, `Deliverable`, `CostReport` (the `prediction_error` metric is defined in docs/ARCHITECTURE.md but not computed in code), `ContractRecord`, `decisions`, and the whole `AuditVerdict` (there is no auditor yet).
 - Events: the envelope (`id`, `seq`, `ts`, `type`) and every payload wrapper. Per-call `tool_called` events do not exist: the tool loop keeps a trace (`kind`, `tool`, `ok`) and a count per tool, but not `error_type` or `truncated` per call, and `run_tool_count` would be a run-wide counter. `task_started.attempt_index` is the `AttemptRecord.attempt_index`.
-- Errors: `ErrorBody` and its codes; pause, resume and approval; the debug flag; visitor identification.
+- Errors: `ErrorBody` and its codes; approval; the debug flag; the visitor cookie and the per-visitor count (decided, not built); pause and resume (reserved, 501).
 
 ## Open points
 
-- How the server identifies a visitor for `visitor_limit_reached` (cookie, header or IP hash) and the limit itself.
-- Whether recorded mode replays stored event logs (as above) or re-executes runs through harness cassettes.
-- Whether SSE fits the hosting plan (Vercel function duration limits are UNVERIFIED).
+Tracked in [docs/DECISIONS.md](DECISIONS.md): the executor host (after measuring a run), which real run becomes the recorded demo, and whether demo recordings are committed.

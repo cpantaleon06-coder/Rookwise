@@ -154,11 +154,15 @@ def make_handler(fixtures: Fixtures, speed: float) -> type[BaseHTTPRequestHandle
                     "see docs/api.md, POST /runs",
                     errors=["mode: 'live' or 'recorded' with a known recording_id"],
                 )
-            if len(parts) == 3 and parts[0] == "runs" and parts[1] == fixtures.run_id:
-                if parts[2] == "cancel":
-                    return self._json(202, fixtures.bundle["run"])
-                if parts[2] in ("messages", "approval", "pause", "resume"):
-                    return self._error(409, "recorded_run", "a recorded run cannot be changed")
+            if len(parts) == 3 and parts[0] == "runs":
+                if parts[2] in ("pause", "resume"):
+                    return self._error(
+                        501, "not_implemented", f"{parts[2]} is reserved until core supports it"
+                    )
+                if parts[1] == fixtures.run_id and parts[2] in ("messages", "approval", "cancel"):
+                    return self._error(
+                        409, "recorded_run", "a recorded run cannot be changed; close the stream"
+                    )
             return self._error(404, "not_found", f"no mock route for POST {self.path}")
 
         # -- SSE -----------------------------------------------------------------------

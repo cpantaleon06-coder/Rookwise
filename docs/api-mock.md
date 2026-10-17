@@ -2,7 +2,9 @@
 
 `examples/api/mock/serve.py` serves the synthetic fixtures in `examples/api/` with the routes, status codes, headers and event stream described in [docs/api.md](api.md), so `web/` can be built before the server exists. It uses the Python standard library only (Python 3.11, already required by the project).
 
-Everything it returns is **synthetic**: written by `scripts/gen_api_fixtures.py`, not model output, and marked `[synthetic]` in every visible text. Never present it as a real run.
+Everything it returns is **synthetic**: written by `scripts/gen_api_fixtures.py`, not model output, and marked `[synthetic]` in every visible text. Never present it as a real run. Every payload of the recorded run carries `mode: "recorded"`; show that label in the UI.
+
+The mock sets no visitor cookie and serves everything from one origin with `Access-Control-Allow-Origin: *`, so it cannot exercise the cross-host cookie rules in docs/api.md ("Visitors"); test those against the real server.
 
 ## Run it
 
@@ -19,13 +21,13 @@ Options: `--port 8787` (default), `--host 127.0.0.1` (default), `--speed 1` (rep
 | `GET /modes` | `recorded_run.json` `modes` (live available) |
 | `GET /runs` | `recorded_run.json` `runs` |
 | `POST /runs` with `{"mode": "recorded", "recording_id": "rec-demo-bakery-001"}` | 201, the recorded run (`run_8f2c1a7d4b`) |
-| `POST /runs` with `{"mode": "live", ...}` | 429 with `Retry-After: 3600` and the `live_refused` error from `live_refused.json`, so the refusal UI can be built |
+| `POST /runs` with `{"mode": "live", ...}` | 429 with `Retry-After: 3600` and the `live_refused` error from `live_refused.json` (daily cap), so the refusal UI can be built. There is no automatic fallback: the UI offers a recorded run as a separate user action |
 | `POST /runs` with anything else | 422 `validation_failed` |
 | `GET /runs/run_8f2c1a7d4b` and `/org`, `/ledger`, `/tasks`, `/messages`, `/package` | The matching section of `recorded_run.json` |
 | `GET /runs/run_8f2c1a7d4b/events` | The SSE replay of `recorded_run.events.json` |
 | `GET /runs/run_3e9d0b6a51/events` | A live run refused after creation: `mode_notice` (`live_refused`), then `run_failed` |
-| `POST /runs/run_8f2c1a7d4b/cancel` | 202 with the run |
-| `POST /runs/run_8f2c1a7d4b/messages`, `/approval`, `/pause`, `/resume` | 409 `recorded_run` |
+| `POST /runs/run_8f2c1a7d4b/messages`, `/approval`, `/cancel` | 409 `recorded_run` (a recording cannot change; close the stream to stop watching) |
+| `POST /runs/{any}/pause`, `/resume` | 501 `not_implemented` (reserved until core supports them; the UI shows cancel only) |
 | Anything else | 404 `not_found` |
 
 Every response carries `X-Request-Id`; error bodies follow `ErrorResponse`.

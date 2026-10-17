@@ -111,8 +111,12 @@ def test_live_is_refused_and_recorded_is_created(base_url):
         base_url + "/runs", {"mode": "recorded", "recording_id": "rec-demo-bakery-001"}
     )
     assert status == 201 and body["run_id"] == "run_8f2c1a7d4b"
-    status, _, body = _post(base_url + "/runs/run_8f2c1a7d4b/messages", {"text": "hi"})
-    assert status == 409 and body["error"]["code"] == "recorded_run"
+    for action in ("messages", "approval", "cancel"):
+        status, _, body = _post(base_url + f"/runs/run_8f2c1a7d4b/{action}", {"text": "hi"})
+        assert status == 409 and body["error"]["code"] == "recorded_run", action
+    for action in ("pause", "resume"):
+        status, _, body = _post(base_url + f"/runs/run_8f2c1a7d4b/{action}", {})
+        assert status == 501 and body["error"]["code"] == "not_implemented", action
 
 
 def test_the_stream_has_sse_headers_and_every_event_in_order(base_url):
