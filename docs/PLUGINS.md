@@ -42,7 +42,7 @@ To update a pin, read the release diff, then change the `ref` in `.claude/settin
 - **Phase**: Phases 2 to 4, while `core/` is built with Claude Code.
 - **When an agent must use it**: it applies on its own in every Claude Code session in this repository once installed. Before committing a change to `core/`, run `/ponytail-review` on the diff.
 - **What it must not do**: override a requirement in `docs/ARCHITECTURE.md`; remove validation, error handling, budget reservations, rate-limit handling, schema checks or tests. A `shortcut:` comment is acceptable only when it names its limit and its upgrade path. The numbers shown by `/ponytail-gain` are the ponytail project's benchmark, not ours.
-- **web/**: `web/` is built with GLM, so ponytail does not apply there unless that host supports it. ponytail ships rule files for other hosts (for example `AGENTS.md`), but none is set up for `web/`. Note that the project settings enable it for any Claude Code session in this repository, including one that edits `web/`.
+- **web/**: `web/` is built with Claude Code too (GLM is not available; decided 2026-10-16), so the project settings enable ponytail for sessions that edit `web/` as well.
 
 ## harness-engineering
 

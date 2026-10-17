@@ -1,6 +1,6 @@
 # Rookwise: Architecture
 
-Source of truth for humans and coding agents (Claude Code, GLM). Version of October 14, 2026.
+Source of truth for humans and coding agents (Claude Code). Version of October 16, 2026.
 Hackathon: Nebius x NVIDIA Global AI Hackathon 2026, track Best Apps and Agents. Submission deadline: October 30, 2026, 10:00 AM PDT.
 
 ## Rules for any agent working in this repo
@@ -10,7 +10,7 @@ Hackathon: Nebius x NVIDIA Global AI Hackathon 2026, track Best Apps and Agents.
 - Prices are never hard-coded. Read them from `config/prices.json`.
 - Do not assume API details. Check `docs/HARNESS_RESEARCH.md` first and mark anything unverified as such.
 - Every module in `core/` ships with tests in `tests/`.
-- Ownership: `core/` is built with Claude Code. `web/` is built with GLM. They only talk through the API described in `docs/api.md` (written by Claude Code before the web UI starts).
+- Ownership: `core/` and `web/` are both built with Claude Code (GLM is not available). They only talk through the API described in `docs/api.md` (written by Claude Code before the web UI starts).
 - Report results exactly as measured. Do not invent numbers.
 
 ## Summary
@@ -30,7 +30,7 @@ Source: Devpost rules page, read on 2026-10-13 (summarized extract; re-read the 
 |---|---|---|
 | Nebius: a runtime call to the Token Factory inference API (or running on Nebius AI Cloud compute) | Every model call goes to the Token Factory API through the harness | In progress: runtime calls verified in the smoke test (2026-10-13); product runtime planned |
 | At least one NVIDIA open source model | NVIDIA Nemotron at every level, which is stricter than the rule | In progress: Nemotron used in the smoke test; product runtime planned |
-| A working demo, hosted application or test build, free and accessible for testing until the Judging Period ends (Dec 15, 2026) | Vercel deployment of `web/`. Plan a recorded mode that costs nothing, so the demo keeps working without credits. Check credit expiry and any free-tier pausing (hosting, database) before depending on them | Planned (Phase 3) |
+| A working demo, hosted application or test build, free and accessible for testing until the Judging Period ends (Dec 15, 2026) | `web/` deployed on Vercel; the run executor and the live event stream on a separate host, chosen after measuring a real run (see "Interface and deployment"). Recorded mode replays stored event logs and costs nothing, so the demo keeps working without credits. Check credit expiry and any free-tier pausing (hosting, database) before depending on them | Planned (Phase 3) |
 | Video: under three minutes, public on YouTube, shows the project working, no unlicensed third-party trademarks or music | Demo video, target length 2:45 | Planned (Phase 5) |
 | Public repo with source code, assets and setup instructions | Public GitHub repo with source code; setup instructions go in the README | In progress: repo public with source code; setup instructions planned (Phase 5) |
 | Open source license visible in the repository's About section | MIT `LICENSE` in the repo root; GitHub detects it as MIT (checked 2026-10-13) | Done |
@@ -80,7 +80,7 @@ Communication is vertical. Operators talk to their manager, managers to the dire
 - Record input, cached, output and reasoning tokens, model, cost and time of every call.
 - Stop at a cap and return the partial result.
 - Limit retries and concurrency. Rate limiting and concurrency are per model and read from `config/rate_limits.json`. The administrator enforces requests per minute and tokens per minute for each model before reserving a call.
-- Honor the user's brake: pause, resume, cancel.
+- Honor the user's brake: cancel. Pause and resume are planned; the API reserves them (HTTP 501) and the UI shows no pause or resume control until core supports them.
 
 ### Cost of a call
 
@@ -329,7 +329,15 @@ Market evidence: public statistics on micro and small businesses from internatio
 
 ## Interface and deployment
 
-Chat with the director (or VP), live feed of hires and tasks, live org chart, budget panel (predicted versus real), delivery package view. Site and chat are built with GLM in `web/`. The API between `core/` and `web/` is [docs/api.md](api.md) (v1, status: draft, frontend may start), with JSON Schemas in `docs/api/schemas/`, synthetic fixtures in `examples/api/` and a mock server described in [docs/api-mock.md](api-mock.md). Deployment on Vercel with two modes: recorded (saved runs, no cost) and live (spending cap and per-visitor limit). Keys in environment variables only.
+Chat with the director (or VP), live feed of hires and tasks, live org chart, budget panel (predicted versus real), delivery package view. Site and chat are built with Claude Code in `web/`. The API between `core/` and `web/` is [docs/api.md](api.md) (v1: decided for visitors, modes, refusals, hosting, ids and money; the rest is draft, frontend may start), with JSON Schemas in `docs/api/schemas/` (what the frontend consumes), synthetic fixtures in `examples/api/` and a mock server described in [docs/api-mock.md](api-mock.md).
+
+Deployment (decided 2026-10-16, see [docs/DECISIONS.md](DECISIONS.md)):
+
+- The web app runs on Vercel. The run executor and the live event stream run on a separate host, chosen after measuring how long a real run takes (not measured yet). VERIFIED from the Vercel docs: with Fluid compute a Vercel Function stops at 300 s on Hobby and at 800 s on Pro, streamed responses included (details in docs/api.md, "Hosting"). The API stays host-agnostic, with `Last-Event-ID` resume for reconnects.
+- Recorded mode replays the stored event log of an earlier run, with its original event ids and delays, at no cost. Recorded runs are labelled as recorded in every API payload and on screen. Which real run becomes the recorded demo is chosen after the benchmark.
+- Live mode makes real calls under three limits from `.env.example`: USD per run (`LIVE_DEMO_MAX_USD_PER_RUN`), USD per day for the whole deployment (`LIVE_DEMO_MAX_USD_PER_DAY`), and one live run per visitor per day (`LIVE_DEMO_MAX_RUNS_PER_VISITOR_PER_DAY`). A visitor is a signed, anonymous, HttpOnly cookie. A visitor can clear cookies, so the two USD caps are the limit that cannot be bypassed.
+- A refused live request stays refused (HTTP 429 for the daily cap and the visitor limit). The UI offers a recorded run as an explicit choice; the server never falls back on its own.
+- Keys in environment variables only.
 
 ## Vision
 
@@ -353,4 +361,4 @@ README is written at the end (Phase 5).
 
 ## Open decisions
 
-Whether reasoning tokens are billed as output (compare with the console balance); caching under other conditions; long-output speed per model; what the token rate limit counts and whether limits are independent per model; reputation formula; store choice (Supabase or SQLite); scope of the public live mode; final demo cases.
+Whether Token Factory bills reasoning tokens at the output price (compare with the console balance); caching under other conditions; long-output speed per model; what the token rate limit counts and whether limits are independent per model; reputation formula; store choice (Supabase or SQLite); the host for the run executor and the live stream (after measuring a real run); which real run becomes the recorded demo, and whether demo recordings are committed; Nano's tool protocol (revisit after the benchmark); the model ladder inside the runner versus reassignment by a manager (proposed, pending); the ITOps and DevOps domain and the final demo cases. The scope of the public live mode is decided. Decisions and their reasons are logged in [docs/DECISIONS.md](DECISIONS.md).
