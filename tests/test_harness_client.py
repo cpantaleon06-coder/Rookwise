@@ -360,6 +360,37 @@ def test_a_reservation_that_does_not_fit_is_never_sent():
     run(main())
 
 
+def test_a_call_with_a_budget_id_is_drawn_from_that_allocation():
+    async def main():
+        book = ledger()
+        allocation = book.allocate("r-1", "op-1", Decimal("0.01"))
+        handler = Handler([respond(ok_stream())])
+        async with _harness(handler, book) as harness:
+            result = await harness.complete(request(budget_id="op-1"))
+        report = _assert_no_hold(book)
+        (node,) = report.allocations
+        assert node.spent_usd == result.usd == report.spent_usd > 0
+        assert book.free("r-1", "op-1") == allocation.usd - result.usd
+        assert book.free("r-1") == Decimal("1") - allocation.usd
+        assert "budget_id" not in handler.bodies[0]  # ledger-only, never sent
+
+    run(main())
+
+
+def test_a_call_that_does_not_fit_its_allocation_is_never_sent():
+    async def main():
+        book = ledger()
+        book.allocate("r-1", "op-1", _reservation_usd(request()) / 2)
+        handler = Handler([])
+        async with _harness(handler, book) as harness:
+            with pytest.raises(CapReached) as refused:
+                await harness.complete(request(budget_id="op-1"))
+        assert (refused.value.scope, refused.value.key) == ("budget", "op-1")
+        assert handler.requests == [] and _assert_no_hold(book).entries == ()
+
+    run(main())
+
+
 def test_reservations_never_pass_the_cap_under_concurrency():
     async def main():
         one = _reservation_usd(request())

@@ -293,7 +293,9 @@ def write_config(rows: list[dict[str, Any]], date: str) -> None:
         "matches the skill text, otherwise the loader falls back to an ESTIMATE "
         f"(characters / 4). Ceilings are the measured values plus {round((MARGIN - 1) * 100)}%"
         f", rounded up to a multiple of {ROUND_TO}. The ITOps roles are placeholders until "
-        "the ITOps and DevOps use case is final."
+        "the ITOps and DevOps use case is final. A role that leads a level of the team "
+        "hierarchy names it in `level` (director, manager or auditor; core/team); every other "
+        "role is an operator role."
     )
     SKILLS_CONFIG.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print(f"\nWrote measured values and ceilings to {SKILLS_CONFIG}")

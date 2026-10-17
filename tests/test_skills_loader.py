@@ -149,6 +149,7 @@ def test_repo_config_is_consistent_with_prices():
     prices = json.loads((CONFIG / "prices.json").read_text(encoding="utf-8"))
     for role, spec in config["roles"].items():
         assert spec["model"] in prices["per_million_tokens"], role
-        assert spec["max_skill_tokens"] > 0, role
+        # A role without skills (the director and the manager today) has a ceiling of 0.
+        assert spec["max_skill_tokens"] > 0 or not spec["skills"], role
     for skill_id, spec in config["skills"].items():
         assert spec["max_tokens"] > 0, skill_id

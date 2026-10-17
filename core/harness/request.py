@@ -52,7 +52,8 @@ class JsonObjectFormat:
 class ChatRequest:
     """One model call. `model` is an alias from config/prices.json.
 
-    `run_id`, `level`, `task_id`, `skills` and `usd_predicted` go to the ledger, not to
+    `run_id`, `level`, `task_id`, `skills`, `usd_predicted` and `budget_id` (the ledger
+    allocation the call is drawn from, None for the run) go to the ledger, not to
     the API. `usd_predicted` is the caller's cost prediction, a Decimal; zero means none
     was made.
     Fields left None take the model's defaults from config/harness.json.
@@ -75,6 +76,7 @@ class ChatRequest:
     usd_predicted: Decimal = ZERO_USD
     skills: tuple[str, ...] = ()
     input_tokens_estimate: int | None = None
+    budget_id: str | None = None
 
 
 @dataclass(frozen=True)

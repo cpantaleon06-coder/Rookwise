@@ -613,17 +613,18 @@ Debug flag: when the server runs with `ROOKWISE_API_DEBUG=1` and the client adds
 
 ## Not in core yet
 
-Everything below is defined by this contract only; `core/` has no field, model or code for it yet (Stage 3 builds it):
+Since 2026-10-17 the team skeleton (`core/team`) emits a run's events in these types, built and validated with the contract models: the envelope (`id`, `seq`, `ts`, `type`, `mode`), `run_started`, `agent_hired` (with `agent_id`, `parent_id` and `status: "hired"`), `task_assigned`, `task_started`, `attempt_recorded`, `budget_update` (with `predicted_usd` summed over the entries), `message` (`ChatMessage` from the director), `task_result`, `audit_result` (an `AuditVerdict` from the auditor), `run_finished` and `run_failed` (`ErrorBody` codes `budget_exhausted`, `plan_failed`, `plan_too_large`). No server serves them yet. Everything below is defined by this contract only; `core/` has no field, model or code for it yet (Stage 3 builds it):
 
-- Runs: `goal`, `mode`, `recording_id`, `simulated_case`, `status`, `board`, `created_at`, `finished_at`, `events_url`; the run list and its `next_cursor`. (`run_id`, the caps `run_usd` and `level_usd`, and `spent_usd` and `held_usd` exist in the ledger.)
-- `predicted_usd` (per run, in `LedgerView`, `BudgetUpdatePayload`, `RunFinishedPayload`) and `usage_estimated_entries`: sums over the ledger entries' existing `usd_predicted` and `usage_estimated`, not computed anywhere in core yet.
+- Runs: `recording_id`, `status`, `created_at`, `finished_at`, `events_url`; the run list and its `next_cursor`; `RunView` itself. (`run_id`, the caps `run_usd` and `level_usd`, and `spent_usd` and `held_usd` exist in the ledger; `goal`, `mode`, `simulated_case` and `board` exist only in `run_started`.)
+- `usage_estimated_entries`, and `predicted_usd` in `LedgerView`: sums over the ledger entries' `usage_estimated` and `usd_predicted`, not computed for those views yet.
 - Modes and caps: all of `ModesView`, `ModeAvailability`, `RefusalReason`, `LiveCaps` (the two USD caps exist only as `.env.example` variables that no code reads), `spent_usd_today`, `max_runs_per_visitor_per_day`, `visitor_runs_today`, `RecordingSummary`.
-- Org chart: `agent_id`, `parent_id`, agent `status`, `as_of_event_id`. (`level` is `rookwise.schemas.Level`; `role`, `model`, `operator_id`, `skills` and `tools` are catalog fields of `OperatorSpec`.)
-- Chat: all of `ChatMessage` and the approval request.
-- Tasks: `TaskView.agent_id` and task `status`. (`label`, `attempts` and `tool_calls` come from the runner.)
-- Delivery package: `summary`, `Deliverable`, `CostReport` (the `prediction_error` metric is defined in docs/ARCHITECTURE.md but not computed in code), `ContractRecord`, `decisions`, and the whole `AuditVerdict` (there is no auditor yet).
-- Events: the envelope (`id`, `seq`, `ts`, `type`) and every payload wrapper. Per-call `tool_called` events do not exist: the tool loop keeps a trace (`kind`, `tool`, `ok`) and a count per tool, but not `error_type` or `truncated` per call, and `run_tool_count` would be a run-wide counter. `task_started.attempt_index` is the `AttemptRecord.attempt_index`.
-- Errors: `ErrorBody` and its codes; approval; the debug flag; the visitor cookie and the per-visitor count (decided, not built); pause and resume (reserved, 501).
+- Org chart: `OrgChart` and `as_of_event_id`, and agent statuses other than `hired`. (`level` is `rookwise.schemas.Level`; `role`, `model`, `operator_id`, `skills` and `tools` are catalog fields of `OperatorSpec` or team roles.)
+- Chat: user messages, `POST /messages` and the approval request; the team does not wait for approval.
+- Tasks: `TaskView` and `TaskList`. (`label`, `attempts` and `tool_calls` come from the runner.)
+- Delivery package: `summary`, `Deliverable`, `CostReport` (the `prediction_error` metric is defined in docs/ARCHITECTURE.md but not computed in code), `ContractRecord`, `decisions`, and the `DeliveryPackage` itself. The auditor never sends `correction_cycles` above 0 yet.
+- Events: `mode_notice`, and per-call `tool_called` events: the tool loop keeps a trace (`kind`, `tool`, `ok`) and a count per tool, but not `error_type` or `truncated` per call, and `run_tool_count` would be a run-wide counter. `task_started.attempt_index` is the `AttemptRecord.attempt_index`.
+- Ledger allocations (sub-budgets, `rookwise.ledger.allocate`) have no contract fields or events, and a stop on an allocation has scope `budget`, which `CapStop.scope` does not list. Proposed additions are in docs/DECISIONS.md ("Still open").
+- Errors: the HTTP side of `ErrorBody` and its codes; approval; the debug flag; the visitor cookie and the per-visitor count (decided, not built); pause and resume (reserved, 501).
 
 ## Open points
 

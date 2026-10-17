@@ -1,5 +1,5 @@
 {
-  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final.",
+  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final. A role that leads a level of the team hierarchy names it in `level` (director, manager or auditor; core/team); every other role is an operator role.",
   "skills": {
     "prose-style": {
       "max_tokens": 800,
@@ -146,7 +146,20 @@
       ],
       "max_skill_tokens": 550
     },
+    "director": {
+      "level": "director",
+      "model": "nemotron-3-ultra",
+      "skills": [],
+      "max_skill_tokens": 0
+    },
+    "manager": {
+      "level": "manager",
+      "model": "nemotron-3-super",
+      "skills": [],
+      "max_skill_tokens": 0
+    },
     "auditor": {
+      "level": "auditor",
       "model": "nemotron-3-ultra",
       "skills": [
         "prose-style"

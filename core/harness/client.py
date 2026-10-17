@@ -346,6 +346,7 @@ class Harness:
             max_output_tokens=built.max_tokens,
             usd_predicted=request.usd_predicted,
             skills=request.skills,
+            budget_id=request.budget_id,
         )
 
     async def _run_attempt(

@@ -34,6 +34,14 @@ Decisions made by the user, with their date and the reason recorded at the time.
 | In the API contract every money field is a decimal string with exactly six decimals (`"0.002350"`), requests included; a JSON number is refused (422). Part of v1. | Strings carry the exact value to the browser; the web app did not consume the contract yet. | `core/api/models.py`, docs/api.md "Conventions", `docs/api/schemas/`, `examples/api/` |
 | Implementation choices, pending the user's review: reservations and charges round up (ROUND_CEILING), caps round down (ROUND_FLOOR), predictions round half-even; models refuse amounts finer than a micro-USD instead of rounding them; `CostReport.prediction_error` is a ratio and stays a JSON number. | Rounding up costs and down caps is what keeps both recorded and real spend under a cap; predictions gate nothing. | `core/ledger.py` docstring; `core/money.py`; docs/ARCHITECTURE.md "Cost of a call" |
 
+## Team hierarchy skeleton (2026-10-17)
+
+| Decision | Reason | Where |
+|---|---|---|
+| Sub-budgets are ledger allocations: `allocate` holds an amount out of the run or out of a parent allocation, a call reserved with that `budget_id` is drawn from it, `close` gives the unspent part back. The ledger enforces that children never hold more than their parent. | The ledger only reserved one model call at a time and had flat caps; the hierarchy needs sub-budgets the ledger itself enforces. | `core/ledger.py`; docs/ARCHITECTURE.md "Administrator layer" |
+| The team emits only the contract's existing event types; missing events are proposed, not added (see "Still open"). | Keep the contract unchanged until the additions are reviewed. | `core/team/events.py`, `core/team/flow.py` |
+| Implementation choices, pending the user's review: `BudgetPolicy` defaults (auditor 25% of what is free after the plan, equal split per block, a manager keeps 30% for its own call, one reassignment; placeholders, not measured); a reassigned task gets a new task_v1 id (`t-1.2`) so its ledger task cap and token budget start fresh; an operator that stopped on its budget is not reassigned; the auditor rejects without a model call when the deterministic check fails, and accepts with a warning when its model review could not run; `run_failed` uses the codes `budget_exhausted`, `plan_failed` and `plan_too_large`; managers run one after another. | A skeleton that the benchmark can tune. | `core/team/config.py`, `core/team/flow.py`, `core/team/auditor.py` |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
@@ -43,3 +51,4 @@ Decisions made by the user, with their date and the reason recorded at the time.
 - **Nano's tool protocol**: revisit after the benchmark.
 - **Model ladder**: escalation inside the runner, with a manager reassigning only after the ladder is exhausted, is proposed and pending the user's decision (docs/ARCHITECTURE.md "Failures and loops").
 - **Domain and demo cases**: the ITOps and DevOps domain, and the final demo cases.
+- **Contract additions for the hierarchy (proposed, not added)**: three event types, `budget_allocation` (`action`: allocated or released, `agent_id`, `parent_agent_id`, `usd`, `parent_free_usd`), `budget_exhausted` (`agent_id`, `level` and the `CapStop` fields) and `escalation` (`from_agent_id`, `to_agent_id`, `task_id`, `reason`); and `"budget"` in `CapStop.scope`, the scope of a stopped allocation. Until then a manager that runs out of budget shows only as a director `message` and `run_finished` with `partial: true`.

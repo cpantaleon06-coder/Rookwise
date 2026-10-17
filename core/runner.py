@@ -6,7 +6,8 @@
    adds the final-result instructions for the operator's output model;
 3. reads the instruction and the inputs from the store;
 4. sets the task's USD cap in the ledger (`budget.max_usd`) and passes its token
-   ceilings to the tool loop;
+   ceilings to the tool loop; with `budget_id`, every call is also drawn from that
+   ledger allocation (the operator's sub-budget);
 5. runs the tool loop with repair and escalation (`rookwise.harness`), which writes
    every model call to the ledger;
 6. stores the output at `store://<run_id>/results/<task_id>` and returns result_v1,
@@ -102,6 +103,7 @@ async def run_operator(
     skills_config: dict[str, Any] | None = None,
     skills_dir: Path = SKILLS_DIR,
     cancel: CancelHandle | None = None,
+    budget_id: str | None = None,
 ) -> OperatorRun:
     tools = tools or {}
     if (spec.input_schema, spec.output_schema) != ("task_v1", "result_v1"):
@@ -136,6 +138,7 @@ async def run_operator(
         temperature=spec.temperature,
         top_p=spec.top_p,
         skills=composed.skill_ids,
+        budget_id=budget_id,
     )
     ledger = harness.ledger
     ledger.set_task_cap(task.run_id, task.task_id, task.budget.max_usd)
