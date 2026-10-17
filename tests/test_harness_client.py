@@ -5,6 +5,7 @@ import asyncio
 import dataclasses
 import random
 from contextlib import aclosing
+from decimal import Decimal
 
 import pytest
 from harness_support import (
@@ -362,7 +363,7 @@ def test_a_reservation_that_does_not_fit_is_never_sent():
 def test_reservations_never_pass_the_cap_under_concurrency():
     async def main():
         one = _reservation_usd(request())
-        book = ledger(run_usd=one * 2.5)
+        book = ledger(run_usd=one * Decimal("2.5"))
         first = HangingStream(sse([role(), content("a")], done=False))
         second = HangingStream(sse([role(), content("b")], done=False))
         handler = Handler([first, second])
@@ -370,7 +371,7 @@ def test_reservations_never_pass_the_cap_under_concurrency():
             tasks = [asyncio.create_task(harness.complete(request())) for _ in range(2)]
             while not (first.sent and first.sent.is_set() and second.sent and second.sent.is_set()):
                 await asyncio.sleep(0)
-            assert book.report("r-1").held_usd == pytest.approx(2 * one)
+            assert book.report("r-1").held_usd == 2 * one
             with pytest.raises(CapReached):
                 await harness.complete(request())
             for task in tasks:

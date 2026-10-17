@@ -3,6 +3,7 @@ an output model of its own, so it depends on no demo domain."""
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +40,7 @@ def stub_spec(**overrides: Any) -> OperatorSpec:
         "operator_id": "stub-operator-lightning-01",
         "role": "stub-operator",
         "model": "nemotron-3.5-lightning",
-        "price_per_task_est_usd": 0.002,
+        "price_per_task_est_usd": Decimal("0.002"),
         "avg_latency_s": 8,
         "reputation": 0.5,
         "tools": ["tavily_search"],
@@ -50,7 +51,7 @@ def stub_spec(**overrides: Any) -> OperatorSpec:
     return OperatorSpec.model_validate(data | overrides)
 
 
-def stub_task(max_usd: float = 0.05, **budget: int) -> TaskV1:
+def stub_task(max_usd: Decimal = Decimal("0.05"), **budget: int) -> TaskV1:
     return TaskV1.model_validate(
         {
             "task_id": "t-1",

@@ -6,16 +6,18 @@
       "properties": {
         "level_usd": {
           "additionalProperties": {
-            "minimum": 0,
-            "type": "number"
+            "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+            "pattern": "^[0-9]+\\.[0-9]{6}$",
+            "type": "string"
           },
           "title": "Level Usd",
           "type": "object"
         },
         "run_usd": {
-          "exclusiveMinimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"; greater than zero",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Run Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -63,9 +65,10 @@
           "type": "string"
         },
         "held_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Held Usd",
-          "type": "number"
+          "type": "string"
         },
         "mode": {
           "enum": [
@@ -76,9 +79,10 @@
           "type": "string"
         },
         "predicted_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Predicted Usd",
-          "type": "number"
+          "type": "string"
         },
         "recording_id": {
           "anyOf": [
@@ -101,9 +105,10 @@
           "type": "boolean"
         },
         "spent_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Spent Usd",
-          "type": "number"
+          "type": "string"
         },
         "status": {
           "enum": [

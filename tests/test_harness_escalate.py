@@ -3,6 +3,7 @@
 import dataclasses
 import json
 import random
+from decimal import Decimal
 
 from harness_support import (
     TEST_KEY,
@@ -100,7 +101,7 @@ def test_build_result_validates_against_result_v1():
             "role": "researcher",
             "instruction_ref": "store://r-1/briefs/t-1",
             "inputs": [],
-            "budget": {"max_input_tokens": 1, "max_output_tokens": 1, "max_usd": 1.0},
+            "budget": {"max_input_tokens": 1, "max_output_tokens": 1, "max_usd": "1.000000"},
             "deadline_s": 60,
         }
     )
@@ -110,11 +111,11 @@ def test_build_result_validates_against_result_v1():
         output_ref="store://r-1/results/t-1",
         input_tokens=10,
         output_tokens=5,
-        usd=0.001,
+        usd=Decimal("0.001"),
         schema_valid=True,
         notes="first_pass_ok",
     )
-    assert result.task_id == "t-1" and result.usage.usd == 0.001
+    assert result.task_id == "t-1" and result.usage.usd == Decimal("0.001000")
 
 
 def test_first_pass_ok():
@@ -199,7 +200,7 @@ def test_operator_reported_failure_escalates_without_repair():
 def test_escalation_blocked_by_budget():
     # Nano's invalid answer reports 25,000 prompt tokens: USD 0.0015 plus output passes
     # the USD 0.0015 run cap, so the ledger refuses Super's reservation.
-    book = ledger(run_usd=0.0015)
+    book = ledger(run_usd=Decimal("0.0015"))
     handler = replies(text_reply(final_action({"status": "ok", "output": {}}), prompt=25_000))
     result, report = _run(handler, cfg=_no_repairs(), book=book)
     assert result.label == "failed" and result.stop_reason == "budget_exhausted"
@@ -208,7 +209,7 @@ def test_escalation_blocked_by_budget():
         SUPER,
         "budget_exhausted",
         0,
-        0.0,
+        Decimal("0"),
     )
     assert len(handler.requests) == 1 and len(report.entries) == 1
 

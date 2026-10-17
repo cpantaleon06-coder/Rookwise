@@ -32,6 +32,7 @@ import statistics
 import sys
 import time
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,7 @@ from openai import APIConnectionError, APIStatusError, OpenAI
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from rookwise.ledger import CapReached, Caps, InMemoryLedger, Usage
+from rookwise.money import ZERO_USD
 from rookwise.skills import compose_system_prompt, load_config, load_skill, skill_sha256
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -50,7 +52,7 @@ OUT_MD = REPO_ROOT / "runs" / "skill_check_outputs.md"
 
 REPEATS = 3
 MAX_TOKENS = 800
-MAX_USD = 0.50
+MAX_USD = Decimal("0.50")
 # Ceiling = measured tokens plus 20%, rounded up to a multiple of 50.
 MARGIN = 1.2
 ROUND_TO = 50
@@ -383,7 +385,7 @@ def main(argv: list[str] | None = None) -> int:
                         model=model,
                         input_tokens=est_input,
                         max_output_tokens=MAX_TOKENS,
-                        usd_predicted=0.0,
+                        usd_predicted=ZERO_USD,
                         skills=[skill_id] if variant == "with" else [],
                     )
                     time.sleep(args.pause)
@@ -431,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         report = ledger.report(RUN_ID)
         results["finished_at"] = datetime.now(UTC).isoformat()
-        results["estimated_spend_usd"] = round(report.spent_usd, 6)
+        results["estimated_spend_usd"] = str(report.spent_usd)
         results["summary"] = summarize(results["calls"])
         write_outputs(results)
 
@@ -447,7 +449,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{row['passed']['without']}/{row['calls']['without']}   "
             f"{row['completion_tokens']['with']}  {row['completion_tokens']['without']}"
         )
-    print(f"\nEstimated spend USD {results['estimated_spend_usd']:.6f} (cap {MAX_USD})")
+    print(f"\nEstimated spend USD {results['estimated_spend_usd']} (cap {MAX_USD})")
     if args.write_config and results["stopped_reason"] is None:
         write_config(results["summary"], results["started_at"][:10])
     return 0

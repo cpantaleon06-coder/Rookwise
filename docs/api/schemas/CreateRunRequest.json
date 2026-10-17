@@ -12,8 +12,9 @@
     "budget_usd": {
       "anyOf": [
         {
-          "exclusiveMinimum": 0,
-          "type": "number"
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"; greater than zero",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
+          "type": "string"
         },
         {
           "type": "null"

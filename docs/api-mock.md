@@ -2,7 +2,7 @@
 
 `examples/api/mock/serve.py` serves the synthetic fixtures in `examples/api/` with the routes, status codes, headers and event stream described in [docs/api.md](api.md), so `web/` can be built before the server exists. It uses the Python standard library only (Python 3.11, already required by the project).
 
-Everything it returns is **synthetic**: written by `scripts/gen_api_fixtures.py`, not model output, and marked `[synthetic]` in every visible text. Never present it as a real run. Every payload of the recorded run carries `mode: "recorded"`; show that label in the UI.
+Everything it returns is **synthetic**: written by `scripts/gen_api_fixtures.py`, not model output, and marked `[synthetic]` in every visible text. Never present it as a real run. Every payload of the recorded run carries `mode: "recorded"`; show that label in the UI. Money comes as six-decimal strings (`"0.004800"`), as in the contract (docs/api.md, "Conventions"); do not turn it into JavaScript numbers for arithmetic.
 
 The mock sets no visitor cookie and serves everything from one origin with `Access-Control-Allow-Origin: *`, so it cannot exercise the cross-host cookie rules in docs/api.md ("Visitors"); test those against the real server.
 

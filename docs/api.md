@@ -1,6 +1,6 @@
 # Rookwise API v1 (core/ to web/)
 
-Status: **v1, decided** (2026-10-16) for visitors, modes, refusal behavior, hosting, ids, money and where the models live; see [docs/DECISIONS.md](DECISIONS.md). The rest is **draft, frontend may start**: field names may still change before the server is built (Stage 3), and any change is made here first, in the models in `core/api/models.py`, and in the generated schemas. Written on 2026-10-16.
+Status: **v1, decided** (2026-10-16) for visitors, modes, refusal behavior, hosting, ids, money and where the models live, and on 2026-10-17 for money as six-decimal strings; see [docs/DECISIONS.md](DECISIONS.md). The rest is **draft, frontend may start**: field names may still change before the server is built (Stage 3), and any change is made here first, in the models in `core/api/models.py`, and in the generated schemas. Written on 2026-10-16.
 
 This is the only interface between `core/` (Python) and `web/`, both built with Claude Code. The web app never calls Token Factory, Tavily or any model API: it calls this API only. The frontend consumes the generated JSON Schemas in `docs/api/schemas/`; the pydantic models in `core/api/models.py` stay their single source.
 
@@ -15,7 +15,8 @@ Sources of truth, in order:
 
 - Base path `/api/v1`. JSON in UTF-8 everywhere except the event stream (Server-Sent Events).
 - Timestamps are ISO 8601 in UTC (`2026-10-20T15:00:00Z`).
-- Money is USD as a JSON number, sent exactly as the ledger computes it (`usd_real` and friends); the UI formats it and never does money arithmetic for decisions. The ledger (`core/ledger.py`) uses Python floats today, so sums can carry floating-point noise: the fixture's run total is `0.013171559999999999`. Format for display only (for example to 4 or 6 decimals). Proposed follow-up, not done: `Decimal` or integer micro-USD in the ledger.
+- Money is USD as a **decimal string with exactly six decimals** (micro-USD), for example `"0.002350"`, in every money field of every payload, requests included (`budget_usd`). The JSON Schema type is `{"type": "string", "pattern": "^[0-9]+\\.[0-9]{6}$"}`. The values are exactly what the ledger holds: `core/ledger.py` computes in `decimal.Decimal` and keeps whole micro-USD, so totals are exact sums of their entries (the fixture's run total is `"0.013173"`). A JSON number, an exponent or a seventh decimal in a money field is refused with 422 `validation_failed`. The UI formats the string for display and never does money arithmetic for decisions; if it must add amounts, it parses them as integers of micro-USD, never as JavaScript numbers. The one non-money number next to them is `CostReport.prediction_error`, a ratio.
+- Changed on 2026-10-17, as part of v1: money fields moved from JSON numbers to decimal strings. The web app did not consume the contract yet, so nothing else had to change.
 - Ids are opaque strings with a type prefix: `run_id` is `run_` plus a random identifier (for example `run_8f2c1a7d4b`); `task_id`, `agent_id`, `message_id` and `recording_id` are opaque too. The UI must not parse any id. Event ids are `<run_id>:<seq>`; only the server reads them back (for `Last-Event-ID`).
 - Roles, skills, tools and models are plain strings (`"researcher"`, `"prose-style"`, `"tavily_search"`, `"nemotron-3.5-lightning"`). The demo domain only changes data, never the API.
 - Unknown fields are rejected in requests (HTTP 422) and never sent in responses; every object in the schemas has `additionalProperties: false`.
@@ -147,7 +148,7 @@ Every example below is copied from the synthetic fixtures and validated by `test
     "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
     "mode": "recorded",
     "recording_id": "rec-demo-bakery-001",
-    "budget_usd": 0.25,
+    "budget_usd": "0.250000",
     "board": false,
     "simulated_case": true
   }
@@ -200,7 +201,7 @@ Every example below is copied from the synthetic fixtures and validated by `test
       "budget": {
         "max_input_tokens": 20000,
         "max_output_tokens": 4000,
-        "max_usd": 0.01
+        "max_usd": "0.010000"
       },
       "deadline_s": 120
     },
@@ -259,7 +260,7 @@ Example (first):
       "tool_calls": {
         "search": 1
       },
-      "usd": 0.0001728,
+      "usd": "0.000174",
       "input_tokens": 2000,
       "output_tokens": 220,
       "usage_estimated": false,
@@ -297,7 +298,7 @@ Example (repair):
       "steps": 1,
       "model_calls": 1,
       "tool_calls": {},
-      "usd": 0.00015,
+      "usd": "0.000150",
       "input_tokens": 1300,
       "output_tokens": 300,
       "usage_estimated": false,
@@ -333,7 +334,7 @@ Example (escalation):
       "steps": 1,
       "model_calls": 1,
       "tool_calls": {},
-      "usd": 0.000615,
+      "usd": "0.000615",
       "input_tokens": 1000,
       "output_tokens": 350,
       "usage_estimated": false,
@@ -377,12 +378,12 @@ Example (escalation):
   "ts": "2026-10-20T15:00:02.150000Z",
   "type": "budget_update",
   "payload": {
-    "spent_usd": 0.0048,
-    "held_usd": 0.0,
-    "predicted_usd": 0.005,
-    "cap_usd": 0.25,
+    "spent_usd": "0.004800",
+    "held_usd": "0.000000",
+    "predicted_usd": "0.005000",
+    "cap_usd": "0.250000",
     "spent_by_level": {
-      "director": 0.0048
+      "director": "0.004800"
     },
     "entry": {
       "run_id": "run_8f2c1a7d4b",
@@ -394,8 +395,8 @@ Example (escalation):
       "output_tokens": 600,
       "reasoning_tokens": 0,
       "cached_price_fallback": true,
-      "usd_real": 0.0048,
-      "usd_predicted": 0.005,
+      "usd_real": "0.004800",
+      "usd_predicted": "0.005000",
       "ts": "2026-10-20T15:00:00.350000Z",
       "skills": [],
       "usage_estimated": false
@@ -445,7 +446,7 @@ Example (escalation):
       "usage": {
         "input_tokens": 2000,
         "output_tokens": 220,
-        "usd": 0.0001728
+        "usd": "0.000174"
       },
       "self_check": {
         "schema_valid": true,
@@ -508,8 +509,8 @@ Example (escalation):
   "payload": {
     "status": "finished",
     "partial": false,
-    "spent_usd": 0.013171559999999999,
-    "predicted_usd": 0.013499999999999998,
+    "spent_usd": "0.013173",
+    "predicted_usd": "0.013500",
     "package_url": "/api/v1/runs/run_8f2c1a7d4b/package"
   }
 }
@@ -534,7 +535,7 @@ Example (escalation):
       }
     },
     "partial": false,
-    "spent_usd": 0.0
+    "spent_usd": "0.000000"
   }
 }
 ```
@@ -596,7 +597,7 @@ Every non-2xx response has the body `ErrorResponse`:
 | 501 | `not_implemented` | Pause and resume, until core supports them |
 | 503 | `live_refused` (with `refusal: live_disabled`) | Live mode is off |
 
-`details` is an object whose keys depend on `code`; `request_id` matches the `X-Request-Id` response header.
+`details` is an object whose keys depend on `code`; money inside it follows the same six-decimal string rule (for example `"max_usd_per_day": "3.000000"`). `request_id` matches the `X-Request-Id` response header.
 
 ## Cancellation
 

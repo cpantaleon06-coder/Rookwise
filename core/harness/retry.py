@@ -18,12 +18,14 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from email.utils import parsedate_to_datetime
 
 import httpx
 
 from rookwise.harness.config import RetryConfig
 from rookwise.harness.events import ErrorKind
+from rookwise.money import ZERO_USD
 
 RETRYABLE: frozenset[ErrorKind] = frozenset({"rate_limited", "timeout", "server", "connection"})
 
@@ -64,7 +66,9 @@ class StreamInterrupted(ApiError):
     The ledger is settled before this is raised; `usd` is what was charged.
     """
 
-    def __init__(self, message: str, *, usd: float = 0.0, usage_estimated: bool = True) -> None:
+    def __init__(
+        self, message: str, *, usd: Decimal = ZERO_USD, usage_estimated: bool = True
+    ) -> None:
         super().__init__("stream_interrupted", message)
         self.usd = usd
         self.usage_estimated = usage_estimated

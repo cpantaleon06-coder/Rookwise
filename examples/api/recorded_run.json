@@ -22,9 +22,9 @@
       }
     ],
     "live_caps": {
-      "max_usd_per_run": 0.25,
-      "max_usd_per_day": 3.0,
-      "spent_usd_today": 0.42,
+      "max_usd_per_run": "0.250000",
+      "max_usd_per_day": "3.000000",
+      "spent_usd_today": "0.420000",
       "max_runs_per_visitor_per_day": 1,
       "visitor_runs_today": 0
     },
@@ -34,7 +34,7 @@
         "title": "[synthetic] Corner bakery website",
         "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
         "simulated_case": true,
-        "spent_usd": 0.0
+        "spent_usd": "0.000000"
       }
     ]
   },
@@ -47,12 +47,12 @@
     "status": "finished",
     "board": false,
     "caps": {
-      "run_usd": 0.25,
+      "run_usd": "0.250000",
       "level_usd": {}
     },
-    "spent_usd": 0.013171559999999999,
-    "held_usd": 0.0,
-    "predicted_usd": 0.013499999999999998,
+    "spent_usd": "0.013173",
+    "held_usd": "0.000000",
+    "predicted_usd": "0.013500",
     "created_at": "2026-10-20T15:00:00Z",
     "finished_at": "2026-10-20T15:00:16.250000Z",
     "events_url": "/api/v1/runs/run_8f2c1a7d4b/events"
@@ -68,12 +68,12 @@
         "status": "finished",
         "board": false,
         "caps": {
-          "run_usd": 0.25,
+          "run_usd": "0.250000",
           "level_usd": {}
         },
-        "spent_usd": 0.013171559999999999,
-        "held_usd": 0.0,
-        "predicted_usd": 0.013499999999999998,
+        "spent_usd": "0.013173",
+        "held_usd": "0.000000",
+        "predicted_usd": "0.013500",
         "created_at": "2026-10-20T15:00:00Z",
         "finished_at": "2026-10-20T15:00:16.250000Z",
         "events_url": "/api/v1/runs/run_8f2c1a7d4b/events"
@@ -155,17 +155,17 @@
     "run_id": "run_8f2c1a7d4b",
     "mode": "recorded",
     "caps": {
-      "run_usd": 0.25,
+      "run_usd": "0.250000",
       "level_usd": {}
     },
-    "spent_usd": 0.013171559999999999,
-    "held_usd": 0.0,
-    "predicted_usd": 0.013499999999999998,
+    "spent_usd": "0.013173",
+    "held_usd": "0.000000",
+    "predicted_usd": "0.013500",
     "spent_by_level": {
-      "director": 0.007699999999999999,
-      "manager": 0.00096,
-      "operator": 0.00141156,
-      "auditor": 0.0031
+      "director": "0.007700",
+      "manager": "0.000960",
+      "operator": "0.001413",
+      "auditor": "0.003100"
     },
     "usage_estimated_entries": 1,
     "entries": [
@@ -179,8 +179,8 @@
         "output_tokens": 600,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.0048,
-        "usd_predicted": 0.005,
+        "usd_real": "0.004800",
+        "usd_predicted": "0.005000",
         "ts": "2026-10-20T15:00:00.350000Z",
         "skills": [],
         "usage_estimated": false
@@ -195,8 +195,8 @@
         "output_tokens": 400,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.00096,
-        "usd_predicted": 0.001,
+        "usd_real": "0.000960",
+        "usd_predicted": "0.001000",
         "ts": "2026-10-20T15:00:04.450000Z",
         "skills": [],
         "usage_estimated": false
@@ -211,8 +211,8 @@
         "output_tokens": 40,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 6.36e-05,
-        "usd_predicted": 0.0001,
+        "usd_real": "0.000064",
+        "usd_predicted": "0.000100",
         "ts": "2026-10-20T15:00:06.050000Z",
         "skills": [
           "prose-style"
@@ -229,8 +229,8 @@
         "output_tokens": 180,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.0001092,
-        "usd_predicted": 0.0001,
+        "usd_real": "0.000110",
+        "usd_predicted": "0.000100",
         "ts": "2026-10-20T15:00:06.750000Z",
         "skills": [
           "prose-style"
@@ -247,8 +247,8 @@
         "output_tokens": 300,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.000132,
-        "usd_predicted": 0.0002,
+        "usd_real": "0.000132",
+        "usd_predicted": "0.000200",
         "ts": "2026-10-20T15:00:08.200000Z",
         "skills": [
           "prose-style"
@@ -265,8 +265,8 @@
         "output_tokens": 300,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.00015,
-        "usd_predicted": 0.0002,
+        "usd_real": "0.000150",
+        "usd_predicted": "0.000200",
         "ts": "2026-10-20T15:00:09.500000Z",
         "skills": [
           "prose-style"
@@ -283,8 +283,8 @@
         "output_tokens": 1024,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.00034176,
-        "usd_predicted": 0.0002,
+        "usd_real": "0.000342",
+        "usd_predicted": "0.000200",
         "ts": "2026-10-20T15:00:10.800000Z",
         "skills": [
           "prose-style"
@@ -301,8 +301,8 @@
         "output_tokens": 350,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.000615,
-        "usd_predicted": 0.0002,
+        "usd_real": "0.000615",
+        "usd_predicted": "0.000200",
         "ts": "2026-10-20T15:00:12.100000Z",
         "skills": [
           "prose-style"
@@ -319,8 +319,8 @@
         "output_tokens": 200,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.0031,
-        "usd_predicted": 0.0035,
+        "usd_real": "0.003100",
+        "usd_predicted": "0.003500",
         "ts": "2026-10-20T15:00:13.500000Z",
         "skills": [
           "prose-style"
@@ -337,8 +337,8 @@
         "output_tokens": 300,
         "reasoning_tokens": 0,
         "cached_price_fallback": true,
-        "usd_real": 0.0029,
-        "usd_predicted": 0.003,
+        "usd_real": "0.002900",
+        "usd_predicted": "0.003000",
         "ts": "2026-10-20T15:00:15.050000Z",
         "skills": [],
         "usage_estimated": false
@@ -387,7 +387,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": 0.01
+            "max_usd": "0.010000"
           },
           "deadline_s": 120
         },
@@ -402,7 +402,7 @@
           "usage": {
             "input_tokens": 2000,
             "output_tokens": 220,
-            "usd": 0.0001728
+            "usd": "0.000174"
           },
           "self_check": {
             "schema_valid": true,
@@ -426,7 +426,7 @@
             "tool_calls": {
               "search": 1
             },
-            "usd": 0.0001728,
+            "usd": "0.000174",
             "input_tokens": 2000,
             "output_tokens": 220,
             "usage_estimated": false,
@@ -449,7 +449,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": 0.02
+            "max_usd": "0.020000"
           },
           "deadline_s": 120
         },
@@ -464,7 +464,7 @@
           "usage": {
             "input_tokens": 4900,
             "output_tokens": 1974,
-            "usd": 0.00123876
+            "usd": "0.001239"
           },
           "self_check": {
             "schema_valid": true,
@@ -488,7 +488,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.000132,
+            "usd": "0.000132",
             "input_tokens": 1000,
             "output_tokens": 300,
             "usage_estimated": false,
@@ -510,7 +510,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.00015,
+            "usd": "0.000150",
             "input_tokens": 1300,
             "output_tokens": 300,
             "usage_estimated": false,
@@ -532,7 +532,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.00034176,
+            "usd": "0.000342",
             "input_tokens": 1600,
             "output_tokens": 1024,
             "usage_estimated": true,
@@ -552,7 +552,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.000615,
+            "usd": "0.000615",
             "input_tokens": 1000,
             "output_tokens": 350,
             "usage_estimated": false,
@@ -591,14 +591,14 @@
       }
     ],
     "cost_report": {
-      "predicted_usd": 0.013499999999999998,
-      "real_usd": 0.013171559999999999,
-      "prediction_error": -0.02432888888888884,
+      "predicted_usd": "0.013500",
+      "real_usd": "0.013173",
+      "prediction_error": -0.02422222222222222,
       "spent_by_level": {
-        "director": 0.007699999999999999,
-        "manager": 0.00096,
-        "operator": 0.00141156,
-        "auditor": 0.0031
+        "director": "0.007700",
+        "manager": "0.000960",
+        "operator": "0.001413",
+        "auditor": "0.003100"
       },
       "usage_estimated_entries": 1
     },
@@ -613,7 +613,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": 0.01
+            "max_usd": "0.010000"
           },
           "deadline_s": 120
         },
@@ -624,7 +624,7 @@
           "usage": {
             "input_tokens": 2000,
             "output_tokens": 220,
-            "usd": 0.0001728
+            "usd": "0.000174"
           },
           "self_check": {
             "schema_valid": true,
@@ -644,7 +644,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": 0.02
+            "max_usd": "0.020000"
           },
           "deadline_s": 120
         },
@@ -655,7 +655,7 @@
           "usage": {
             "input_tokens": 4900,
             "output_tokens": 1974,
-            "usd": 0.00123876
+            "usd": "0.001239"
           },
           "self_check": {
             "schema_valid": true,

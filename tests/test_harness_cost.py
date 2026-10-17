@@ -1,6 +1,7 @@
 """Usage parsing and the cost formula, including cached and reasoning tokens."""
 
-import pytest
+from decimal import Decimal as D
+
 from harness_support import usage
 
 from rookwise.harness.cost import (
@@ -28,14 +29,14 @@ def test_parse_usage_tolerates_null_and_missing_details():
 
 def test_cached_tokens_use_the_cached_price_or_fall_back():
     used = Usage(1_000_000, 0, cached_tokens=400_000)
-    assert cost_usd(ModelPrice(1.0, 3.0), used) == 1.0
-    assert cost_usd(ModelPrice(1.0, 3.0, cached_input=0.5), used) == pytest.approx(0.8)
+    assert cost_usd(ModelPrice(D("1.0"), D("3.0")), used) == D("1.000000")
+    assert cost_usd(ModelPrice(D("1.0"), D("3.0"), cached_input=D("0.5")), used) == D("0.8")
 
 
 def test_reasoning_tokens_count_as_output():
-    price = ModelPrice(0.0, 1.0)
-    assert cost_usd(price, Usage(0, 1_000_000, reasoning_tokens=900_000)) == 1.0
-    assert cost_usd(price, Usage(0, 100_000, reasoning_tokens=200_000)) == 0.3
+    price = ModelPrice(D("0"), D("1"))
+    assert cost_usd(price, Usage(0, 1_000_000, reasoning_tokens=900_000)) == D("1.000000")
+    assert cost_usd(price, Usage(0, 100_000, reasoning_tokens=200_000)) == D("0.300000")
 
 
 def test_reasoning_inside_completion_tokens_is_billed_once():
@@ -45,7 +46,7 @@ def test_reasoning_inside_completion_tokens_is_billed_once():
     price = load_prices()["nemotron-3-ultra"]
     cost = call_cost(price, parse_usage(raw))
     assert cost.billed_output_tokens == 99
-    assert cost.usd == pytest.approx((41 * 1.00 + 99 * 3.00) / 1_000_000)
+    assert cost.usd == D("0.000338")  # (41 x 1.00 + 99 x 3.00) / 1M, exact
 
 
 def test_full_reservation_costs_exactly_the_worst_case():

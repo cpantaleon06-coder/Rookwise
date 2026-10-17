@@ -2,6 +2,7 @@
 
 Field names and shapes follow the examples in that section exactly. Extra fields are
 rejected so that a model or a caller cannot slip unchecked data through a contract.
+Money fields are `rookwise.money.Usd`: Decimal in Python, a six-decimal string in JSON.
 """
 
 from __future__ import annotations
@@ -9,7 +10,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt
+
+from rookwise.money import Usd
 
 # The levels that make model calls, from the "Levels" table. The administrator layer
 # and the harness are code and never appear in the ledger.
@@ -23,7 +26,7 @@ class _Contract(BaseModel):
 class TaskBudget(_Contract):
     max_input_tokens: NonNegativeInt
     max_output_tokens: NonNegativeInt
-    max_usd: NonNegativeFloat
+    max_usd: Usd
 
 
 class TaskV1(_Contract):
@@ -41,7 +44,7 @@ class TaskV1(_Contract):
 class ResultUsage(_Contract):
     input_tokens: NonNegativeInt
     output_tokens: NonNegativeInt
-    usd: NonNegativeFloat
+    usd: Usd
 
 
 class SelfCheck(_Contract):
@@ -75,8 +78,8 @@ class LedgerEntry(_Contract):
     output_tokens: NonNegativeInt
     reasoning_tokens: NonNegativeInt
     cached_price_fallback: bool
-    usd_real: NonNegativeFloat
-    usd_predicted: NonNegativeFloat
+    usd_real: Usd
+    usd_predicted: Usd
     ts: datetime
     skills: list[str] = Field(default_factory=list)
     usage_estimated: bool = False

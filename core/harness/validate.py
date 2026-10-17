@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError, create_model
@@ -85,7 +86,7 @@ def build_result(
     output_ref: str,
     input_tokens: int,
     output_tokens: int,
-    usd: float,
+    usd: Decimal,
     schema_valid: bool,
     notes: str,
 ) -> ResultV1:

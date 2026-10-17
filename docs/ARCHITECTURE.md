@@ -95,6 +95,7 @@ cost = (input_tokens - cached_tokens) x price_in
 - `input_tokens` is `usage.prompt_tokens`. `cached_tokens` is `usage.prompt_tokens_details.cached_tokens` (VERIFIED as a field in the docs); treat a missing value as 0. Whether Token Factory reports non-zero cached tokens for Nemotron is UNVERIFIED.
 - `price_cached_in` is the optional `cached_input` price per model in `config/prices.json`. It is `null` for every model because no cached price is published in what we have. When it is `null`, the ledger uses `price_in` for cached tokens and says so: the ledger entry carries `"cached_price_fallback": true`.
 - `output_tokens` is `usage.completion_tokens`. VERIFIED (2026-10-16, Stage 2 Task 0, from the saved streaming probe data; see "Reasoning token accounting" in `docs/HARNESS_RESEARCH.md`): `completion_tokens` already includes the reasoning tokens (`usage.completion_tokens_details.reasoning_tokens`) on all four models, so reasoning is billed once, as part of `output_tokens`. As a safeguard, if a response ever reports more reasoning tokens than completion tokens, they are added to `output_tokens`; no observed call did. UNVERIFIED, pending a console check: whether Token Factory bills reasoning tokens at the output price.
+- Money is `decimal.Decimal`, never float, and prices are parsed from the JSON text as Decimal. The formula is computed exactly; the ledger then holds whole micro-USD (USD 0.000001): reservations and charges round up, caps round down, predictions round to the nearest micro-USD. Rounding therefore never lets spend pass a cap, and every total is an exact sum. Spend can still pass a cap the way it could before: when a call's real usage is larger than its reservation (an input estimate that was too low), the charge is recorded and the scope stops.
 
 ## Harness (`core/harness/`)
 
@@ -119,6 +120,8 @@ Built so far (Stage 1, 2026-10-15): streaming calls with `stream_options.include
 
 Built so far (Stage 2, 2026-10-16): native tool calls in the stream; the tool loop (`core/harness/loop.py`) with two protocols, `json_protocol` (the baseline) and `native_tools`, chosen per model in `config/harness.json` (native for Ultra, Super and Lightning, JSON actions for Nano, from the tool-calling probe); step, repeat, timeout, truncation and token limits; `finish_reason: "length"` discarded and retried once with a larger `max_tokens`, then treated as a failure; tool results in cassettes, so a full tool run replays offline; Tavily search (`core/tools/tavily.py`, query counts only, cost UNVERIFIED); final answer validation, up to two repairs with the validation errors, then the escalation ladder (Lightning or Nano to Super, Super to Ultra) under the ledger caps, with one record per attempt and the labels `first_pass_ok`, `ok_after_retry`, `ok_after_escalation` and `failed`; and `core/runner.py` (`run_operator`, one task_v1 for one catalog operator, no hierarchy). The loop protocols are described in `core/harness/README.md`. Not built yet: reading `x-ratelimit-*` headers, the hierarchy (director, managers, auditor) and the server.
 
+Built so far (2026-10-17): money is `decimal.Decimal` end to end (`core/money.py`): prices parsed from the JSON text, the ledger's reservations, charges, caps, predictions and totals in whole micro-USD (rounding rules in "Cost of a call"), the harness's charges and attempt records, task_v1 budgets, result_v1 usage and the catalog price. A float passed to the ledger raises TypeError and a float in any contract model fails validation. The API contract sends money as six-decimal strings (docs/api.md, "Conventions"), with regenerated schemas and fixtures.
+
 ## Operator catalog
 
 Each operator is a catalog entry with role, model, price estimate, latency, reputation, tools, skills and schemas. `skills` lists the ids of the Nemotron-adapted skills composed into the operator's system prompt; `config/skills.json` maps each role to its skills.
@@ -128,7 +131,7 @@ Each operator is a catalog entry with role, model, price estimate, latency, repu
   "operator_id": "researcher-lightning-01",
   "role": "researcher",
   "model": "nemotron-3.5-lightning",
-  "price_per_task_est_usd": 0.002,
+  "price_per_task_est_usd": "0.002000",
   "avg_latency_s": 8,
   "reputation": 0.82,
   "tools": ["tavily_search"],
@@ -164,7 +167,7 @@ Messages carry ids and references, not content. Content lives in the store (Supa
   "role": "copywriter",
   "instruction_ref": "store://r-003/briefs/t-014",
   "inputs": ["store://r-003/results/t-011"],
-  "budget": {"max_input_tokens": 12000, "max_output_tokens": 2500, "max_usd": 0.004},
+  "budget": {"max_input_tokens": 12000, "max_output_tokens": 2500, "max_usd": "0.004000"},
   "deadline_s": 60
 }
 
@@ -173,7 +176,7 @@ Messages carry ids and references, not content. Content lives in the store (Supa
   "task_id": "t-014",
   "status": "ok",
   "output_ref": "store://r-003/results/t-014",
-  "usage": {"input_tokens": 9800, "output_tokens": 1900, "usd": 0.00105},
+  "usage": {"input_tokens": 9800, "output_tokens": 1900, "usd": "0.001050"},
   "self_check": {"schema_valid": true, "notes": ""}
 }
 
@@ -188,14 +191,16 @@ Messages carry ids and references, not content. Content lives in the store (Supa
   "output_tokens": 1900,
   "reasoning_tokens": 0,
   "cached_price_fallback": true,
-  "usd_real": 0.00105,
-  "usd_predicted": 0.00120,
+  "usd_real": "0.001050",
+  "usd_predicted": "0.001200",
   "ts": "2026-10-20T15:02:11Z",
   "usage_estimated": false
 }
 ```
 
 Contract change on 2026-10-16: `ledger_entry` gained `usage_estimated` (boolean, default false). It is true when the API sent no usage and the harness charged under `on_missing_usage` in `config/harness.json` (the full reservation by default), so estimated charges stay visible in the ledger. The contracts carry no version number (`task_v1` and `result_v1` are unchanged); a reader that does not know the field can treat a missing value as false.
+
+Contract change on 2026-10-17: every money field (`max_usd`, `usd`, `usd_real`, `usd_predicted`, `price_per_task_est_usd`) is a decimal string with exactly six decimals (micro-USD), as in the examples above, never a JSON number. In Python it is `decimal.Decimal` (`core/money.py`); a float is refused.
 
 ## Models, prices and cost estimate
 

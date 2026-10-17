@@ -30,6 +30,7 @@ import random
 from collections.abc import AsyncIterator, Callable
 from contextlib import aclosing
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 import httpx
@@ -63,6 +64,7 @@ from rookwise.harness.retry import (
 )
 from rookwise.harness.sse import ChunkNormalizer, SSEDecoder, StreamOutcome
 from rookwise.ledger import Ledger, Reservation, Usage
+from rookwise.money import ZERO_USD
 
 _ERROR_BODY_CHARS = 500
 
@@ -108,7 +110,7 @@ class Result:
     finish_reason: str | None
     usage: Usage
     usage_estimated: bool
-    usd: float
+    usd: Decimal
     cancelled: bool
     attempts: int
     events: tuple[Event, ...]
@@ -169,7 +171,7 @@ class _NoPermit:
 class _Settlement:
     usage: Usage
     estimated: bool
-    usd: float
+    usd: Decimal
 
 
 class Harness:
@@ -290,7 +292,9 @@ class Harness:
         while True:
             attempt += 1
             if cancel.cancelled:
-                yield Finish(finish_reason=None, usd=0.0, usage_estimated=False, cancelled=True)
+                yield Finish(
+                    finish_reason=None, usd=ZERO_USD, usage_estimated=False, cancelled=True
+                )
                 return
             permit: Permit | _NoPermit = _NoPermit()
             if self._mode != "replay":
@@ -561,7 +565,7 @@ class Harness:
             return _Settlement(final, False, entry.usd_real)
         if state.rejected or not state.in_flight:
             self._ledger.release(state.reservation)
-            return _Settlement(Usage(0, 0), False, 0.0)
+            return _Settlement(Usage(0, 0), False, ZERO_USD)
         if self._config.on_missing_usage == "estimate_from_text":
             usage = estimate_usage_from_text(
                 built.input_tokens_estimate,

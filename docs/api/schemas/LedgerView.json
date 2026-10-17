@@ -5,23 +5,26 @@
       "description": "A stopped scope, with the fields of `rookwise.ledger.CapReached`.",
       "properties": {
         "cap_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Cap Usd",
-          "type": "number"
+          "type": "string"
         },
         "committed_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Committed Usd",
-          "type": "number"
+          "type": "string"
         },
         "key": {
           "title": "Key",
           "type": "string"
         },
         "requested_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Requested Usd",
-          "type": "number"
+          "type": "string"
         },
         "scope": {
           "enum": [
@@ -112,14 +115,16 @@
           "type": "boolean"
         },
         "usd_predicted": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd Predicted",
-          "type": "number"
+          "type": "string"
         },
         "usd_real": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd Real",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -145,16 +150,18 @@
       "properties": {
         "level_usd": {
           "additionalProperties": {
-            "minimum": 0,
-            "type": "number"
+            "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+            "pattern": "^[0-9]+\\.[0-9]{6}$",
+            "type": "string"
           },
           "title": "Level Usd",
           "type": "object"
         },
         "run_usd": {
-          "exclusiveMinimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"; greater than zero",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Run Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -180,9 +187,10 @@
       "type": "array"
     },
     "held_usd": {
-      "minimum": 0,
+      "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+      "pattern": "^[0-9]+\\.[0-9]{6}$",
       "title": "Held Usd",
-      "type": "number"
+      "type": "string"
     },
     "mode": {
       "enum": [
@@ -193,9 +201,10 @@
       "type": "string"
     },
     "predicted_usd": {
-      "minimum": 0,
+      "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+      "pattern": "^[0-9]+\\.[0-9]{6}$",
       "title": "Predicted Usd",
-      "type": "number"
+      "type": "string"
     },
     "run_id": {
       "title": "Run Id",
@@ -203,16 +212,18 @@
     },
     "spent_by_level": {
       "additionalProperties": {
-        "minimum": 0,
-        "type": "number"
+        "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+        "pattern": "^[0-9]+\\.[0-9]{6}$",
+        "type": "string"
       },
       "title": "Spent By Level",
       "type": "object"
     },
     "spent_usd": {
-      "minimum": 0,
+      "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+      "pattern": "^[0-9]+\\.[0-9]{6}$",
       "title": "Spent Usd",
-      "type": "number"
+      "type": "string"
     },
     "stops": {
       "items": {

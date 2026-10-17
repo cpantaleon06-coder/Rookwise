@@ -30,6 +30,7 @@ import os
 import sys
 from collections import Counter
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +46,7 @@ from rookwise.ledger import CapReached, Caps, InMemoryLedger  # noqa: E402
 DOCS_PATH = REPO_ROOT / "docs" / "HARNESS_RESEARCH.md"
 OUT_JSON = REPO_ROOT / "runs" / "tool_reliability.json"
 OUT_MD = REPO_ROOT / "runs" / "tool_reliability.md"
-MAX_USD = 0.10
+MAX_USD = Decimal("0.10")
 RUN_ID = "tool-reliability"
 PROTOCOLS = ("native_tools", "json_protocol")
 MESSAGES = [
@@ -111,7 +112,7 @@ async def one_run(harness: Harness, model: str, protocol: str, index: int) -> di
         "length_retries": outcome.length_retries,
         "protocol_errors": protocol_errors,
         "failed_tool_results": bad_tool_results,
-        "usd": outcome.usd,
+        "usd": str(outcome.usd),
         "detail": outcome.detail[:300],
     }
 
@@ -124,7 +125,7 @@ def build_markdown(
     today: str,
     runs: list[dict[str, Any]],
     reps: int,
-    spend: float,
+    spend: Decimal,
     models: list[str],
     stopped: str | None,
 ) -> str:
@@ -232,7 +233,7 @@ def main() -> int:
             {
                 "started": today,
                 "reps": args.reps,
-                "spend_usd": spend,
+                "spend_usd": str(spend),
                 "stopped": stopped,
                 "runs": runs,
             },

@@ -12,7 +12,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, TypeAdapter
+
+from rookwise.money import Usd
 
 # The error taxonomy (see retry.py). The first four are retryable.
 ErrorKind = Literal[
@@ -84,7 +86,7 @@ class Finish(_Event):
 
     type: Literal["finish"] = "finish"
     finish_reason: str | None
-    usd: NonNegativeFloat
+    usd: Usd
     usage_estimated: bool
     cancelled: bool = False
 

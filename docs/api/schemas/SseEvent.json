@@ -235,8 +235,10 @@
           "type": "boolean"
         },
         "usd": {
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd",
-          "type": "number"
+          "type": "string"
         },
         "validation_errors": {
           "items": {
@@ -527,9 +529,10 @@
       "additionalProperties": false,
       "properties": {
         "cap_usd": {
-          "exclusiveMinimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"; greater than zero",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Cap Usd",
-          "type": "number"
+          "type": "string"
         },
         "entry": {
           "anyOf": [
@@ -543,27 +546,31 @@
           "default": null
         },
         "held_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Held Usd",
-          "type": "number"
+          "type": "string"
         },
         "predicted_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Predicted Usd",
-          "type": "number"
+          "type": "string"
         },
         "spent_by_level": {
           "additionalProperties": {
-            "minimum": 0,
-            "type": "number"
+            "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+            "pattern": "^[0-9]+\\.[0-9]{6}$",
+            "type": "string"
           },
           "title": "Spent By Level",
           "type": "object"
         },
         "spent_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Spent Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -722,14 +729,16 @@
           "type": "boolean"
         },
         "usd_predicted": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd Predicted",
-          "type": "number"
+          "type": "string"
         },
         "usd_real": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd Real",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -927,9 +936,10 @@
           "type": "integer"
         },
         "usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -1034,9 +1044,10 @@
           "type": "boolean"
         },
         "spent_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Spent Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -1117,14 +1128,16 @@
           "type": "boolean"
         },
         "predicted_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Predicted Usd",
-          "type": "number"
+          "type": "string"
         },
         "spent_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Spent Usd",
-          "type": "number"
+          "type": "string"
         },
         "status": {
           "enum": [
@@ -1202,9 +1215,10 @@
           "type": "boolean"
         },
         "budget_usd": {
-          "exclusiveMinimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"; greater than zero",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Budget Usd",
-          "type": "number"
+          "type": "string"
         },
         "goal": {
           "title": "Goal",
@@ -1351,9 +1365,10 @@
           "type": "integer"
         },
         "max_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Max Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [

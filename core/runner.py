@@ -30,6 +30,7 @@ from rookwise.harness.escalate import AttemptRecord, OutcomeLabel, run_with_esca
 from rookwise.harness.loop import TokenBudget, Tool, ToolLoop
 from rookwise.harness.request import ChatRequest
 from rookwise.harness.validate import build_result, final_result_instructions
+from rookwise.money import ZERO_USD, Usd
 from rookwise.schemas import ResultV1, TaskV1
 from rookwise.skills import compose_system_prompt
 from rookwise.skills.loader import SKILLS_DIR
@@ -50,7 +51,7 @@ class OperatorSpec(BaseModel):
     operator_id: str
     role: str
     model: str
-    price_per_task_est_usd: NonNegativeFloat
+    price_per_task_est_usd: Usd
     avg_latency_s: NonNegativeFloat
     reputation: float = Field(ge=0, le=1)
     tools: list[str]
@@ -73,8 +74,8 @@ class OperatorRun(BaseModel):
     label: OutcomeLabel
     attempts: list[AttemptRecord]
     tool_calls: dict[str, int]
-    usd: float
-    usd_predicted: float
+    usd: Usd
+    usd_predicted: Usd
     usage_estimated: bool
     stop_reason: str | None
     unavailable_tools: list[str]
@@ -149,7 +150,7 @@ async def run_operator(
     )
 
     entries = [e for e in ledger.report(task.run_id).entries if e.task_id == task.task_id]
-    usd = sum(e.usd_real for e in entries)
+    usd = sum((e.usd_real for e in entries), ZERO_USD)
     validation = escalation.validation
     payload = validation.payload if validation is not None else None
     output = payload.output.model_dump() if escalation.ok and payload is not None else None

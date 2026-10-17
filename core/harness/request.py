@@ -15,9 +15,11 @@ import json
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 from rookwise.harness.config import HarnessConfig, ModelConfig
+from rookwise.money import ZERO_USD
 from rookwise.schemas import Level
 
 
@@ -51,7 +53,8 @@ class ChatRequest:
     """One model call. `model` is an alias from config/prices.json.
 
     `run_id`, `level`, `task_id`, `skills` and `usd_predicted` go to the ledger, not to
-    the API. `usd_predicted` is the caller's cost prediction; 0.0 means none was made.
+    the API. `usd_predicted` is the caller's cost prediction, a Decimal; zero means none
+    was made.
     Fields left None take the model's defaults from config/harness.json.
     `input_tokens_estimate` overrides the characters-based estimate used to reserve.
     """
@@ -69,7 +72,7 @@ class ChatRequest:
     response_format: JsonSchemaFormat | JsonObjectFormat | None = None
     tools: tuple[Mapping[str, Any], ...] = ()
     tool_choice: str | Mapping[str, Any] | None = None
-    usd_predicted: float = 0.0
+    usd_predicted: Decimal = ZERO_USD
     skills: tuple[str, ...] = ()
     input_tokens_estimate: int | None = None
 

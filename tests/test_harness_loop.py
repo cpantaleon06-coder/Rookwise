@@ -5,8 +5,8 @@ import asyncio
 import dataclasses
 import json
 import random
+from decimal import Decimal
 
-import pytest
 from harness_support import (
     LIGHTNING,
     TEST_KEY,
@@ -109,7 +109,7 @@ def test_json_protocol_happy_path():
     assert json.loads(second[-1]["content"].split("\n", 1)[1]) == {"ok": True, "result": 42}
     report = _held_zero(book)
     assert len(report.entries) == 2
-    assert outcome.usd == pytest.approx(sum(e.usd_real for e in report.entries))
+    assert outcome.usd == sum(e.usd_real for e in report.entries)
 
 
 def test_native_tools_happy_path():
@@ -239,9 +239,9 @@ def test_step_limit_stops_the_run():
 
 def test_budget_exhausted_mid_loop_stops_without_a_leaked_hold():
     # The first call reserves little, but reports 25,000 prompt tokens: its real cost
-    # (USD 0.0015154) passes the USD 0.0015 cap, so the ledger stops the run scope and
+    # (USD 0.001516) passes the USD 0.0015 cap, so the ledger stops the run scope and
     # the second step's reservation is refused.
-    book = ledger(run_usd=0.0015)
+    book = ledger(run_usd=Decimal("0.0015"))
     handler = replies(
         text_reply(tool_action("add", {"a": 1, "b": 2}), prompt=25_000, completion=64)
     )

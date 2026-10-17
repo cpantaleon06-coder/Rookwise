@@ -7,6 +7,8 @@ checks together amount to validating against the schemas. No network.
 
 import importlib.util
 import json
+import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,7 @@ import pytest
 from rookwise.api import EVENT_TYPES, SCHEMA_MODELS, SSE_EVENT_ADAPTER, TERMINAL_EVENTS
 from rookwise.api.models import CreateRunRequest
 from rookwise.harness.cassette import env_secrets, find_secrets
+from rookwise.money import USD_PATTERN, ZERO_USD
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "docs" / "api" / "schemas"
@@ -57,13 +60,18 @@ def test_every_event_type_has_a_schema():
 
 def test_create_run_request_rules():
     CreateRunRequest(mode="recorded", recording_id="rec-1")
-    CreateRunRequest(mode="live", goal="g", budget_usd=0.1)
+    live = CreateRunRequest(mode="live", goal="g", budget_usd="0.100000")
+    assert live.budget_usd == Decimal("0.1")
+    assert json.loads(live.model_dump_json())["budget_usd"] == "0.100000"
+    for bad in (0.1, "0.1", "0.1000001", "-0.100000", "0.000000"):
+        with pytest.raises(ValueError):
+            CreateRunRequest(mode="live", goal="g", budget_usd=bad)
     with pytest.raises(ValueError):
         CreateRunRequest(mode="live", goal="g")
     with pytest.raises(ValueError):
         CreateRunRequest(mode="recorded")
     with pytest.raises(ValueError):
-        CreateRunRequest(mode="live", goal="g", budget_usd=0.1, api_key="nope")
+        CreateRunRequest(mode="live", goal="g", budget_usd="0.100000", api_key="nope")
 
 
 def test_fixtures_are_current():
@@ -114,22 +122,95 @@ def test_the_replay_covers_the_required_cases():
     )
 
 
-def test_the_numbers_add_up():
+def _usd(items, key):
+    return sum((Decimal(item[key]) for item in items), ZERO_USD)
+
+
+def test_the_numbers_add_up_exactly():
     bundle = _load("recorded_run.json")
     events = [item["event"] for item in _load("recorded_run.events.json")["events"]]
     entries = bundle["ledger"]["entries"]
-    spent = sum(e["usd_real"] for e in entries)
-    assert bundle["run"]["spent_usd"] == pytest.approx(spent)
-    assert bundle["ledger"]["spent_usd"] == pytest.approx(spent)
-    assert bundle["package"]["cost_report"]["real_usd"] == pytest.approx(spent)
+    spent = _usd(entries, "usd_real")
+    assert Decimal(bundle["run"]["spent_usd"]) == spent
+    assert Decimal(bundle["ledger"]["spent_usd"]) == spent
+    assert Decimal(bundle["package"]["cost_report"]["real_usd"]) == spent
+    by_level = bundle["ledger"]["spent_by_level"]
+    assert sum((Decimal(v) for v in by_level.values()), ZERO_USD) == spent
     last_budget = [e for e in events if e["type"] == "budget_update"][-1]["payload"]
-    assert last_budget["spent_usd"] == pytest.approx(spent)
+    assert Decimal(last_budget["spent_usd"]) == spent
+    finished = next(e for e in events if e["type"] == "run_finished")["payload"]
+    assert Decimal(finished["spent_usd"]) == spent
+    assert Decimal(finished["predicted_usd"]) == _usd(entries, "usd_predicted")
     assert bundle["ledger"]["usage_estimated_entries"] == sum(e["usage_estimated"] for e in entries)
     for task in bundle["tasks"]["items"]:
-        attempts_usd = sum(a["usd"] for a in task["attempts"])
-        assert task["result"]["usage"]["usd"] == pytest.approx(attempts_usd)
+        attempts_usd = _usd(task["attempts"], "usd")
+        assert Decimal(task["result"]["usage"]["usd"]) == attempts_usd
         task_entries = [e for e in entries if e["task_id"] == task["task"]["task_id"]]
-        assert attempts_usd == pytest.approx(sum(e["usd_real"] for e in task_entries))
+        assert attempts_usd == _usd(task_entries, "usd_real")
+
+
+MONEY_MAPS = ("spent_by_level", "level_usd")
+
+
+def _is_money_key(key: str) -> bool:
+    return key == "usd" or key.startswith("usd_") or key.endswith("_usd") or "_usd_" in key
+
+
+def _walk(value, path=""):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield from _walk(item, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from _walk(item, f"{path}[{index}]")
+    else:
+        yield path, value
+
+
+def test_money_is_a_six_decimal_string_and_no_float_is_left():
+    pattern = re.compile(USD_PATTERN)
+    for path in sorted(FIXTURES.glob("*.json")):
+        money = 0
+        for where, value in _walk(json.loads(path.read_text(encoding="utf-8"))):
+            key = where.rsplit(".", 1)[-1]
+            parent = where.rsplit(".", 2)[-2] if where.count(".") >= 2 else ""
+            if _is_money_key(key) or parent in MONEY_MAPS:
+                assert isinstance(value, str) and pattern.fullmatch(value), (path.name, where)
+                money += 1
+            elif isinstance(value, float):
+                # The prediction error is a ratio, not money: the only number allowed.
+                assert key == "prediction_error", (path.name, where, value)
+        assert money > 0, path.name
+
+
+def test_every_money_field_in_the_schemas_is_a_decimal_string():
+    found = 0
+    for path in sorted(SCHEMA_DIR.glob("*.json")):
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        for definition in [schema, *schema.get("$defs", {}).values()]:
+            for name, prop in definition.get("properties", {}).items():
+                if not _is_money_key(name) and name not in MONEY_MAPS:
+                    continue
+                options = prop.get("anyOf", [prop])
+                for option in options:
+                    if option.get("type") == "null":
+                        continue
+                    if name in MONEY_MAPS:
+                        option = option["additionalProperties"]
+                    assert option["type"] == "string", (path.name, name)
+                    assert option["pattern"] == USD_PATTERN, (path.name, name)
+                    found += 1
+    assert found >= 30
+
+
+def test_a_json_number_in_a_money_field_is_refused():
+    entry = _load("recorded_run.json")["ledger"]["entries"][0]
+    SCHEMA_MODELS["LedgerView"].model_validate(_load("recorded_run.json")["ledger"])
+    for bad in (0.0048, 0, "0.0048", "4.8e-3", "0.0048000"):
+        with pytest.raises(ValueError):
+            SCHEMA_MODELS["LedgerView"].model_validate(
+                _load("recorded_run.json")["ledger"] | {"entries": [entry | {"usd_real": bad}]}
+            )
 
 
 def test_the_refused_live_example_validates():

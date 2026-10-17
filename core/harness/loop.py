@@ -39,6 +39,7 @@ import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -50,6 +51,7 @@ from rookwise.harness.events import ToolCall
 from rookwise.harness.request import ChatRequest, JsonObjectFormat, build_request
 from rookwise.harness.retry import ApiError, StreamInterrupted
 from rookwise.ledger import CapReached
+from rookwise.money import ZERO_USD
 
 LoopStatus = Literal[
     "final",
@@ -124,7 +126,7 @@ class LoopOutcome:
     steps: int = 0
     model_calls: int = 0
     length_retries: int = 0
-    usd: float = 0.0
+    usd: Decimal = ZERO_USD
     usage_estimated: bool = False
     input_tokens: int = 0
     output_tokens: int = 0

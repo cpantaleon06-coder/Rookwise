@@ -15,7 +15,12 @@ The contract is domain-neutral: roles, skills, tools and models are plain string
 Decided on 2026-10-16 (docs/DECISIONS.md): every run-scoped payload and every event
 carries `mode`, so a recorded run is labelled as recorded everywhere; ids such as
 `run_id` are opaque strings with a prefix (`run_...`) that the UI must not parse; USD
-values are sent exactly as the ledger computes them (floats today) and the UI formats.
+values are sent exactly as the ledger computes them and the UI formats.
+
+Decided on 2026-10-17 (part of v1): every money field is `rookwise.money.Usd` (or
+`PositiveUsd`), a decimal string with exactly six decimals such as "0.002350", never a
+JSON number. The ledger computes in Decimal and holds whole micro-USD, so the strings
+are exact. `CostReport.prediction_error` is a ratio, not money, and stays a number.
 """
 
 from __future__ import annotations
@@ -27,14 +32,13 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    NonNegativeFloat,
     NonNegativeInt,
-    PositiveFloat,
     TypeAdapter,
     model_validator,
 )
 
 from rookwise.harness.escalate import AttemptRecord, OutcomeLabel
+from rookwise.money import PositiveUsd, Usd
 from rookwise.schemas import LedgerEntry, Level, ResultV1, TaskV1
 
 API_VERSION = "v1"
@@ -88,9 +92,9 @@ class LiveCaps(_Api):
     known by a signed, anonymous, HttpOnly cookie; `visitor_runs_today` is 0 without one.
     A visitor can clear cookies, so the USD caps are the backstop that cannot be bypassed."""
 
-    max_usd_per_run: NonNegativeFloat
-    max_usd_per_day: NonNegativeFloat
-    spent_usd_today: NonNegativeFloat
+    max_usd_per_run: Usd
+    max_usd_per_day: Usd
+    spent_usd_today: Usd
     max_runs_per_visitor_per_day: NonNegativeInt
     visitor_runs_today: NonNegativeInt
 
@@ -107,7 +111,7 @@ class RecordingSummary(_Api):
     title: str
     goal: str
     simulated_case: bool
-    spent_usd: NonNegativeFloat
+    spent_usd: Usd
 
 
 class ModesView(_Api):
@@ -126,8 +130,8 @@ class ModesView(_Api):
 class RunCaps(_Api):
     """The ledger's `Caps` for the run: `run_usd` and optional per-level caps."""
 
-    run_usd: PositiveFloat
-    level_usd: dict[str, NonNegativeFloat] = Field(default_factory=dict)
+    run_usd: PositiveUsd
+    level_usd: dict[str, Usd] = Field(default_factory=dict)
 
 
 class CreateRunRequest(_Api):
@@ -135,7 +139,7 @@ class CreateRunRequest(_Api):
 
     mode: Mode
     goal: str | None = Field(default=None, min_length=1, max_length=2000)
-    budget_usd: PositiveFloat | None = None
+    budget_usd: PositiveUsd | None = None
     recording_id: str | None = None
     board: bool = False
 
@@ -162,9 +166,9 @@ class RunView(_Api):
     status: RunStatus
     board: bool = False
     caps: RunCaps
-    spent_usd: NonNegativeFloat
-    held_usd: NonNegativeFloat
-    predicted_usd: NonNegativeFloat
+    spent_usd: Usd
+    held_usd: Usd
+    predicted_usd: Usd
     created_at: datetime
     finished_at: datetime | None = None
     events_url: str
@@ -217,9 +221,9 @@ class CapStop(_Api):
 
     scope: CapScope
     key: str
-    cap_usd: NonNegativeFloat
-    committed_usd: NonNegativeFloat
-    requested_usd: NonNegativeFloat
+    cap_usd: Usd
+    committed_usd: Usd
+    requested_usd: Usd
 
 
 class LedgerView(_Api):
@@ -228,10 +232,10 @@ class LedgerView(_Api):
     run_id: str
     mode: Mode
     caps: RunCaps
-    spent_usd: NonNegativeFloat
-    held_usd: NonNegativeFloat
-    predicted_usd: NonNegativeFloat
-    spent_by_level: dict[str, NonNegativeFloat]
+    spent_usd: Usd
+    held_usd: Usd
+    predicted_usd: Usd
+    spent_by_level: dict[str, Usd]
     usage_estimated_entries: NonNegativeInt
     entries: list[LedgerEntry]
     stops: list[CapStop] = Field(default_factory=list)
@@ -296,10 +300,10 @@ class CostReport(_Api):
     """Predicted versus real. `prediction_error` is (real - predicted) / predicted, the
     benchmark metric in docs/ARCHITECTURE.md; None when nothing was predicted."""
 
-    predicted_usd: NonNegativeFloat
-    real_usd: NonNegativeFloat
+    predicted_usd: Usd
+    real_usd: Usd
     prediction_error: float | None
-    spent_by_level: dict[str, NonNegativeFloat]
+    spent_by_level: dict[str, Usd]
     usage_estimated_entries: NonNegativeInt
 
 
@@ -354,7 +358,7 @@ class RunStartedPayload(_Api):
     goal: str
     mode: Mode
     recording_id: str | None = None
-    budget_usd: PositiveFloat
+    budget_usd: PositiveUsd
     board: bool
     simulated_case: bool
 
@@ -395,11 +399,11 @@ class ToolCalledPayload(_Api):
 
 
 class BudgetUpdatePayload(_Api):
-    spent_usd: NonNegativeFloat
-    held_usd: NonNegativeFloat
-    predicted_usd: NonNegativeFloat
-    cap_usd: PositiveFloat
-    spent_by_level: dict[str, NonNegativeFloat]
+    spent_usd: Usd
+    held_usd: Usd
+    predicted_usd: Usd
+    cap_usd: PositiveUsd
+    spent_by_level: dict[str, Usd]
     entry: LedgerEntry | None = None
 
 
@@ -420,15 +424,15 @@ class AuditResultPayload(_Api):
 class RunFinishedPayload(_Api):
     status: Literal["finished", "cancelled"]
     partial: bool
-    spent_usd: NonNegativeFloat
-    predicted_usd: NonNegativeFloat
+    spent_usd: Usd
+    predicted_usd: Usd
     package_url: str | None = None
 
 
 class RunFailedPayload(_Api):
     error: ErrorBody
     partial: bool
-    spent_usd: NonNegativeFloat
+    spent_usd: Usd
 
 
 class ModeNoticePayload(_Api):

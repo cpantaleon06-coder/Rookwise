@@ -10,19 +10,22 @@
           "type": "integer"
         },
         "max_usd_per_day": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Max Usd Per Day",
-          "type": "number"
+          "type": "string"
         },
         "max_usd_per_run": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Max Usd Per Run",
-          "type": "number"
+          "type": "string"
         },
         "spent_usd_today": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Spent Usd Today",
-          "type": "number"
+          "type": "string"
         },
         "visitor_runs_today": {
           "minimum": 0,
@@ -102,9 +105,10 @@
           "type": "boolean"
         },
         "spent_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Spent Usd",
-          "type": "number"
+          "type": "string"
         },
         "title": {
           "title": "Title",

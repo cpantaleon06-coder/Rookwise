@@ -19,7 +19,7 @@
           "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
           "mode": "recorded",
           "recording_id": "rec-demo-bakery-001",
-          "budget_usd": 0.25,
+          "budget_usd": "0.250000",
           "board": false,
           "simulated_case": true
         }
@@ -76,12 +76,12 @@
         "ts": "2026-10-20T15:00:02.150000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.0048,
-          "held_usd": 0.0,
-          "predicted_usd": 0.005,
-          "cap_usd": 0.25,
+          "spent_usd": "0.004800",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.005000",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048
+            "director": "0.004800"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -93,8 +93,8 @@
             "output_tokens": 600,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.0048,
-            "usd_predicted": 0.005,
+            "usd_real": "0.004800",
+            "usd_predicted": "0.005000",
             "ts": "2026-10-20T15:00:00.350000Z",
             "skills": [],
             "usage_estimated": false
@@ -176,13 +176,13 @@
         "ts": "2026-10-20T15:00:05.650000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.0057599999999999995,
-          "held_usd": 0.0,
-          "predicted_usd": 0.006,
-          "cap_usd": 0.25,
+          "spent_usd": "0.005760",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006000",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048,
-            "manager": 0.00096
+            "director": "0.004800",
+            "manager": "0.000960"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -194,8 +194,8 @@
             "output_tokens": 400,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.00096,
-            "usd_predicted": 0.001,
+            "usd_real": "0.000960",
+            "usd_predicted": "0.001000",
             "ts": "2026-10-20T15:00:04.450000Z",
             "skills": [],
             "usage_estimated": false
@@ -250,7 +250,7 @@
             "budget": {
               "max_input_tokens": 20000,
               "max_output_tokens": 4000,
-              "max_usd": 0.01
+              "max_usd": "0.010000"
             },
             "deadline_s": 120
           },
@@ -324,7 +324,7 @@
             "tool_calls": {
               "search": 1
             },
-            "usd": 0.0001728,
+            "usd": "0.000174",
             "input_tokens": 2000,
             "output_tokens": 220,
             "usage_estimated": false,
@@ -343,14 +343,14 @@
         "ts": "2026-10-20T15:00:07.700000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.005932799999999999,
-          "held_usd": 0.0,
-          "predicted_usd": 0.006200000000000001,
-          "cap_usd": 0.25,
+          "spent_usd": "0.005934",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006200",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048,
-            "manager": 0.00096,
-            "operator": 0.0001728
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000174"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -362,8 +362,8 @@
             "output_tokens": 180,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.0001092,
-            "usd_predicted": 0.0001,
+            "usd_real": "0.000110",
+            "usd_predicted": "0.000100",
             "ts": "2026-10-20T15:00:06.750000Z",
             "skills": [
               "prose-style"
@@ -391,7 +391,7 @@
             "usage": {
               "input_tokens": 2000,
               "output_tokens": 220,
-              "usd": 0.0001728
+              "usd": "0.000174"
             },
             "self_check": {
               "schema_valid": true,
@@ -449,7 +449,7 @@
             "budget": {
               "max_input_tokens": 20000,
               "max_output_tokens": 4000,
-              "max_usd": 0.02
+              "max_usd": "0.020000"
             },
             "deadline_s": 120
           },
@@ -502,7 +502,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.000132,
+            "usd": "0.000132",
             "input_tokens": 1000,
             "output_tokens": 300,
             "usage_estimated": false,
@@ -521,14 +521,14 @@
         "ts": "2026-10-20T15:00:09.350000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.0060647999999999995,
-          "held_usd": 0.0,
-          "predicted_usd": 0.0064,
-          "cap_usd": 0.25,
+          "spent_usd": "0.006066",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006400",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048,
-            "manager": 0.00096,
-            "operator": 0.00030480000000000004
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000306"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -540,8 +540,8 @@
             "output_tokens": 300,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.000132,
-            "usd_predicted": 0.0002,
+            "usd_real": "0.000132",
+            "usd_predicted": "0.000200",
             "ts": "2026-10-20T15:00:08.200000Z",
             "skills": [
               "prose-style"
@@ -595,7 +595,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.00015,
+            "usd": "0.000150",
             "input_tokens": 1300,
             "output_tokens": 300,
             "usage_estimated": false,
@@ -614,14 +614,14 @@
         "ts": "2026-10-20T15:00:10.650000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.0062147999999999995,
-          "held_usd": 0.0,
-          "predicted_usd": 0.0066,
-          "cap_usd": 0.25,
+          "spent_usd": "0.006216",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006600",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048,
-            "manager": 0.00096,
-            "operator": 0.0004548
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000456"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -633,8 +633,8 @@
             "output_tokens": 300,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.00015,
-            "usd_predicted": 0.0002,
+            "usd_real": "0.000150",
+            "usd_predicted": "0.000200",
             "ts": "2026-10-20T15:00:09.500000Z",
             "skills": [
               "prose-style"
@@ -688,7 +688,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.00034176,
+            "usd": "0.000342",
             "input_tokens": 1600,
             "output_tokens": 1024,
             "usage_estimated": true,
@@ -707,14 +707,14 @@
         "ts": "2026-10-20T15:00:11.950000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.0065565599999999995,
-          "held_usd": 0.0,
-          "predicted_usd": 0.0068,
-          "cap_usd": 0.25,
+          "spent_usd": "0.006558",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006800",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048,
-            "manager": 0.00096,
-            "operator": 0.00079656
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000798"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -726,8 +726,8 @@
             "output_tokens": 1024,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.00034176,
-            "usd_predicted": 0.0002,
+            "usd_real": "0.000342",
+            "usd_predicted": "0.000200",
             "ts": "2026-10-20T15:00:10.800000Z",
             "skills": [
               "prose-style"
@@ -779,7 +779,7 @@
             "steps": 1,
             "model_calls": 1,
             "tool_calls": {},
-            "usd": 0.000615,
+            "usd": "0.000615",
             "input_tokens": 1000,
             "output_tokens": 350,
             "usage_estimated": false,
@@ -798,14 +798,14 @@
         "ts": "2026-10-20T15:00:13.250000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.00717156,
-          "held_usd": 0.0,
-          "predicted_usd": 0.006999999999999999,
-          "cap_usd": 0.25,
+          "spent_usd": "0.007173",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.007000",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048,
-            "manager": 0.00096,
-            "operator": 0.00141156
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.001413"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -817,8 +817,8 @@
             "output_tokens": 350,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.000615,
-            "usd_predicted": 0.0002,
+            "usd_real": "0.000615",
+            "usd_predicted": "0.000200",
             "ts": "2026-10-20T15:00:12.100000Z",
             "skills": [
               "prose-style"
@@ -846,7 +846,7 @@
             "usage": {
               "input_tokens": 4900,
               "output_tokens": 1974,
-              "usd": 0.00123876
+              "usd": "0.001239"
             },
             "self_check": {
               "schema_valid": true,
@@ -929,15 +929,15 @@
         "ts": "2026-10-20T15:00:15.050000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.010271559999999999,
-          "held_usd": 0.0,
-          "predicted_usd": 0.010499999999999999,
-          "cap_usd": 0.25,
+          "spent_usd": "0.010273",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.010500",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.0048,
-            "manager": 0.00096,
-            "operator": 0.00141156,
-            "auditor": 0.0031
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.001413",
+            "auditor": "0.003100"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -949,8 +949,8 @@
             "output_tokens": 200,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.0031,
-            "usd_predicted": 0.0035,
+            "usd_real": "0.003100",
+            "usd_predicted": "0.003500",
             "ts": "2026-10-20T15:00:13.500000Z",
             "skills": [
               "prose-style"
@@ -970,15 +970,15 @@
         "ts": "2026-10-20T15:00:16.050000Z",
         "type": "budget_update",
         "payload": {
-          "spent_usd": 0.013171559999999999,
-          "held_usd": 0.0,
-          "predicted_usd": 0.013499999999999998,
-          "cap_usd": 0.25,
+          "spent_usd": "0.013173",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.013500",
+          "cap_usd": "0.250000",
           "spent_by_level": {
-            "director": 0.007699999999999999,
-            "manager": 0.00096,
-            "operator": 0.00141156,
-            "auditor": 0.0031
+            "director": "0.007700",
+            "manager": "0.000960",
+            "operator": "0.001413",
+            "auditor": "0.003100"
           },
           "entry": {
             "run_id": "run_8f2c1a7d4b",
@@ -990,8 +990,8 @@
             "output_tokens": 300,
             "reasoning_tokens": 0,
             "cached_price_fallback": true,
-            "usd_real": 0.0029,
-            "usd_predicted": 0.003,
+            "usd_real": "0.002900",
+            "usd_predicted": "0.003000",
             "ts": "2026-10-20T15:00:15.050000Z",
             "skills": [],
             "usage_estimated": false
@@ -1031,8 +1031,8 @@
         "payload": {
           "status": "finished",
           "partial": false,
-          "spent_usd": 0.013171559999999999,
-          "predicted_usd": 0.013499999999999998,
+          "spent_usd": "0.013173",
+          "predicted_usd": "0.013500",
           "package_url": "/api/v1/runs/run_8f2c1a7d4b/package"
         }
       }

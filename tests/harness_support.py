@@ -7,6 +7,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator, Callable, Iterable
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 import httpx
@@ -44,7 +45,7 @@ def config(env: dict[str, str] | None = None) -> HarnessConfig:
     return load_config(env=env or {})
 
 
-def ledger(run_usd: float = 1.0, run_id: str = "r-1") -> InMemoryLedger:
+def ledger(run_usd: Decimal = Decimal("1"), run_id: str = "r-1") -> InMemoryLedger:
     book = InMemoryLedger()
     book.open_run(run_id, Caps(run_usd=run_usd))
     return book

@@ -131,6 +131,9 @@ def test_the_stream_has_sse_headers_and_every_event_in_order(base_url):
     for frame_id, event_type, data in frames:
         assert frame_id == data["id"] and event_type == data["type"]
         SSE_EVENT_ADAPTER.validate_python(data)
+    budget = [data["payload"] for _, event_type, data in frames if event_type == "budget_update"]
+    assert budget and all(isinstance(p["spent_usd"], str) for p in budget)
+    assert all(isinstance(p["entry"]["usd_real"], str) for p in budget)
 
 
 def test_resume_with_last_event_id_header_or_query(base_url):

@@ -30,6 +30,7 @@ from rookwise.harness.config import EscalationConfig
 from rookwise.harness.loop import LoopOutcome, TokenBudget, ToolLoop
 from rookwise.harness.request import ChatRequest
 from rookwise.harness.validate import Validation, repair_message, validate_final
+from rookwise.money import Usd
 
 OutcomeLabel = Literal["first_pass_ok", "ok_after_retry", "ok_after_escalation", "failed"]
 AttemptReason = Literal["first", "repair", "escalation"]
@@ -54,7 +55,7 @@ class AttemptRecord(BaseModel):
     steps: int
     model_calls: int
     tool_calls: dict[str, int]
-    usd: float
+    usd: Usd
     input_tokens: int
     output_tokens: int
     usage_estimated: bool

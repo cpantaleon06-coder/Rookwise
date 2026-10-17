@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
+from decimal import Decimal
 from typing import Any
 
 from rookwise.ledger import CallCost, ModelPrice, Usage, call_cost
@@ -55,7 +56,7 @@ def parse_usage(raw: Mapping[str, Any]) -> Usage:
     )
 
 
-def cost_usd(price: ModelPrice, usage: Usage) -> float:
+def cost_usd(price: ModelPrice, usage: Usage) -> Decimal:
     return call_cost(price, usage).usd
 
 

@@ -85,8 +85,10 @@
           "type": "boolean"
         },
         "usd": {
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd",
-          "type": "number"
+          "type": "string"
         },
         "validation_errors": {
           "items": {
@@ -132,9 +134,10 @@
           "type": "integer"
         },
         "usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -211,9 +214,10 @@
           "type": "integer"
         },
         "max_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Max Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [

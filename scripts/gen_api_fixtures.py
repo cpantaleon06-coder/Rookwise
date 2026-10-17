@@ -2,7 +2,8 @@
 
 Nothing here is model output. The run, its texts and its numbers are written by this
 script and labelled "[synthetic]". Costs go through the real `InMemoryLedger` with the
-prices in config/prices.json, so every sum in the fixtures adds up.
+prices in config/prices.json, so every sum in the fixtures adds up exactly. Money is
+Decimal here and a six-decimal string in the files (docs/api.md, "Conventions").
 
 Files:
 - examples/api/recorded_run.json: one complete recorded run as a static bundle (modes,
@@ -24,6 +25,7 @@ import argparse
 import json
 import sys
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -33,13 +35,14 @@ sys.path.insert(0, str(REPO_ROOT))  # noqa: E402 (lets `rookwise` resolve from a
 from rookwise.api import models as api  # noqa: E402
 from rookwise.harness.escalate import AttemptRecord  # noqa: E402
 from rookwise.ledger import Caps, InMemoryLedger, Usage  # noqa: E402
+from rookwise.money import ZERO_USD  # noqa: E402
 from rookwise.schemas import ResultV1, TaskV1  # noqa: E402
 
 OUT_DIR = REPO_ROOT / "examples" / "api"
 RUN_ID = "run_8f2c1a7d4b"
 RECORDING_ID = "rec-demo-bakery-001"
 GOAL = "[synthetic] Plan a one-page website for a simulated corner bakery."
-BUDGET_USD = 0.25
+BUDGET_USD = Decimal("0.25")
 START = datetime(2026, 10, 20, 15, 0, 0, tzinfo=UTC)
 ULTRA, SUPER, LIGHTNING = "nemotron-3-ultra", "nemotron-3-super", "nemotron-3.5-lightning"
 FIXTURE_NOTE = {
@@ -119,7 +122,7 @@ class Timeline:
             {
                 "spent_usd": report.spent_usd,
                 "held_usd": report.held_usd,
-                "predicted_usd": sum(e.usd_predicted for e in report.entries),
+                "predicted_usd": sum((e.usd_predicted for e in report.entries), ZERO_USD),
                 "cap_usd": BUDGET_USD,
                 "spent_by_level": dict(report.spent_by_level),
                 "entry": _dump(entry),
@@ -184,7 +187,7 @@ def _attempt(
         steps=steps,
         model_calls=len(entries),
         tool_calls=tools or {},
-        usd=sum(e.usd_real for e in entries),
+        usd=sum((e.usd_real for e in entries), ZERO_USD),
         input_tokens=sum(e.input_tokens for e in entries),
         output_tokens=sum(e.output_tokens for e in entries),
         usage_estimated=any(e.usage_estimated for e in entries),
@@ -200,7 +203,7 @@ def _result(task: TaskV1, entries, label: str) -> ResultV1:
         usage={
             "input_tokens": sum(e.input_tokens for e in entries),
             "output_tokens": sum(e.output_tokens for e in entries),
-            "usd": sum(e.usd_real for e in entries),
+            "usd": sum((e.usd_real for e in entries), ZERO_USD),
         },
         self_check={"schema_valid": True, "notes": label},
     )
@@ -244,7 +247,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     )
     director = _agent("a-director", "director", "director", ULTRA, None)
     t.emit(300, "agent_hired", {"agent": _dump(director)})
-    plan = t.charge("director", "plan", ULTRA, 3_000, 600, 0.0050)
+    plan = t.charge("director", "plan", ULTRA, 3_000, 600, Decimal("0.0050"))
     t.budget(1_800, plan)
     say(
         100,
@@ -256,7 +259,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
 
     manager = _agent("a-manager-1", "manager", "manager", SUPER, "a-director")
     t.emit(200, "agent_hired", {"agent": _dump(manager)})
-    split = t.charge("manager", "manage-1", SUPER, 2_000, 400, 0.0010)
+    split = t.charge("manager", "manage-1", SUPER, 2_000, 400, Decimal("0.0010"))
     t.budget(1_200, split)
 
     # t-1: research with one tool call, first pass ok.
@@ -271,7 +274,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         tools=["tavily_search"],
     )
     t.emit(200, "agent_hired", {"agent": _dump(researcher)})
-    task1 = _task("t-1", "researcher", [], 0.01)
+    task1 = _task("t-1", "researcher", [], Decimal("0.01"))
     t.emit(
         100,
         "task_assigned",
@@ -286,7 +289,9 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         "task_started",
         {"task_id": "t-1", "agent_id": "a-op-research", "model": LIGHTNING, "attempt_index": 0},
     )
-    call = t.charge("operator", "t-1", LIGHTNING, 900, 40, 0.0001, skills=["prose-style"])
+    call = t.charge(
+        "operator", "t-1", LIGHTNING, 900, 40, Decimal("0.0001"), skills=["prose-style"]
+    )
     t.emit(
         700,
         "tool_called",
@@ -298,7 +303,9 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
             "run_tool_count": 1,
         },
     )
-    final = t.charge("operator", "t-1", LIGHTNING, 1_100, 180, 0.0001, skills=["prose-style"])
+    final = t.charge(
+        "operator", "t-1", LIGHTNING, 1_100, 180, Decimal("0.0001"), skills=["prose-style"]
+    )
     attempt1 = _attempt(
         "t-1",
         0,
@@ -332,7 +339,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         skills=["prose-style"],
     )
     t.emit(200, "agent_hired", {"agent": _dump(copywriter)})
-    task2 = _task("t-2", "copywriter", [f"store://{RUN_ID}/results/t-1"], 0.02)
+    task2 = _task("t-2", "copywriter", [f"store://{RUN_ID}/results/t-1"], Decimal("0.02"))
     t.emit(
         100,
         "task_assigned",
@@ -388,7 +395,14 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
             {"task_id": "t-2", "agent_id": "a-op-copy", "model": model, "attempt_index": index},
         )
         entry = t.charge(
-            "operator", "t-2", model, tin, tout, 0.0002, skills=["prose-style"], estimated=est
+            "operator",
+            "t-2",
+            model,
+            tin,
+            tout,
+            Decimal("0.0002"),
+            skills=["prose-style"],
+            estimated=est,
         )
         entries2.append(entry)
         protocol = "native_tools"
@@ -417,7 +431,9 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
 
     auditor = _agent("a-auditor", "auditor", "auditor", ULTRA, None, skills=["prose-style"])
     t.emit(200, "agent_hired", {"agent": _dump(auditor)})
-    audit_entry = t.charge("auditor", "audit", ULTRA, 2_500, 200, 0.0035, skills=["prose-style"])
+    audit_entry = t.charge(
+        "auditor", "audit", ULTRA, 2_500, 200, Decimal("0.0035"), skills=["prose-style"]
+    )
     audit = api.AuditVerdict(
         verdict="accepted",
         model=ULTRA,
@@ -430,7 +446,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     )
     t.emit(1_500, "audit_result", {"audit": _dump(audit)})
     t.budget(50, audit_entry)
-    summary_entry = t.charge("director", "deliver", ULTRA, 2_000, 300, 0.0030)
+    summary_entry = t.charge("director", "deliver", ULTRA, 2_000, 300, Decimal("0.0030"))
     t.budget(1_000, summary_entry)
     say(
         100,
@@ -441,7 +457,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
 
     report = t.ledger.report(RUN_ID)
     assert report.held_usd == 0
-    predicted = sum(e.usd_predicted for e in report.entries)
+    predicted = sum((e.usd_predicted for e in report.entries), ZERO_USD)
     package_url = f"/api/v1/runs/{RUN_ID}/package"
     t.emit(
         100,
@@ -546,7 +562,8 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         cost_report=api.CostReport(
             predicted_usd=predicted,
             real_usd=report.spent_usd,
-            prediction_error=(report.spent_usd - predicted) / predicted,
+            # A ratio, not money: the one number in the contract that stays a JSON number.
+            prediction_error=float((report.spent_usd - predicted) / predicted),
             spent_by_level=dict(report.spent_by_level),
             usage_estimated_entries=estimated,
         ),
@@ -584,7 +601,7 @@ VISITOR_DETAIL = "[synthetic] You already used your live run for today. Recorded
 def _modes(
     live_available: bool,
     refusal: str | None = None,
-    spent_today: float = 0.42,
+    spent_today: Decimal = Decimal("0.42"),
     visitor_runs: int = 0,
     detail: str = DAILY_CAP_DETAIL,
 ):
@@ -600,8 +617,8 @@ def _modes(
             ),
         ],
         live_caps=api.LiveCaps(
-            max_usd_per_run=0.25,
-            max_usd_per_day=3.00,
+            max_usd_per_run=Decimal("0.25"),
+            max_usd_per_day=Decimal("3.00"),
             spent_usd_today=spent_today,
             max_runs_per_visitor_per_day=1,
             visitor_runs_today=visitor_runs,
@@ -612,7 +629,7 @@ def _modes(
                 title="[synthetic] Corner bakery website",
                 goal=GOAL,
                 simulated_case=True,
-                spent_usd=0.0,
+                spent_usd=ZERO_USD,
             )
         ],
     )
@@ -620,7 +637,7 @@ def _modes(
 
 def live_refused() -> dict[str, Any]:
     request = api.CreateRunRequest(
-        mode="live", goal="[synthetic] Draft a price list.", budget_usd=0.20
+        mode="live", goal="[synthetic] Draft a price list.", budget_usd=Decimal("0.20")
     )
     error = api.ErrorResponse(
         error=api.ErrorBody(
@@ -628,8 +645,8 @@ def live_refused() -> dict[str, Any]:
             message="[synthetic] Live runs are paused: the daily live budget is used up.",
             details={
                 "refusal": "daily_cap_reached",
-                "max_usd_per_day": 3.00,
-                "spent_usd_today": 3.00,
+                "max_usd_per_day": "3.000000",
+                "spent_usd_today": "3.000000",
                 "retry": "recorded",
             },
             request_id="req-synthetic-1",
@@ -672,7 +689,7 @@ def live_refused() -> dict[str, Any]:
                         "details": {"refusal": "daily_cap_reached"},
                     },
                     "partial": False,
-                    "spent_usd": 0.0,
+                    "spent_usd": "0.000000",
                 },
             },
         },
@@ -697,7 +714,9 @@ def live_refused() -> dict[str, Any]:
         "request": _dump(request),
         "status": 429,
         "response": _dump(error),
-        "modes": _dump(_modes(live_available=False, refusal="daily_cap_reached", spent_today=3.00)),
+        "modes": _dump(
+            _modes(live_available=False, refusal="daily_cap_reached", spent_today=Decimal("3.00"))
+        ),
         "refused_after_creation": {"run_id": run_id, "events": stream},
         "visitor_limit": {
             "status": 429,

@@ -103,9 +103,10 @@
       "description": "Predicted versus real. `prediction_error` is (real - predicted) / predicted, the\nbenchmark metric in docs/ARCHITECTURE.md; None when nothing was predicted.",
       "properties": {
         "predicted_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Predicted Usd",
-          "type": "number"
+          "type": "string"
         },
         "prediction_error": {
           "anyOf": [
@@ -119,14 +120,16 @@
           "title": "Prediction Error"
         },
         "real_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Real Usd",
-          "type": "number"
+          "type": "string"
         },
         "spent_by_level": {
           "additionalProperties": {
-            "minimum": 0,
-            "type": "number"
+            "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+            "pattern": "^[0-9]+\\.[0-9]{6}$",
+            "type": "string"
           },
           "title": "Spent By Level",
           "type": "object"
@@ -189,9 +192,10 @@
           "type": "integer"
         },
         "usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -268,9 +272,10 @@
           "type": "integer"
         },
         "max_usd": {
-          "minimum": 0,
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
           "title": "Max Usd",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [

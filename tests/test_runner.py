@@ -8,6 +8,7 @@ ROOKWISE_REGENERATE_CASSETTES=1.
 import json
 import os
 import random
+from decimal import Decimal
 from pathlib import Path
 
 import httpx
@@ -34,6 +35,7 @@ from operator_stub import (
 
 from rookwise.harness import Harness, load_config
 from rookwise.harness.cassette import Cassette, env_secrets, find_secrets
+from rookwise.ledger import Caps, InMemoryLedger
 from rookwise.runner import result_ref, run_operator
 from rookwise.tools import TavilySearch
 
@@ -132,13 +134,13 @@ def test_run_operator_end_to_end_with_a_tool_and_ledger_totals():
     entries = book.report("r-1").entries
     assert len(entries) == 2 and {e.task_id for e in entries} == {"t-1"}
     assert all(e.skills == ["stub-notes"] and e.level == "operator" for e in entries)
-    assert result.usage.usd == record.usd == pytest.approx(sum(e.usd_real for e in entries))
+    assert result.usage.usd == record.usd == sum(e.usd_real for e in entries)
     assert result.usage.input_tokens == 1300 and result.usage.output_tokens == 70
-    assert sum(a.usd for a in record.attempts) == pytest.approx(record.usd)
+    assert sum(a.usd for a in record.attempts) == record.usd
     assert record.tool_calls == {"search": 1} and calls == [
         {"query": "Nemotron maker", "max_results": 3}
     ]
-    assert record.usd_predicted == 0.002 and record.usage_estimated is False
+    assert record.usd_predicted == Decimal("0.002") and record.usage_estimated is False
     first = handler.bodies[0]
     system, user = first["messages"]
     assert "## Skill: stub-notes" in system["content"]
@@ -149,6 +151,34 @@ def test_run_operator_end_to_end_with_a_tool_and_ledger_totals():
     _charges(book)
 
 
+class _TypeSpyLedger(InMemoryLedger):
+    """Records the type of every amount handed to the ledger."""
+
+    def __init__(self):
+        super().__init__()
+        self.types = []
+
+    def set_task_cap(self, run_id, task_id, usd):
+        self.types.append(type(usd))
+        super().set_task_cap(run_id, task_id, usd)
+
+    def reserve(self, run_id, **kwargs):
+        self.types.append(type(kwargs["usd_predicted"]))
+        return super().reserve(run_id, **kwargs)
+
+
+def test_no_float_reaches_the_ledger_on_a_full_operator_run():
+    book = _TypeSpyLedger()
+    book.open_run("r-1", Caps(run_usd=Decimal("1")))
+    record, _, _ = _operate(replies(*_model_replies()), book=book)
+    assert record.label == "first_pass_ok"
+    assert len(book.types) == 3 and set(book.types) == {Decimal}  # one cap, two reservations
+    report = book.report("r-1")
+    assert all(type(e.usd_real) is Decimal for e in report.entries)
+    assert type(record.usd) is Decimal and type(record.result.usage.usd) is Decimal
+    assert all(type(a.usd) is Decimal for a in record.attempts)
+
+
 def test_per_operator_sampling_overrides_reach_the_request():
     handler = replies(text_reply(json.dumps(FINAL)))
     _operate(handler, spec=stub_spec(temperature=0.3, top_p=0.9))
@@ -157,7 +187,7 @@ def test_per_operator_sampling_overrides_reach_the_request():
 
 def test_the_task_usd_cap_is_enforced_through_the_ledger():
     handler = Handler([])
-    record, book, store = _operate(handler, task=stub_task(max_usd=0.0000001))
+    record, book, store = _operate(handler, task=stub_task(max_usd=Decimal("0.000001")))
     assert record.label == "failed" and record.stop_reason == "budget_exhausted"
     assert record.result.status == "failed" and not record.result.self_check.schema_valid
     assert handler.requests == [] and _charges(book) == []
