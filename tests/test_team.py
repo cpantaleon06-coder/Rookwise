@@ -45,6 +45,18 @@ def _payloads(team, event_type):
     return [e.payload for e in team.events if e.type == event_type]
 
 
+def _allocations(team):
+    return [(p.action, p.agent_id, p.parent_agent_id) for p in _payloads(team, "budget_allocation")]
+
+
+def _escalations(team):
+    return [(p.from_agent_id, p.to_agent_id, p.task_id) for p in _payloads(team, "escalation")]
+
+
+def _stops(team):
+    return [(p.agent_id, p.level, p.scope, p.key) for p in _payloads(team, "budget_exhausted")]
+
+
 def _no_ladder():
     """No repairs and no model ladder: an operator's failure reaches its manager at once."""
     return dataclasses.replace(load_config(env={}), escalation=EscalationConfig(0, {}))
@@ -68,15 +80,31 @@ def test_a_normal_run_goes_through_every_level():
     assert team.evidence.citations_total == 3
     assert handler.calls == {"director": 1, "manager": 2, "auditor": 1, "operator": 3}
     hired = [p.agent for p in _payloads(team, "agent_hired")]
+    # The auditor and the managers are hired with their allocations, right after the plan.
     assert [(a.agent_id, a.level, a.parent_id) for a in hired] == [
         ("a-director", "director", None),
+        ("a-auditor", "auditor", None),
         ("a-manager-b-1", "manager", "a-director"),
-        ("a-op-t-1", "operator", "a-manager-b-1"),
         ("a-manager-b-2", "manager", "a-director"),
+        ("a-op-t-1", "operator", "a-manager-b-1"),
         ("a-op-t-2", "operator", "a-manager-b-2"),
         ("a-op-t-3", "operator", "a-manager-b-2"),
-        ("a-auditor", "auditor", None),
     ]
+    assert _allocations(team) == [
+        ("allocated", "a-auditor", "a-director"),
+        ("allocated", "a-manager-b-1", "a-director"),
+        ("allocated", "a-manager-b-2", "a-director"),
+        ("allocated", "a-op-t-1", "a-manager-b-1"),
+        ("released", "a-op-t-1", "a-manager-b-1"),
+        ("released", "a-manager-b-1", "a-director"),
+        ("allocated", "a-op-t-2", "a-manager-b-2"),
+        ("released", "a-op-t-2", "a-manager-b-2"),
+        ("allocated", "a-op-t-3", "a-manager-b-2"),
+        ("released", "a-op-t-3", "a-manager-b-2"),
+        ("released", "a-manager-b-2", "a-director"),
+        ("released", "a-auditor", "a-director"),
+    ]
+    assert _escalations(team) == [] and _stops(team) == []
     levels = [e.level for e in book.report(RUN_ID).entries]
     assert levels == [
         "director",
@@ -119,6 +147,19 @@ def test_sub_budgets_follow_the_policy_and_unspent_money_goes_back():
     assert nodes["budget:t-1"].usd == per_task == nodes["budget:t-2"].usd
     assert nodes["budget:t-1"].parent == nodes["budget:t-2"].parent == "budget:b-1"
     assert team.blocks[0].released_usd == manager.usd - manager.spent_usd
+    events = {(p.action, p.agent_id): p for p in _payloads(team, "budget_allocation")}
+    auditor = events[("allocated", "a-auditor")]
+    assert auditor.usd == nodes["budget:auditor"].usd
+    assert auditor.parent_free_usd == free_after_plan - auditor.usd
+    assert events[("allocated", "a-manager-b-1")].parent_free_usd == ZERO_USD  # all split
+    first_operator = events[("allocated", "a-op-t-1")]
+    assert first_operator.usd == per_task
+    assert first_operator.parent_free_usd == manager.usd - per_task  # nothing spent in it yet
+    released = events[("released", "a-manager-b-1")]
+    assert released.usd == team.blocks[0].released_usd
+    last = _payloads(team, "budget_allocation")[-1]  # the auditor's, once everything is closed
+    assert (last.action, last.agent_id) == ("released", "a-auditor")
+    assert last.parent_free_usd + report.spent_usd == D("0.5")
     for task_id in ("t-1", "t-2"):
         task_v1 = next(
             p.task for p in _payloads(team, "task_assigned") if p.task.task_id == task_id
@@ -137,6 +178,7 @@ def test_the_director_running_out_of_budget_fails_the_run_cleanly():
         "agent_hired",
         "task_started",
         "attempt_recorded",
+        "budget_exhausted",
         "run_failed",
     ]
     failed = _payloads(team, "run_failed")[0]
@@ -148,6 +190,15 @@ def test_the_director_running_out_of_budget_fails_the_run_cleanly():
         RUN_ID,
         "0.000200",
     )
+    (stop,) = _payloads(team, "budget_exhausted")
+    assert (stop.agent_id, stop.level, stop.scope, stop.key) == (
+        "a-director",
+        "director",
+        "run",
+        RUN_ID,
+    )
+    assert (stop.cap_usd, stop.committed_usd) == (D("0.0002"), ZERO_USD)
+    assert stop.requested_usd > stop.cap_usd and details["requested_usd"] == f"{stop.requested_usd}"
     attempt = _payloads(team, "attempt_recorded")[0].attempt
     assert attempt.loop_status == "budget_exhausted" and attempt.model_calls == 0
     assert handler.bodies == [] and book.report(RUN_ID).entries == ()
@@ -175,6 +226,12 @@ def test_a_manager_running_out_of_budget_leaves_a_partial_block():
     assert _payloads(team, "run_finished")[0].partial is True
     stops = [(s.scope, s.key) for s in book.report(RUN_ID).stops]
     assert stops == [("budget", "budget:b-1")]
+    assert _stops(team) == [("a-manager-b-1", "manager", "budget", "budget:b-1")]
+    assert _escalations(team) == []  # a budget stop is not an escalation
+    types = _types(team)
+    stopped = types.index("budget_exhausted")
+    assert types[stopped - 1] == "attempt_recorded"  # the manager's refused call
+    assert _allocations(team)[-2] == ("released", "a-manager-b-1", "a-director")
     manager_attempt = [
         p.attempt for p in _payloads(team, "attempt_recorded") if p.agent_id == "a-manager-b-1"
     ]
@@ -202,6 +259,12 @@ def test_an_operator_running_out_of_budget_fails_its_task_without_a_reassignment
     assert handler.calls["operator"] == 0 and handler.calls["manager"] == 0
     assert team.blocks[0].status == "failed" and team.partial is True
     assert ("budget", "budget:t-1") in [(s.scope, s.key) for s in book.report(RUN_ID).stops]
+    assert _stops(team) == [("a-op-t-1", "operator", "budget", "budget:t-1")]
+    types = _types(team)
+    assert types.index("budget_exhausted") == types.index("task_result") - 1
+    # No reassignment; the block has no completed task, so the manager escalates it whole.
+    assert _escalations(team) == [("a-manager-b-1", "a-director", None)]
+    assert _payloads(team, "escalation")[0].reason == team.notes[-1]
     assert_contract_order(team, book)
     assert_budget_tree(book)
 
@@ -222,6 +285,9 @@ def test_an_auditor_running_out_of_budget_accepts_with_a_warning():
     assert handler.calls["auditor"] == 0
     assert team.partial is True and "auditor ran out of budget" in team.notes[-1]
     assert _payloads(team, "audit_result")[0].audit == team.audit
+    assert _stops(team) == [("a-auditor", "auditor", "budget", "budget:auditor")]
+    types = _types(team)
+    assert types.index("budget_exhausted") == types.index("audit_result") - 1
     assert_contract_order(team, book)
     assert_budget_tree(book)
 
@@ -249,6 +315,20 @@ def test_a_failed_operator_is_reassigned_to_the_next_catalog_operator():
     nodes = {a.id: a for a in book.report(RUN_ID).allocations}
     assert nodes["budget:t-1"].closed and nodes["budget:t-1.2"].closed
     assert nodes["budget:t-1"].released_usd > 0  # the failed operator's unspent part
+    assert _escalations(team) == [("a-op-t-1", "a-op-t-1.2", "t-1")]
+    assert _payloads(team, "escalation")[0].reason == team.notes[0]
+    # task_result and release of the first operator, hire of the next, the escalation
+    # between them, the next allocation, then the new assignment.
+    start = next(i for i, e in enumerate(team.events) if e.type == "task_result")
+    assert [(e.type, getattr(e.payload, "agent_id", None)) for e in team.events[start:]][:6] == [
+        ("task_result", "a-op-t-1"),
+        ("budget_allocation", "a-op-t-1"),
+        ("agent_hired", None),
+        ("escalation", None),
+        ("budget_allocation", "a-op-t-1.2"),
+        ("task_assigned", "a-op-t-1.2"),
+    ]
+    assert _stops(team) == []
     assert_contract_order(team, book)
     assert_budget_tree(book)
 
@@ -275,6 +355,11 @@ def test_an_operator_failure_with_no_other_operator_escalates_to_the_director():
     assert team.partial is True and _payloads(team, "run_finished")[0].partial is True
     closing = [p.message.text for p in _payloads(team, "message")][-1]
     assert "Done: 0 of 1 tasks completed." in closing and "escalated to the director" in closing
+    assert _escalations(team) == [
+        ("a-manager-b-1", "a-director", "t-1"),
+        ("a-manager-b-1", "a-director", None),
+    ]
+    assert [p.reason for p in _payloads(team, "escalation")] == team.notes
     assert_contract_order(team, book)
     assert_budget_tree(book)
 
@@ -378,6 +463,8 @@ def test_a_manager_with_nothing_for_its_operators_runs_no_task():
     assert outcome.status == "failed" and team.partial is True
     assert handler.calls["operator"] == 0 and handler.calls["manager"] == 0
     assert _payloads(team, "task_assigned") == []
+    assert ("allocated", "a-op-t-1", "a-manager-b-1") not in _allocations(team)
+    assert _escalations(team) == [("a-manager-b-1", "a-director", None)]
     assert_contract_order(team, book)
     assert_budget_tree(book)
 
@@ -390,4 +477,47 @@ def test_a_plan_larger_than_the_policy_fails_the_run():
     assert failed.error.code == "plan_too_large"
     assert failed.spent_usd == book.report(RUN_ID).spent_usd > 0  # the plan call was paid
     assert book.report(RUN_ID).allocations == ()
+    assert _allocations(team) == [] and "agent_hired" not in _types(team)[2:]
+    assert_contract_order(team, book)
+
+
+def test_a_manager_that_cannot_consolidate_escalates_its_call_to_the_director():
+    handler = TeamHandler(
+        director=[plan_reply(block(1))],
+        operator=[findings_reply(GOOD_CLAIM)],
+        manager=[summary_reply(status="failed")],
+        auditor=[judgment_reply()],
+    )
+    team, book = run_stub_team(handler, run_usd="0.5", harness_config=_no_ladder())
+    (outcome,) = team.blocks
+    assert outcome.status == "partial" and outcome.summary is None
+    assert team.notes == [
+        "Manager b-1 could not consolidate (top_of_ladder); escalated to the director."
+    ]
+    assert _escalations(team) == [("a-manager-b-1", "a-director", "b-1-summary")]
+    assert _payloads(team, "escalation")[0].reason == team.notes[0]
+    assert _stops(team) == [] and team.partial is True
+    assert_contract_order(team, book)
+    assert_budget_tree(book)
+
+
+def test_a_plan_call_charged_over_the_run_cap_fails_before_any_allocation():
+    # The reservation fits the cap; the reported usage (50,000 input tokens on Ultra,
+    # USD 0.05) does not, so the charge stops the run and nothing can be allocated.
+    handler = TeamHandler(director=[plan_reply(block(1), prompt=50_000)])
+    team, book = run_stub_team(handler, run_usd="0.01")
+    assert team.status == "failed"
+    assert team.notes == ["The run budget was used up by the director's plan call."]
+    (stop,) = _payloads(team, "budget_exhausted")
+    assert (stop.agent_id, stop.scope, stop.key, stop.cap_usd) == (
+        "a-director",
+        "run",
+        RUN_ID,
+        D("0.01"),
+    )
+    assert stop.committed_usd == book.report(RUN_ID).spent_usd > stop.cap_usd
+    assert stop.requested_usd == ZERO_USD  # the stop came from a charge, not a reservation
+    assert _types(team)[-2:] == ["budget_exhausted", "run_failed"]
+    assert _allocations(team) == [] and book.report(RUN_ID).allocations == ()
+    assert [p.agent.agent_id for p in _payloads(team, "agent_hired")] == ["a-director"]
     assert_contract_order(team, book)

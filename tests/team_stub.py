@@ -132,8 +132,9 @@ def block(tasks: int = 1) -> dict[str, Any]:
     return {"goal": "[stub] A block of work.", "tasks": [task] * tasks}
 
 
-def plan_reply(*blocks: dict[str, Any]) -> bytes:
-    return text_reply(_payload({"summary": "[stub] A plan.", "blocks": list(blocks)}))
+def plan_reply(*blocks: dict[str, Any], prompt: int = 100) -> bytes:
+    plan = {"summary": "[stub] A plan.", "blocks": list(blocks)}
+    return text_reply(_payload(plan), prompt=prompt)
 
 
 def findings_reply(*claims: dict[str, Any], status: str = "ok") -> bytes:
@@ -141,8 +142,9 @@ def findings_reply(*claims: dict[str, Any], status: str = "ok") -> bytes:
     return text_reply(_payload(output, status=status, notes="" if status == "ok" else "[stub]"))
 
 
-def summary_reply() -> bytes:
-    return text_reply(_payload({"summary": "[stub] The block is done."}))
+def summary_reply(status: str = "ok") -> bytes:
+    notes = "" if status == "ok" else "[stub]"
+    return text_reply(_payload({"summary": "[stub] The block is done."}, status, notes))
 
 
 def judgment_reply(verdict: str = "accepted") -> bytes:
@@ -239,27 +241,68 @@ def assert_contract_order(team, book) -> None:
             parent = payload.agent.parent_id
             assert parent is None or parent in hired, event.id
             hired.add(payload.agent.agent_id)
-        agent_id = getattr(payload, "agent_id", None)
-        assert agent_id is None or agent_id in hired, event.id
+        for name in ("agent_id", "parent_agent_id", "from_agent_id", "to_agent_id"):
+            agent_id = getattr(payload, name, None)
+            assert agent_id is None or agent_id in hired, (event.id, name)
     # For a task: task_assigned, then per attempt task_started, attempt_recorded and the
-    # attempt's budget updates, then task_result.
+    # attempt's budget updates, then budget_exhausted if the operator stopped on its
+    # budget, then task_result.
     for index, event in enumerate(events):
         if event.type != "task_assigned":
             continue
-        task_id = event.payload.task.task_id
+        task_id, agent_id = event.payload.task.task_id, event.payload.agent_id
+        allowed = ("task_started", "attempt_recorded", "budget_update", "budget_exhausted")
         for later in events[index + 1 :]:
             if later.type == "task_result":
                 assert later.payload.result.task_id == task_id
                 break
-            assert later.type in ("task_started", "attempt_recorded", "budget_update"), later.id
+            assert later.type in allowed, later.id
             if later.type == "task_started":
                 assert later.payload.task_id == task_id
             if later.type == "attempt_recorded":
                 assert later.payload.attempt.task_id == task_id
             if later.type == "budget_update":
                 assert later.payload.entry.task_id == task_id
+            if later.type == "budget_exhausted":
+                assert later.payload.agent_id == agent_id
         else:
             raise AssertionError(f"no task_result for {task_id}")
+    _assert_allocation_events(events, book)
+
+
+def _assert_allocation_events(events, book) -> None:
+    """One `allocated` and at most one `released` per agent, in that order, matching the
+    ledger's allocations; an operator's allocation brackets its task; every
+    `budget_exhausted` is a stop the ledger recorded."""
+    report = book.report(RUN_ID)
+    position: dict[tuple[str, str], int] = {}
+    for index, event in enumerate(events):
+        if event.type == "budget_allocation":
+            key = (event.payload.action, event.payload.agent_id)
+            assert key not in position, event.id
+            position[key] = index
+    for (action, agent_id), index in position.items():
+        if action == "released":
+            assert position[("allocated", agent_id)] < index, agent_id
+    allocations = [e.payload for e in events if e.type == "budget_allocation"]
+    allocated = [p.usd for p in allocations if p.action == "allocated"]
+    assert allocated == [node.usd for node in report.allocations]
+    released = sorted(p.usd for p in allocations if p.action == "released")
+    assert released == sorted(node.released_usd for node in report.allocations if node.closed)
+    for index, event in enumerate(events):
+        if event.type == "task_assigned":
+            agent_id = event.payload.agent_id
+            result = next(
+                i
+                for i, e in enumerate(events)
+                if e.type == "task_result" and e.payload.agent_id == agent_id
+            )
+            assert position[("allocated", agent_id)] < index < result
+            assert position[("released", agent_id)] > result
+    stops = {(stop.scope, stop.key) for stop in report.stops}
+    for event in events:
+        if event.type == "budget_exhausted":
+            assert (event.payload.scope, event.payload.key) in stops, event.id
     # One budget update per charged ledger entry, in charge order, with absolute totals.
     report = book.report(RUN_ID)
     updates = [e.payload for e in events if e.type == "budget_update"]

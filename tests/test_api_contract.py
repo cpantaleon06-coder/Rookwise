@@ -110,11 +110,22 @@ def test_the_replay_covers_the_required_cases():
         "message",
         "task_result",
         "mode_notice",
+        "budget_allocation",
+        "budget_exhausted",
+        "escalation",
     } <= types
     reasons = {e["payload"]["attempt"]["reason"] for e in events if e["type"] == "attempt_recorded"}
     assert reasons == {"first", "repair", "escalation"}
     labels = {e["payload"]["label"] for e in events if e["type"] == "task_result"}
-    assert labels == {"first_pass_ok", "ok_after_escalation"}
+    assert labels == {"first_pass_ok", "ok_after_escalation", "failed"}
+    actions = {e["payload"]["action"] for e in events if e["type"] == "budget_allocation"}
+    assert actions == {"allocated", "released"}
+    stop = next(e for e in events if e["type"] == "budget_exhausted")["payload"]
+    assert stop["scope"] == "budget"
+    assert Decimal(stop["committed_usd"]) + Decimal(stop["requested_usd"]) > Decimal(
+        stop["cap_usd"]
+    )
+    assert next(e for e in events if e["type"] == "run_finished")["payload"]["partial"] is True
     audit = next(e for e in events if e["type"] == "audit_result")["payload"]["audit"]
     assert audit["verdict"] == "accepted"
     assert any(
@@ -265,9 +276,13 @@ def _section(text: str, start: str, end: str) -> str:
 def test_every_example_in_the_api_doc_validates():
     text = (ROOT / "docs" / "api.md").read_text(encoding="utf-8")
     catalog = _section(text, "### Event catalog", "## Errors")
-    blocks = [b.split("```", 1)[0] for b in catalog.split("```json\n")[1:]]
-    seen = {SSE_EVENT_ADAPTER.validate_python(json.loads(b)).type for b in blocks}
+    blocks = [json.loads(b.split("```", 1)[0]) for b in catalog.split("```json\n")[1:]]
+    seen = {SSE_EVENT_ADAPTER.validate_python(b).type for b in blocks}
     assert seen == set(EVENT_TYPES)
+    refused = _load("live_refused.json")["refused_after_creation"]["events"]
+    fixture_events = [i["event"] for i in _load("recorded_run.events.json")["events"] + refused]
+    for block in blocks:  # copied from the fixtures, not written by hand
+        assert block in fixture_events, block["id"]
     errors = _section(text, "## Errors", "## Cancellation")
     example = errors.split("```json\n", 1)[1].split("```", 1)[0]
     SCHEMA_MODELS["ErrorResponse"].model_validate_json(example)

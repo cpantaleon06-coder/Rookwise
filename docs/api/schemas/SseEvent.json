@@ -475,6 +475,213 @@
       "title": "AuditVerdict",
       "type": "object"
     },
+    "BudgetAllocation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/BudgetAllocationPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "budget_allocation",
+          "default": "budget_allocation",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "mode",
+        "ts",
+        "payload"
+      ],
+      "title": "BudgetAllocation",
+      "type": "object"
+    },
+    "BudgetAllocationPayload": {
+      "additionalProperties": false,
+      "description": "A sub-budget held for an agent (`allocated`) or closed (`released`): the ledger's\n`allocate` and `close`. `usd` is the amount held, or the unspent part given back.\n`parent_agent_id` is the agent the money comes from (the director holds the run\nbudget); `parent_free_usd` is what is free in that budget right after.",
+      "properties": {
+        "action": {
+          "enum": [
+            "allocated",
+            "released"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "parent_agent_id": {
+          "title": "Parent Agent Id",
+          "type": "string"
+        },
+        "parent_free_usd": {
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
+          "title": "Parent Free Usd",
+          "type": "string"
+        },
+        "usd": {
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "agent_id",
+        "parent_agent_id",
+        "usd",
+        "parent_free_usd"
+      ],
+      "title": "BudgetAllocationPayload",
+      "type": "object"
+    },
+    "BudgetExhausted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/BudgetExhaustedPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "budget_exhausted",
+          "default": "budget_exhausted",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "mode",
+        "ts",
+        "payload"
+      ],
+      "title": "BudgetExhausted",
+      "type": "object"
+    },
+    "BudgetExhaustedPayload": {
+      "additionalProperties": false,
+      "description": "An agent stopped on its budget: the ledger refused one of its calls, or an\nallocation it needed. The other fields are the `CapStop` the ledger recorded.",
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "cap_usd": {
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
+          "title": "Cap Usd",
+          "type": "string"
+        },
+        "committed_usd": {
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
+          "title": "Committed Usd",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "vp",
+            "director",
+            "manager",
+            "operator",
+            "auditor"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "requested_usd": {
+          "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
+          "pattern": "^[0-9]+\\.[0-9]{6}$",
+          "title": "Requested Usd",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "run",
+            "level",
+            "task",
+            "budget"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent_id",
+        "level",
+        "scope",
+        "key",
+        "cap_usd",
+        "committed_usd",
+        "requested_usd"
+      ],
+      "title": "BudgetExhaustedPayload",
+      "type": "object"
+    },
     "BudgetUpdate": {
       "additionalProperties": false,
       "properties": {
@@ -658,6 +865,93 @@
         "message"
       ],
       "title": "ErrorBody",
+      "type": "object"
+    },
+    "Escalation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "recorded",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/EscalationPayload"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "escalation",
+          "default": "escalation",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "mode",
+        "ts",
+        "payload"
+      ],
+      "title": "Escalation",
+      "type": "object"
+    },
+    "EscalationPayload": {
+      "additionalProperties": false,
+      "description": "A task leaves an agent that could not finish it: to another operator when its\nmanager reassigns it, or up to the director. `task_id` is the failed task (a task_v1\nid, or a manager's own call); null when a manager escalates its whole block.",
+      "properties": {
+        "from_agent_id": {
+          "title": "From Agent Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "to_agent_id": {
+          "title": "To Agent Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_agent_id",
+        "to_agent_id",
+        "reason"
+      ],
+      "title": "EscalationPayload",
       "type": "object"
     },
     "LedgerEntry": {
@@ -1710,7 +2004,10 @@
       "agent_hired": "#/$defs/AgentHired",
       "attempt_recorded": "#/$defs/AttemptRecorded",
       "audit_result": "#/$defs/AuditResult",
+      "budget_allocation": "#/$defs/BudgetAllocation",
+      "budget_exhausted": "#/$defs/BudgetExhausted",
       "budget_update": "#/$defs/BudgetUpdate",
+      "escalation": "#/$defs/Escalation",
       "message": "#/$defs/Message",
       "mode_notice": "#/$defs/ModeNotice",
       "run_failed": "#/$defs/RunFailed",
@@ -1746,10 +2043,19 @@
       "$ref": "#/$defs/BudgetUpdate"
     },
     {
+      "$ref": "#/$defs/BudgetAllocation"
+    },
+    {
+      "$ref": "#/$defs/BudgetExhausted"
+    },
+    {
       "$ref": "#/$defs/Message"
     },
     {
       "$ref": "#/$defs/TaskResult"
+    },
+    {
+      "$ref": "#/$defs/Escalation"
     },
     {
       "$ref": "#/$defs/AuditResult"

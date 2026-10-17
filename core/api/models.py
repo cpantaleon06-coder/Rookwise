@@ -21,6 +21,9 @@ Decided on 2026-10-17 (part of v1): every money field is `rookwise.money.Usd` (o
 `PositiveUsd`), a decimal string with exactly six decimals such as "0.002350", never a
 JSON number. The ledger computes in Decimal and holds whole micro-USD, so the strings
 are exact. `CostReport.prediction_error` is a ratio, not money, and stays a number.
+
+Added on 2026-10-17 (part of v1) for the team hierarchy: the events `budget_allocation`,
+`budget_exhausted` and `escalation`, and the `CapStop` scope "budget" (an allocation).
 """
 
 from __future__ import annotations
@@ -60,7 +63,8 @@ RefusalReason = Literal[
 Sender = Literal["user", "director", "vp"]
 AgentStatus = Literal["hired", "working", "idle", "done", "failed"]
 TaskStatus = Literal["assigned", "running", "ok", "failed"]
-CapScope = Literal["run", "level", "task"]
+CapScope = Literal["run", "level", "task", "budget"]
+AllocationAction = Literal["allocated", "released"]
 
 
 class _Api(BaseModel):
@@ -217,7 +221,8 @@ class OrgChart(_Api):
 
 
 class CapStop(_Api):
-    """A stopped scope, with the fields of `rookwise.ledger.CapReached`."""
+    """A stopped scope, with the fields of `rookwise.ledger.CapReached`. Scope `budget` is
+    an agent's allocation (a sub-budget); its `key` is the ledger's allocation id."""
 
     scope: CapScope
     key: str
@@ -407,6 +412,43 @@ class BudgetUpdatePayload(_Api):
     entry: LedgerEntry | None = None
 
 
+class BudgetAllocationPayload(_Api):
+    """A sub-budget held for an agent (`allocated`) or closed (`released`): the ledger's
+    `allocate` and `close`. `usd` is the amount held, or the unspent part given back.
+    `parent_agent_id` is the agent the money comes from (the director holds the run
+    budget); `parent_free_usd` is what is free in that budget right after."""
+
+    action: AllocationAction
+    agent_id: str
+    parent_agent_id: str
+    usd: Usd
+    parent_free_usd: Usd
+
+
+class BudgetExhaustedPayload(_Api):
+    """An agent stopped on its budget: the ledger refused one of its calls, or an
+    allocation it needed. The other fields are the `CapStop` the ledger recorded."""
+
+    agent_id: str
+    level: Level
+    scope: CapScope
+    key: str
+    cap_usd: Usd
+    committed_usd: Usd
+    requested_usd: Usd
+
+
+class EscalationPayload(_Api):
+    """A task leaves an agent that could not finish it: to another operator when its
+    manager reassigns it, or up to the director. `task_id` is the failed task (a task_v1
+    id, or a manager's own call); null when a manager escalates its whole block."""
+
+    from_agent_id: str
+    to_agent_id: str
+    task_id: str | None = None
+    reason: str
+
+
 class MessagePayload(_Api):
     message: ChatMessage
 
@@ -477,6 +519,21 @@ class BudgetUpdate(_EventBase):
     payload: BudgetUpdatePayload
 
 
+class BudgetAllocation(_EventBase):
+    type: Literal["budget_allocation"] = "budget_allocation"
+    payload: BudgetAllocationPayload
+
+
+class BudgetExhausted(_EventBase):
+    type: Literal["budget_exhausted"] = "budget_exhausted"
+    payload: BudgetExhaustedPayload
+
+
+class Escalation(_EventBase):
+    type: Literal["escalation"] = "escalation"
+    payload: EscalationPayload
+
+
 class Message(_EventBase):
     type: Literal["message"] = "message"
     payload: MessagePayload
@@ -515,8 +572,11 @@ SseEvent = Annotated[
     | AttemptRecorded
     | ToolCalled
     | BudgetUpdate
+    | BudgetAllocation
+    | BudgetExhausted
     | Message
     | TaskResult
+    | Escalation
     | AuditResult
     | RunFinished
     | RunFailed
@@ -532,8 +592,11 @@ EVENT_TYPES = (
     "attempt_recorded",
     "tool_called",
     "budget_update",
+    "budget_allocation",
+    "budget_exhausted",
     "message",
     "task_result",
+    "escalation",
     "audit_result",
     "run_finished",
     "run_failed",

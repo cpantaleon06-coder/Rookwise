@@ -10,25 +10,29 @@ from the director's plan, so nothing here depends on a domain.
 Flow and budget, through the ledger's allocations (`rookwise.ledger`):
 1. The director reads the run budget from the ledger and makes the plan call, drawn from
    the run itself.
-2. It allocates the auditor's share, then splits what is free equally into one
-   allocation per block, for that block's manager (`BudgetPolicy`).
+2. It hires the auditor and allocates its share, then hires one manager per block and
+   splits what is free equally into one allocation each (`BudgetPolicy`).
 3. A manager keeps its own share free and gives each task an operator allocation; the
    operator's calls are drawn from it, and the task's USD cap is the same amount. When
    the operator is done its allocation is closed, so the unspent part goes back to the
    manager. A failed operator is replaced by the next catalog operator for the role; one
-   that stopped on its budget is not.
+   that stopped on its budget is not. With no operator left, the task is escalated to
+   the director.
 4. The manager makes one consolidation call inside its allocation, then closes it; the
    unspent part goes back to the run.
 5. The auditor gets the deliverable and the evidence bundle (`rookwise.team.auditor`).
 
-A level that runs out of budget does not raise. The director: `run_failed` with code
-`budget_exhausted` and the ledger's stop in `details`. A manager: its block is partial,
-the director says so in a `message`, and `run_finished` has `partial: true`. An
-operator: `task_result` with status `failed`. The auditor: `audit_result` with
-`accepted_with_warning`. Each case is also in `TeamRun.notes`.
+A level that runs out of budget does not raise: it emits `budget_exhausted` with the
+ledger's stop, then the director: `run_failed` with code `budget_exhausted` and the stop
+in `details`. A manager: its block is partial, the director says so in a `message`, and
+`run_finished` has `partial: true`. An operator: `task_result` with status `failed`. The
+auditor: `audit_result` with `accepted_with_warning`. Each case is also in
+`TeamRun.notes`.
 
-Events are the API contract's existing types, in its documented order; the events of one
-agent call are emitted when that call returns.
+Events follow the API contract's documented order; the events of one agent call are
+emitted when that call returns. Every ledger `allocate` and `close` emits
+`budget_allocation`, after the agent is hired. Every reassignment and every escalation to
+the director emits `escalation`.
 
 Not built: the user's approval of the plan (it is shown in a director message and runs at
 once), parallel managers and operators, the auditor's correction cycle, one `tool_called`
@@ -47,10 +51,14 @@ from typing import Any, Literal
 from rookwise.api.models import (
     AgentHiredPayload,
     AgentNode,
+    AllocationAction,
     AuditResultPayload,
     AuditVerdict,
+    BudgetAllocationPayload,
+    BudgetExhaustedPayload,
     ChatMessage,
     ErrorBody,
+    EscalationPayload,
     MessagePayload,
     Mode,
     RunFailedPayload,
@@ -245,7 +253,8 @@ class _Team:
         if not result.ok or result.validation is None:
             if result.stop_reason == "budget_exhausted":
                 self.notes.append("The run budget does not cover the director's plan call.")
-                return self._fail("budget_exhausted", self.notes[-1], self._stop("director"))
+                stop = self._stop_of("director", "plan", None)
+                return self._fail_on_budget(director, stop, self.notes[-1])
             return self._fail(
                 "plan_failed",
                 f"The director produced no valid plan ({result.stop_reason}).",
@@ -263,25 +272,29 @@ class _Team:
         tasks = sum(len(block.tasks) for block in plan.blocks)
         self._say(f"{plan.summary} ({len(plan.blocks)} blocks, {tasks} tasks.)")
 
-        try:
-            free = self.ledger.free(self.run_id)
-            auditor_budget = self.ledger.allocate(
-                self.run_id, "budget:auditor", _floor(free * self.policy.auditor_share)
-            )
-            per_block = _floor(self.ledger.free(self.run_id) / len(plan.blocks))
-            budgets = [
-                self.ledger.allocate(self.run_id, f"budget:b-{i}", per_block)
-                for i in range(1, len(plan.blocks) + 1)
-            ]
-        except CapReached:  # the plan call ran over the run cap, which stopped the run
+        stops = self.ledger.report(self.run_id).stops
+        run_stop = next((s for s in stops if s.scope == "run"), None)
+        if run_stop is not None:  # the plan call ran over the run cap, which stopped the run
             self.notes.append("The run budget was used up by the director's plan call.")
-            return self._fail("budget_exhausted", self.notes[-1], self._stop("director"))
+            return self._fail_on_budget(director, run_stop, self.notes[-1])
+        # Every agent is hired before its allocation, so its budget_allocation event can
+        # name it. The amounts fit what is free, so no allocation here is refused.
+        auditor = self._hire("a-auditor", self.roles.auditor, None)
+        auditor_share = _floor(self.ledger.free(self.run_id) * self.policy.auditor_share)
+        auditor_budget = self._allocate(auditor, director, "budget:auditor", auditor_share)
+        per_block = _floor(self.ledger.free(self.run_id) / len(plan.blocks))
+        managers: list[tuple[AgentNode, Allocation]] = []
+        for index in range(1, len(plan.blocks) + 1):
+            manager = self._hire(f"a-manager-b-{index}", self.roles.manager, director.agent_id)
+            budget = self._allocate(manager, director, f"budget:b-{index}", per_block)
+            managers.append((manager, budget))
         blocks: list[BlockOutcome] = []
         first = 1
-        for index, (block, budget) in enumerate(zip(plan.blocks, budgets, strict=True), 1):
+        for index, block in enumerate(plan.blocks, 1):
+            manager, budget = managers[index - 1]
             ids = [f"t-{first + k}" for k in range(len(block.tasks))]
             first += len(block.tasks)
-            blocks.append(await self._manage(f"b-{index}", block, budget, ids, director))
+            blocks.append(await self._manage(f"b-{index}", block, budget, ids, manager, director))
 
         claims = [
             Claim(claim_id=f"{t.task_id}:{c.claim_id}", text=c.text, citations=c.citations)
@@ -290,7 +303,6 @@ class _Team:
             if t.findings is not None
             for c in t.findings.claims
         ]
-        auditor = self._hire("a-auditor", self.roles.auditor, None)
         outcome = await audit(
             self.caller,
             auditor,
@@ -301,10 +313,11 @@ class _Team:
             bundle=self.evidence,
             budget_id=auditor_budget.id,
         )
-        self.log.emit("audit_result", AuditResultPayload(audit=outcome.verdict))
-        self.ledger.close(auditor_budget)
         if outcome.budget_exhausted:
+            self._exhausted(auditor, self._stop_of("auditor", "audit", auditor_budget.id))
             self.notes.append("The auditor ran out of budget: only the deterministic check ran.")
+        self.log.emit("audit_result", AuditResultPayload(audit=outcome.verdict))
+        self._close(auditor_budget, auditor, director)
         partial = outcome.budget_exhausted or any(b.status != "ok" for b in blocks)
         self._say(self._closing_message(blocks, outcome.verdict))
         report = self.ledger.report(self.run_id)
@@ -339,25 +352,27 @@ class _Team:
         block: PlanBlock,
         budget: Allocation,
         task_ids: list[str],
+        manager: AgentNode,
         director: AgentNode,
     ) -> BlockOutcome:
-        manager = self._hire(f"a-manager-{block_id}", self.roles.manager, director.agent_id)
         own = _floor(budget.usd * self.policy.manager_share)
         per_task = _floor((budget.usd - own) / len(block.tasks))
         outcomes = [
-            await self._staff(task_id, task, manager, budget, own, per_task)
+            await self._staff(task_id, task, manager, director, budget, own, per_task)
             for task_id, task in zip(task_ids, block.tasks, strict=True)
         ]
         done = [t for t in outcomes if t.status == "ok"]
         summary, reason = None, ""
+        summary_id = f"{block_id}-summary"
         if not done:
             reason = f"Block {block_id} has no completed task; escalated to the director."
+            self._escalate(manager, director, None, reason)
         else:
             result = await self.caller.call(
                 manager,
                 self.roles.manager,
                 level="manager",
-                task_id=f"{block_id}-summary",
+                task_id=summary_id,
                 base_prompt=MANAGER_PROMPT,
                 user=self._consolidation_request(block, outcomes),
                 output_model=BlockSummary,
@@ -367,14 +382,16 @@ class _Team:
                 summary = result.validation.payload.output.summary  # type: ignore[attr-defined]
             elif result.stop_reason == "budget_exhausted":
                 reason = f"Manager {block_id} ran out of budget before its consolidation call."
+                self._exhausted(manager, self._stop_of("manager", summary_id, budget.id))
             else:
                 reason = (
                     f"Manager {block_id} could not consolidate ({result.stop_reason}); "
                     "escalated to the director."
                 )
+                self._escalate(manager, director, summary_id, reason)
         if reason:
             self.notes.append(reason)
-        released = self.ledger.close(budget)
+        released = self._close(budget, manager, director)
         if not done:
             status: BlockStatus = "failed"
         elif len(done) == len(outcomes) and summary is not None:
@@ -398,11 +415,13 @@ class _Team:
         task_id: str,
         task: PlanTask,
         manager: AgentNode,
+        director: AgentNode,
         budget: Allocation,
         own: Decimal,
         per_task: Decimal,
     ) -> TaskOutcome:
         outcome = TaskOutcome(task_id=task_id, role=task.role)
+        failed: tuple[AgentNode, str, str] | None = None  # operator, task_v1 id, reason
         candidates = sorted(
             (spec for spec in self.catalog if spec.role == task.role),
             key=lambda spec: (spec.price_per_task_est_usd, -spec.reputation, spec.operator_id),
@@ -419,11 +438,13 @@ class _Team:
                 outcome.reason = f"{task_id}: manager {manager.agent_id} has no budget left for it."
                 self.notes.append(outcome.reason)
                 return outcome
-            operator_budget = self.ledger.allocate(
-                self.run_id, f"budget:{assignment}", amount, parent=budget.id
-            )
             agent = self._hire(
                 f"a-op-{assignment}", spec, manager.agent_id, operator_id=spec.operator_id
+            )
+            if failed is not None:  # the manager reassigns the task to this operator
+                self._escalate(failed[0], agent, failed[1], failed[2])
+            operator_budget = self._allocate(
+                agent, manager, f"budget:{assignment}", amount, parent=budget.id
             )
             task_v1 = TaskV1(
                 task_id=assignment,
@@ -459,13 +480,15 @@ class _Team:
             self.caller.emit_attempts(
                 agent.agent_id, record.attempts, self.caller.entries(assignment)
             )
+            if record.stop_reason == "budget_exhausted":
+                self._exhausted(agent, self._stop_of("operator", assignment, operator_budget.id))
             self.log.emit(
                 "task_result",
                 TaskResultPayload(
                     agent_id=agent.agent_id, result=record.result, label=record.label
                 ),
             )
-            self.ledger.close(operator_budget)
+            self._close(operator_budget, agent, manager)
             outcome.assignments.append(assignment)
             outcome.operator_ids.append(spec.operator_id)
             if record.label != "failed":
@@ -480,10 +503,14 @@ class _Team:
                 self.notes.append(f"{outcome.reason}: it ran out of its budget.")
                 return outcome
             last = number == len(candidates)
-            self.notes.append(
-                outcome.reason
-                + ("; escalated to the director." if last else "; the manager reassigns the task.")
+            note = outcome.reason + (
+                "; escalated to the director." if last else "; the manager reassigns the task."
             )
+            self.notes.append(note)
+            if last:
+                self._escalate(manager, director, assignment, note)
+            else:
+                failed = (agent, assignment, note)
         return outcome
 
     # -- helpers -------------------------------------------------------------------------
@@ -522,11 +549,92 @@ class _Team:
         )
         self.log.emit("message", MessagePayload(message=message))
 
-    def _stop(self, level: str) -> dict[str, Any]:
-        stops = [s for s in self.ledger.report(self.run_id).stops if s.key == self.run_id]
-        details: dict[str, Any] = {"level": level}
-        if stops:
-            stop = stops[-1]
+    def _allocate(
+        self,
+        agent: AgentNode,
+        holder: AgentNode,
+        budget_id: str,
+        usd: Decimal,
+        *,
+        parent: str | None = None,
+    ) -> Allocation:
+        """Hold `usd` for `agent` out of `holder`'s budget: `parent`, or the run."""
+        allocation = self.ledger.allocate(self.run_id, budget_id, usd, parent=parent)
+        self._budget_event("allocated", agent, holder, allocation.usd, parent)
+        return allocation
+
+    def _close(self, allocation: Allocation, agent: AgentNode, holder: AgentNode) -> Decimal:
+        released = self.ledger.close(allocation)
+        self._budget_event("released", agent, holder, released, allocation.parent)
+        return released
+
+    def _budget_event(
+        self,
+        action: AllocationAction,
+        agent: AgentNode,
+        holder: AgentNode,
+        usd: Decimal,
+        parent: str | None,
+    ) -> None:
+        self.log.emit(
+            "budget_allocation",
+            BudgetAllocationPayload(
+                action=action,
+                agent_id=agent.agent_id,
+                parent_agent_id=holder.agent_id,
+                usd=usd,
+                parent_free_usd=self.ledger.free(self.run_id, parent),
+            ),
+        )
+
+    def _stop_of(self, level: Level, task_id: str, budget_id: str | None) -> CapReached | None:
+        """The ledger stop that refused a call, in the order the ledger checks: the
+        allocation and its parents, the run, the level, then the task."""
+        report = self.ledger.report(self.run_id)
+        parents = {node.id: node.parent for node in report.allocations}
+        path: list[tuple[str, str]] = []
+        while budget_id is not None:
+            path.append(("budget", budget_id))
+            budget_id = parents[budget_id]
+        path += [("run", self.run_id), ("level", level), ("task", task_id)]
+        stops = {(stop.scope, stop.key): stop for stop in report.stops}
+        return next((stops[key] for key in path if key in stops), None)
+
+    def _exhausted(self, agent: AgentNode, stop: CapReached | None) -> None:
+        if stop is None:
+            return
+        self.log.emit(
+            "budget_exhausted",
+            BudgetExhaustedPayload(
+                agent_id=agent.agent_id,
+                level=agent.level,
+                scope=stop.scope,
+                key=stop.key,
+                cap_usd=stop.cap_usd,
+                committed_usd=stop.committed_usd,
+                requested_usd=stop.requested_usd,
+            ),
+        )
+
+    def _escalate(
+        self, source: AgentNode, target: AgentNode, task_id: str | None, reason: str
+    ) -> None:
+        self.log.emit(
+            "escalation",
+            EscalationPayload(
+                from_agent_id=source.agent_id,
+                to_agent_id=target.agent_id,
+                task_id=task_id,
+                reason=reason,
+            ),
+        )
+
+    def _fail_on_budget(
+        self, director: AgentNode, stop: CapReached | None, message: str
+    ) -> TeamRun:
+        self._exhausted(director, stop)
+        details: dict[str, Any] = {"level": director.level}
+        if stop is not None:
             details |= {
                 "scope": stop.scope,
                 "key": stop.key,
@@ -534,7 +642,7 @@ class _Team:
                 "committed_usd": format_usd(stop.committed_usd),
                 "requested_usd": format_usd(stop.requested_usd),
             }
-        return details
+        return self._fail("budget_exhausted", message, details)
 
     def _fail(self, code: str, message: str, details: dict[str, Any]) -> TeamRun:
         report = self.ledger.report(self.run_id)

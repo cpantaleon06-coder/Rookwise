@@ -1,6 +1,6 @@
 # Rookwise API v1 (core/ to web/)
 
-Status: **v1, decided** (2026-10-16) for visitors, modes, refusal behavior, hosting, ids, money and where the models live, and on 2026-10-17 for money as six-decimal strings; see [docs/DECISIONS.md](DECISIONS.md). The rest is **draft, frontend may start**: field names may still change before the server is built (Stage 3), and any change is made here first, in the models in `core/api/models.py`, and in the generated schemas. Written on 2026-10-16.
+Status: **v1, decided** (2026-10-16) for visitors, modes, refusal behavior, hosting, ids, money and where the models live, and on 2026-10-17 for money as six-decimal strings and for the hierarchy events (`budget_allocation`, `budget_exhausted`, `escalation`, and the `CapStop` scope `budget`); see [docs/DECISIONS.md](DECISIONS.md). The rest is **draft, frontend may start**: field names may still change before the server is built (Stage 3), and any change is made here first, in the models in `core/api/models.py`, and in the generated schemas. Written on 2026-10-16.
 
 This is the only interface between `core/` (Python) and `web/`, both built with Claude Code. The web app never calls Token Factory, Tavily or any model API: it calls this API only. The frontend consumes the generated JSON Schemas in `docs/api/schemas/`; the pydantic models in `core/api/models.py` stay their single source.
 
@@ -15,7 +15,7 @@ Sources of truth, in order:
 
 - Base path `/api/v1`. JSON in UTF-8 everywhere except the event stream (Server-Sent Events).
 - Timestamps are ISO 8601 in UTC (`2026-10-20T15:00:00Z`).
-- Money is USD as a **decimal string with exactly six decimals** (micro-USD), for example `"0.002350"`, in every money field of every payload, requests included (`budget_usd`). The JSON Schema type is `{"type": "string", "pattern": "^[0-9]+\\.[0-9]{6}$"}`. The values are exactly what the ledger holds: `core/ledger.py` computes in `decimal.Decimal` and keeps whole micro-USD, so totals are exact sums of their entries (the fixture's run total is `"0.013173"`). A JSON number, an exponent or a seventh decimal in a money field is refused with 422 `validation_failed`. The UI formats the string for display and never does money arithmetic for decisions; if it must add amounts, it parses them as integers of micro-USD, never as JavaScript numbers. The one non-money number next to them is `CostReport.prediction_error`, a ratio.
+- Money is USD as a **decimal string with exactly six decimals** (micro-USD), for example `"0.002350"`, in every money field of every payload, requests included (`budget_usd`). The JSON Schema type is `{"type": "string", "pattern": "^[0-9]+\\.[0-9]{6}$"}`. The values are exactly what the ledger holds: `core/ledger.py` computes in `decimal.Decimal` and keeps whole micro-USD, so totals are exact sums of their entries (the fixture's run total is `"0.015903"`). A JSON number, an exponent or a seventh decimal in a money field is refused with 422 `validation_failed`. The UI formats the string for display and never does money arithmetic for decisions; if it must add amounts, it parses them as integers of micro-USD, never as JavaScript numbers. The one non-money number next to them is `CostReport.prediction_error`, a ratio.
 - Changed on 2026-10-17, as part of v1: money fields moved from JSON numbers to decimal strings. The web app did not consume the contract yet, so nothing else had to change.
 - Ids are opaque strings with a type prefix: `run_id` is `run_` plus a random identifier (for example `run_8f2c1a7d4b`); `task_id`, `agent_id`, `message_id` and `recording_id` are opaque too. The UI must not parse any id. Event ids are `<run_id>:<seq>`; only the server reads them back (for `Last-Event-ID`).
 - Roles, skills, tools and models are plain strings (`"researcher"`, `"prose-style"`, `"tavily_search"`, `"nemotron-3.5-lightning"`). The demo domain only changes data, never the API.
@@ -97,9 +97,9 @@ X-Accel-Buffering: no
 The stream starts with `retry: 3000` (reconnect after 3 s). Each event is one frame, with the JSON on a single `data:` line:
 
 ```
-id: run_8f2c1a7d4b:12
+id: run_8f2c1a7d4b:16
 event: tool_called
-data: {"id": "run_8f2c1a7d4b:12", "seq": 12, "run_id": "run_8f2c1a7d4b", "mode": "recorded", "ts": "...", "type": "tool_called", "payload": {...}}
+data: {"id": "run_8f2c1a7d4b:16", "seq": 16, "run_id": "run_8f2c1a7d4b", "mode": "recorded", "ts": "...", "type": "tool_called", "payload": {...}}
 
 ```
 
@@ -109,7 +109,8 @@ A comment line `: keep-alive` is sent every 15 s without events. Every event has
 
 - `seq` starts at 1 and grows by 1 per event within a run; `id` is `<run_id>:<seq>`; `ts` never goes back.
 - `run_started` is first. Exactly one terminal event, `run_finished` or `run_failed`, is last; the server then closes the stream.
-- `agent_hired` comes before any event that names its `agent_id`. For a task: `task_assigned`, then per attempt `task_started`, the attempt's `tool_called` events and `attempt_recorded`, then `task_result`.
+- `agent_hired` comes before any event that names the agent (`agent_id`, `parent_agent_id`, `from_agent_id` or `to_agent_id`). For a task: `task_assigned`, then per attempt `task_started`, the attempt's `tool_called` events and `attempt_recorded`, then `budget_exhausted` if the operator stopped on its budget, then `task_result`.
+- An agent's `budget_allocation` `allocated` comes before its first call drawn from it (for an operator, before `task_assigned`), and `released` after its last one (for an operator, after `task_result`). A reassignment reads: `task_result` (failed) and `released` for the first operator, `agent_hired` for the next one, `escalation` from the first to the next, `allocated`, then the new `task_assigned`.
 - A `budget_update` follows each charged ledger entry (`payload.entry`). Its numbers are absolute totals, not deltas, and every payload is a full snapshot of what it describes, so applying an event twice is harmless. Clients deduplicate by `id`.
 - Resume: on reconnect the browser sends `Last-Event-ID`; clients that cannot set headers pass `?last_event_id=`. The server resends every event with a larger `seq`, in order. An id from another run gets 400 `invalid_last_event_id`. When the run already ended and the client has its terminal event, the server answers 204 (an `EventSource` then stops reconnecting).
 - Recorded runs replay the stored event log with its original `id`, `seq`, payloads and delays. The only thing the server sets is `mode: "recorded"` (in the envelope and in `run_started`), so a recording never passes for a live run.
@@ -127,8 +128,11 @@ Every example below is copied from the synthetic fixtures and validated by `test
 | `attempt_recorded` | An attempt ends | `AttemptRecord` (reason, validation errors, cost, `usage_estimated`) |
 | `tool_called` | A tool ran inside an attempt | Tool name, ok or error type, run count; `args` only in debug |
 | `budget_update` | A ledger entry was charged | Absolute totals and the `LedgerEntry` |
+| `budget_allocation` | A sub-budget was held for an agent, or closed | `allocated` or `released`, the agent and the agent it comes from, the amount, what is free in the parent budget |
+| `budget_exhausted` | An agent stopped on its budget | The agent, its level and the `CapStop` the ledger recorded |
 | `message` | The director (or VP) or the user wrote in the chat | `ChatMessage` |
 | `task_result` | A task finished | `ResultV1` and its label |
+| `escalation` | A manager reassigned a failed task, or escalated to the director | From and to agent, the task (null for a whole block), the reason |
 | `audit_result` | The auditor judged the deliverable | `AuditVerdict` |
 | `run_finished` | The run ended normally or was cancelled | Status, partial, spent and predicted USD, package URL |
 | `run_failed` | The run ended with an error | `ErrorBody`, partial, spent USD |
@@ -185,11 +189,11 @@ Every example below is copied from the synthetic fixtures and validated by `test
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:10",
-  "seq": 10,
+  "id": "run_8f2c1a7d4b:14",
+  "seq": 14,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:05.950000Z",
+  "ts": "2026-10-20T15:00:06.300000Z",
   "type": "task_assigned",
   "payload": {
     "task": {
@@ -201,7 +205,7 @@ Every example below is copied from the synthetic fixtures and validated by `test
       "budget": {
         "max_input_tokens": 20000,
         "max_output_tokens": 4000,
-        "max_usd": "0.010000"
+        "max_usd": "0.003000"
       },
       "deadline_s": 120
     },
@@ -215,11 +219,11 @@ Every example below is copied from the synthetic fixtures and validated by `test
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:11",
-  "seq": 11,
+  "id": "run_8f2c1a7d4b:15",
+  "seq": 15,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:06.050000Z",
+  "ts": "2026-10-20T15:00:06.400000Z",
   "type": "task_started",
   "payload": {
     "task_id": "t-1",
@@ -236,11 +240,11 @@ Example (first):
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:13",
-  "seq": 13,
+  "id": "run_8f2c1a7d4b:17",
+  "seq": 17,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:07.650000Z",
+  "ts": "2026-10-20T15:00:08Z",
   "type": "attempt_recorded",
   "payload": {
     "agent_id": "a-op-research",
@@ -274,11 +278,11 @@ Example (repair):
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:22",
-  "seq": 22,
+  "id": "run_8f2c1a7d4b:28",
+  "seq": 28,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:10.600000Z",
+  "ts": "2026-10-20T15:00:11.050000Z",
   "type": "attempt_recorded",
   "payload": {
     "agent_id": "a-op-copy",
@@ -312,11 +316,11 @@ Example (escalation):
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:28",
-  "seq": 28,
+  "id": "run_8f2c1a7d4b:34",
+  "seq": 34,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:13.200000Z",
+  "ts": "2026-10-20T15:00:13.650000Z",
   "type": "attempt_recorded",
   "payload": {
     "agent_id": "a-op-copy",
@@ -348,11 +352,11 @@ Example (escalation):
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:12",
-  "seq": 12,
+  "id": "run_8f2c1a7d4b:16",
+  "seq": 16,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:06.750000Z",
+  "ts": "2026-10-20T15:00:07.100000Z",
   "type": "tool_called",
   "payload": {
     "task_id": "t-1",
@@ -405,6 +409,74 @@ Example (escalation):
 }
 ```
 
+#### `budget_allocation`
+
+A sub-budget (a ledger allocation) for one agent. `allocated`: `usd` is the amount held for the agent. `released`: `usd` is the unspent part given back when the agent is done. `parent_agent_id` is the agent the money comes from: the director holds the run budget (the auditor's and the managers' allocations come from it), and a manager holds its operators'. `parent_free_usd` is what is free in that budget right after the event.
+
+Example (allocated):
+
+```json
+{
+  "id": "run_8f2c1a7d4b:10",
+  "seq": 10,
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
+  "ts": "2026-10-20T15:00:04.750000Z",
+  "type": "budget_allocation",
+  "payload": {
+    "action": "allocated",
+    "agent_id": "a-manager-1",
+    "parent_agent_id": "a-director",
+    "usd": "0.015000",
+    "parent_free_usd": "0.220200"
+  }
+}
+```
+
+Example (released):
+
+```json
+{
+  "id": "run_8f2c1a7d4b:20",
+  "seq": 20,
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
+  "ts": "2026-10-20T15:00:08.150000Z",
+  "type": "budget_allocation",
+  "payload": {
+    "action": "released",
+    "agent_id": "a-op-research",
+    "parent_agent_id": "a-manager-1",
+    "usd": "0.002826",
+    "parent_free_usd": "0.013866"
+  }
+}
+```
+
+#### `budget_exhausted`
+
+The ledger refused a call of this agent, or an allocation it needed, so the agent stops. The fields after `level` are the `CapStop` the ledger recorded (also listed in `LedgerView.stops`): `scope` is `run` (`key` is the run id), `level`, `task`, or `budget` (the agent's allocation; `key` is the ledger's allocation id, opaque to the UI). What follows depends on the level: the director ends the run with `run_failed` (code `budget_exhausted`); a manager's block is partial and `run_finished` has `partial: true`; an operator's task fails and is not reassigned; the auditor accepts with a warning that only the deterministic check ran.
+
+```json
+{
+  "id": "run_8f2c1a7d4b:55",
+  "seq": 55,
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
+  "ts": "2026-10-20T15:00:17.250000Z",
+  "type": "budget_exhausted",
+  "payload": {
+    "agent_id": "a-op-menu-2",
+    "level": "operator",
+    "scope": "budget",
+    "key": "budget:t-3.2",
+    "cap_usd": "0.003000",
+    "committed_usd": "0.000000",
+    "requested_usd": "0.005100"
+  }
+}
+```
+
 #### `message`
 
 ```json
@@ -420,7 +492,7 @@ Example (escalation):
       "message_id": "m-1",
       "run_id": "run_8f2c1a7d4b",
       "sender": "director",
-      "text": "[synthetic] Plan: one manager, a researcher and a copywriter, within the USD 0.25 cap. Approve?",
+      "text": "[synthetic] Plan: one manager with a research task and two copywriting tasks (page copy and menu), within the USD 0.25 cap. Approve?",
       "ts": "2026-10-20T15:00:02.250000Z"
     }
   }
@@ -431,11 +503,11 @@ Example (escalation):
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:15",
-  "seq": 15,
+  "id": "run_8f2c1a7d4b:19",
+  "seq": 19,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:07.750000Z",
+  "ts": "2026-10-20T15:00:08.100000Z",
   "type": "task_result",
   "payload": {
     "agent_id": "a-op-research",
@@ -458,15 +530,36 @@ Example (escalation):
 }
 ```
 
+#### `escalation`
+
+A task leaves an agent that could not finish it. When a manager reassigns a failed task, `from_agent_id` is the operator that failed, `to_agent_id` the operator that takes the task over (hired just before), and `task_id` the failed task; the new operator's `task_assigned` follows with a new task id. When a manager escalates to the director, `from_agent_id` is the manager and `to_agent_id` the director; `task_id` is the failed task when no operator is left for it, the manager's own call when it could not consolidate its block, and null when its block has no completed task. An operator that stopped on its budget is not reassigned and sends no escalation (see `budget_exhausted`). `reason` is a sentence for display.
+
+```json
+{
+  "id": "run_8f2c1a7d4b:50",
+  "seq": 50,
+  "run_id": "run_8f2c1a7d4b",
+  "mode": "recorded",
+  "ts": "2026-10-20T15:00:16.900000Z",
+  "type": "escalation",
+  "payload": {
+    "from_agent_id": "a-op-menu",
+    "to_agent_id": "a-op-menu-2",
+    "task_id": "t-3",
+    "reason": "[synthetic] Operator copywriter-super-01 failed (top_of_ladder); the manager reassigns the task."
+  }
+}
+```
+
 #### `audit_result`
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:32",
-  "seq": 32,
+  "id": "run_8f2c1a7d4b:59",
+  "seq": 59,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:15Z",
+  "ts": "2026-10-20T15:00:18.950000Z",
   "type": "audit_result",
   "payload": {
     "audit": {
@@ -500,17 +593,17 @@ Example (escalation):
 
 ```json
 {
-  "id": "run_8f2c1a7d4b:36",
-  "seq": 36,
+  "id": "run_8f2c1a7d4b:64",
+  "seq": 64,
   "run_id": "run_8f2c1a7d4b",
   "mode": "recorded",
-  "ts": "2026-10-20T15:00:16.250000Z",
+  "ts": "2026-10-20T15:00:20.250000Z",
   "type": "run_finished",
   "payload": {
     "status": "finished",
-    "partial": false,
-    "spent_usd": "0.013173",
-    "predicted_usd": "0.013500",
+    "partial": true,
+    "spent_usd": "0.015903",
+    "predicted_usd": "0.014500",
     "package_url": "/api/v1/runs/run_8f2c1a7d4b/package"
   }
 }
@@ -613,7 +706,7 @@ Debug flag: when the server runs with `ROOKWISE_API_DEBUG=1` and the client adds
 
 ## Not in core yet
 
-Since 2026-10-17 the team skeleton (`core/team`) emits a run's events in these types, built and validated with the contract models: the envelope (`id`, `seq`, `ts`, `type`, `mode`), `run_started`, `agent_hired` (with `agent_id`, `parent_id` and `status: "hired"`), `task_assigned`, `task_started`, `attempt_recorded`, `budget_update` (with `predicted_usd` summed over the entries), `message` (`ChatMessage` from the director), `task_result`, `audit_result` (an `AuditVerdict` from the auditor), `run_finished` and `run_failed` (`ErrorBody` codes `budget_exhausted`, `plan_failed`, `plan_too_large`). No server serves them yet. Everything below is defined by this contract only; `core/` has no field, model or code for it yet (Stage 3 builds it):
+Since 2026-10-17 the team skeleton (`core/team`) emits a run's events in these types, built and validated with the contract models: the envelope (`id`, `seq`, `ts`, `type`, `mode`), `run_started`, `agent_hired` (with `agent_id`, `parent_id` and `status: "hired"`), `task_assigned`, `task_started`, `attempt_recorded`, `budget_update` (with `predicted_usd` summed over the entries), `budget_allocation` (on every ledger `allocate` and `close`), `budget_exhausted` (wherever a level stops on its budget), `message` (`ChatMessage` from the director), `task_result`, `escalation` (a reassignment, or an escalation to the director), `audit_result` (an `AuditVerdict` from the auditor), `run_finished` and `run_failed` (`ErrorBody` codes `budget_exhausted`, `plan_failed`, `plan_too_large`). No server serves them yet. Everything below is defined by this contract only; `core/` has no field, model or code for it yet (Stage 3 builds it):
 
 - Runs: `recording_id`, `status`, `created_at`, `finished_at`, `events_url`; the run list and its `next_cursor`; `RunView` itself. (`run_id`, the caps `run_usd` and `level_usd`, and `spent_usd` and `held_usd` exist in the ledger; `goal`, `mode`, `simulated_case` and `board` exist only in `run_started`.)
 - `usage_estimated_entries`, and `predicted_usd` in `LedgerView`: sums over the ledger entries' `usage_estimated` and `usd_predicted`, not computed for those views yet.
@@ -623,7 +716,6 @@ Since 2026-10-17 the team skeleton (`core/team`) emits a run's events in these t
 - Tasks: `TaskView` and `TaskList`. (`label`, `attempts` and `tool_calls` come from the runner.)
 - Delivery package: `summary`, `Deliverable`, `CostReport` (the `prediction_error` metric is defined in docs/ARCHITECTURE.md but not computed in code), `ContractRecord`, `decisions`, and the `DeliveryPackage` itself. The auditor never sends `correction_cycles` above 0 yet.
 - Events: `mode_notice`, and per-call `tool_called` events: the tool loop keeps a trace (`kind`, `tool`, `ok`) and a count per tool, but not `error_type` or `truncated` per call, and `run_tool_count` would be a run-wide counter. `task_started.attempt_index` is the `AttemptRecord.attempt_index`.
-- Ledger allocations (sub-budgets, `rookwise.ledger.allocate`) have no contract fields or events, and a stop on an allocation has scope `budget`, which `CapStop.scope` does not list. Proposed additions are in docs/DECISIONS.md ("Still open").
 - Errors: the HTTP side of `ErrorBody` and its codes; approval; the debug flag; the visitor cookie and the per-visitor count (decided, not built); pause and resume (reserved, 501).
 
 ## Open points

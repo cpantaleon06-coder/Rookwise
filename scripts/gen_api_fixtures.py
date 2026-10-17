@@ -9,8 +9,9 @@ Files:
 - examples/api/recorded_run.json: one complete recorded run as a static bundle (modes,
   run, run list, org chart, ledger, messages, tasks, delivery package).
 - examples/api/recorded_run.events.json: the same run as an SSE replay: every event with
-  the delay before it, covering a hire, a tool call, a repair (retry), an escalation, an
-  audit pass and budget updates.
+  the delay before it, covering a hire, a tool call, a repair (retry), an escalation up
+  the model ladder, sub-budgets allocated and released, a reassignment by the manager, an
+  operator stopped on its budget, an audit pass and budget updates.
 - examples/api/live_refused.json: a refused live run (HTTP 429 and its error body, the
   modes view at that moment) and the stream of a live run refused after creation.
 
@@ -34,7 +35,7 @@ sys.path.insert(0, str(REPO_ROOT))  # noqa: E402 (lets `rookwise` resolve from a
 
 from rookwise.api import models as api  # noqa: E402
 from rookwise.harness.escalate import AttemptRecord  # noqa: E402
-from rookwise.ledger import Caps, InMemoryLedger, Usage  # noqa: E402
+from rookwise.ledger import Allocation, CapReached, Caps, InMemoryLedger, Usage  # noqa: E402
 from rookwise.money import ZERO_USD  # noqa: E402
 from rookwise.schemas import ResultV1, TaskV1  # noqa: E402
 
@@ -43,6 +44,7 @@ RUN_ID = "run_8f2c1a7d4b"
 RECORDING_ID = "rec-demo-bakery-001"
 GOAL = "[synthetic] Plan a one-page website for a simulated corner bakery."
 BUDGET_USD = Decimal("0.25")
+AUDITOR_USD, MANAGER_USD, TASK_USD = Decimal("0.010"), Decimal("0.015"), Decimal("0.003")
 START = datetime(2026, 10, 20, 15, 0, 0, tzinfo=UTC)
 ULTRA, SUPER, LIGHTNING = "nemotron-3-ultra", "nemotron-3-super", "nemotron-3.5-lightning"
 FIXTURE_NOTE = {
@@ -96,6 +98,7 @@ class Timeline:
         predicted,
         skills=(),
         estimated=False,
+        budget_id=None,
     ):
         reservation = self.ledger.reserve(
             RUN_ID,
@@ -106,12 +109,54 @@ class Timeline:
             max_output_tokens=output_tokens,
             usd_predicted=predicted,
             skills=skills,
+            budget_id=budget_id,
         )
         return self.ledger.charge(
             reservation,
             Usage(input_tokens, output_tokens),
             ts=self.clock,
             usage_estimated=estimated,
+        )
+
+    def refuse(self, level, task_id, model, input_tokens, max_output_tokens, budget_id):
+        """A reservation the ledger refuses: the CapReached it raises."""
+        try:
+            self.ledger.reserve(
+                RUN_ID,
+                level=level,
+                task_id=task_id,
+                model=model,
+                input_tokens=input_tokens,
+                max_output_tokens=max_output_tokens,
+                usd_predicted=ZERO_USD,
+                budget_id=budget_id,
+            )
+        except CapReached as stop:
+            return stop
+        raise AssertionError(f"the reservation for {task_id} fits its budget")
+
+    def allocate(self, delay_ms, agent_id, parent_agent_id, budget_id, usd, parent=None):
+        allocation = self.ledger.allocate(RUN_ID, budget_id, usd, parent=parent)
+        self._allocation(delay_ms, "allocated", agent_id, parent_agent_id, allocation.usd, parent)
+        return allocation
+
+    def release(self, delay_ms, allocation: Allocation, agent_id, parent_agent_id) -> None:
+        released = self.ledger.close(allocation)
+        self._allocation(
+            delay_ms, "released", agent_id, parent_agent_id, released, allocation.parent
+        )
+
+    def _allocation(self, delay_ms, action, agent_id, parent_agent_id, usd, parent) -> None:
+        self.emit(
+            delay_ms,
+            "budget_allocation",
+            {
+                "action": action,
+                "agent_id": agent_id,
+                "parent_agent_id": parent_agent_id,
+                "usd": usd,
+                "parent_free_usd": self.ledger.free(RUN_ID, parent),
+            },
         )
 
     def budget(self, delay_ms: int, entry) -> None:
@@ -195,17 +240,19 @@ def _attempt(
     )
 
 
-def _result(task: TaskV1, entries, label: str) -> ResultV1:
+def _result(
+    task: TaskV1, entries, notes: str, status: str = "ok", schema_valid: bool = True
+) -> ResultV1:
     return ResultV1(
         task_id=task.task_id,
-        status="ok",
+        status=status,
         output_ref=f"store://{RUN_ID}/results/{task.task_id}",
         usage={
             "input_tokens": sum(e.input_tokens for e in entries),
             "output_tokens": sum(e.output_tokens for e in entries),
             "usd": sum((e.usd_real for e in entries), ZERO_USD),
         },
-        self_check={"schema_valid": True, "notes": label},
+        self_check={"schema_valid": schema_valid, "notes": notes},
     )
 
 
@@ -252,15 +299,27 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     say(
         100,
         "director",
-        "[synthetic] Plan: one manager, a researcher and a copywriter, "
-        "within the USD 0.25 cap. Approve?",
+        "[synthetic] Plan: one manager with a research task and two copywriting tasks "
+        "(page copy and menu), within the USD 0.25 cap. Approve?",
     )
     say(2_000, "user", "[synthetic] Approved.")
 
+    # The director holds the run budget: the auditor's allocation first, then the manager's.
+    auditor = _agent("a-auditor", "auditor", "auditor", ULTRA, None, skills=["prose-style"])
+    t.emit(200, "agent_hired", {"agent": _dump(auditor)})
+    auditor_budget = t.allocate(50, "a-auditor", "a-director", "budget:auditor", AUDITOR_USD)
     manager = _agent("a-manager-1", "manager", "manager", SUPER, "a-director")
     t.emit(200, "agent_hired", {"agent": _dump(manager)})
-    split = t.charge("manager", "manage-1", SUPER, 2_000, 400, Decimal("0.0010"))
+    manager_budget = t.allocate(50, "a-manager-1", "a-director", "budget:b-1", MANAGER_USD)
+    split = t.charge(
+        "manager", "manage-1", SUPER, 2_000, 400, Decimal("0.0010"), budget_id=manager_budget.id
+    )
     t.budget(1_200, split)
+
+    def operator_budget(agent_id, task_id):
+        return t.allocate(
+            50, agent_id, "a-manager-1", f"budget:{task_id}", TASK_USD, parent=manager_budget.id
+        )
 
     # t-1: research with one tool call, first pass ok.
     researcher = _agent(
@@ -274,7 +333,8 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         tools=["tavily_search"],
     )
     t.emit(200, "agent_hired", {"agent": _dump(researcher)})
-    task1 = _task("t-1", "researcher", [], Decimal("0.01"))
+    budget1 = operator_budget("a-op-research", "t-1")
+    task1 = _task("t-1", "researcher", [], TASK_USD)
     t.emit(
         100,
         "task_assigned",
@@ -290,7 +350,14 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         {"task_id": "t-1", "agent_id": "a-op-research", "model": LIGHTNING, "attempt_index": 0},
     )
     call = t.charge(
-        "operator", "t-1", LIGHTNING, 900, 40, Decimal("0.0001"), skills=["prose-style"]
+        "operator",
+        "t-1",
+        LIGHTNING,
+        900,
+        40,
+        Decimal("0.0001"),
+        skills=["prose-style"],
+        budget_id=budget1.id,
     )
     t.emit(
         700,
@@ -304,7 +371,14 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         },
     )
     final = t.charge(
-        "operator", "t-1", LIGHTNING, 1_100, 180, Decimal("0.0001"), skills=["prose-style"]
+        "operator",
+        "t-1",
+        LIGHTNING,
+        1_100,
+        180,
+        Decimal("0.0001"),
+        skills=["prose-style"],
+        budget_id=budget1.id,
     )
     attempt1 = _attempt(
         "t-1",
@@ -327,6 +401,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         "task_result",
         {"agent_id": "a-op-research", "result": _dump(result1), "label": "first_pass_ok"},
     )
+    t.release(50, budget1, "a-op-research", "a-manager-1")
 
     # t-2: copywriting, two repairs, an interrupted stream, then escalation to Super.
     copywriter = _agent(
@@ -339,7 +414,8 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         skills=["prose-style"],
     )
     t.emit(200, "agent_hired", {"agent": _dump(copywriter)})
-    task2 = _task("t-2", "copywriter", [f"store://{RUN_ID}/results/t-1"], Decimal("0.02"))
+    budget2 = operator_budget("a-op-copy", "t-2")
+    task2 = _task("t-2", "copywriter", [f"store://{RUN_ID}/results/t-1"], TASK_USD)
     t.emit(
         100,
         "task_assigned",
@@ -403,6 +479,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
             Decimal("0.0002"),
             skills=["prose-style"],
             estimated=est,
+            budget_id=budget2.id,
         )
         entries2.append(entry)
         protocol = "native_tools"
@@ -428,11 +505,138 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         "task_result",
         {"agent_id": "a-op-copy", "result": _dump(result2), "label": "ok_after_escalation"},
     )
+    t.release(50, budget2, "a-op-copy", "a-manager-1")
 
-    auditor = _agent("a-auditor", "auditor", "auditor", ULTRA, None, skills=["prose-style"])
-    t.emit(200, "agent_hired", {"agent": _dump(auditor)})
+    # t-3: the menu. The first operator reports failure on Super and on Ultra (the top of
+    # the ladder); the manager reassigns the task to the next operator for the role, whose
+    # first Ultra call does not fit its allocation. A budget stop is not reassigned.
+    menu = _agent(
+        "a-op-menu",
+        "operator",
+        "copywriter",
+        SUPER,
+        "a-manager-1",
+        operator_id="copywriter-super-01",
+        skills=["prose-style"],
+    )
+    t.emit(200, "agent_hired", {"agent": _dump(menu)})
+    budget3 = operator_budget("a-op-menu", "t-3")
+    task3 = _task("t-3", "copywriter", [f"store://{RUN_ID}/results/t-1"], TASK_USD)
+    t.emit(
+        100,
+        "task_assigned",
+        {"task": _dump(task3), "agent_id": "a-op-menu", "operator_id": "copywriter-super-01"},
+    )
+    attempts3, entries3 = [], []
+    ladder = ((SUPER, "first", None), (ULTRA, "escalation", "operator_reported_failure"))
+    for index, (model, reason, retry) in enumerate(ladder):
+        t.emit(
+            150,
+            "task_started",
+            {"task_id": "t-3", "agent_id": "a-op-menu", "model": model, "attempt_index": index},
+        )
+        entry = t.charge(
+            "operator",
+            "t-3",
+            model,
+            1_200,
+            300,
+            Decimal("0.0005"),
+            skills=["prose-style"],
+            budget_id=budget3.id,
+        )
+        entries3.append(entry)
+        attempt = _attempt(
+            "t-3", index, model, "native_tools", reason, retry, "final", False, [entry]
+        )
+        attempts3.append(attempt)
+        t.emit(1_000, "attempt_recorded", {"agent_id": "a-op-menu", "attempt": _dump(attempt)})
+        t.budget(50, entry)
+    result3 = _result(task3, entries3, "failed; stopped: top_of_ladder", status="failed")
+    t.emit(
+        50, "task_result", {"agent_id": "a-op-menu", "result": _dump(result3), "label": "failed"}
+    )
+    t.release(50, budget3, "a-op-menu", "a-manager-1")
+
+    menu2 = _agent(
+        "a-op-menu-2",
+        "operator",
+        "copywriter",
+        ULTRA,
+        "a-manager-1",
+        operator_id="copywriter-ultra-01",
+        skills=["prose-style"],
+    )
+    t.emit(200, "agent_hired", {"agent": _dump(menu2)})
+    t.emit(
+        50,
+        "escalation",
+        {
+            "from_agent_id": "a-op-menu",
+            "to_agent_id": "a-op-menu-2",
+            "task_id": "t-3",
+            "reason": "[synthetic] Operator copywriter-super-01 failed (top_of_ladder); "
+            "the manager reassigns the task.",
+        },
+    )
+    budget4 = operator_budget("a-op-menu-2", "t-3.2")
+    task4 = _task("t-3.2", "copywriter", [f"store://{RUN_ID}/results/t-1"], TASK_USD)
+    t.emit(
+        100,
+        "task_assigned",
+        {"task": _dump(task4), "agent_id": "a-op-menu-2", "operator_id": "copywriter-ultra-01"},
+    )
+    t.emit(
+        100,
+        "task_started",
+        {"task_id": "t-3.2", "agent_id": "a-op-menu-2", "model": ULTRA, "attempt_index": 0},
+    )
+    stop = t.refuse("operator", "t-3.2", ULTRA, 1_500, 1_200, budget4.id)
+    attempt4 = _attempt(
+        "t-3.2",
+        0,
+        ULTRA,
+        "native_tools",
+        "first",
+        None,
+        "budget_exhausted",
+        False,
+        [],
+        errors=[f"(loop): ended with budget_exhausted: {stop}"],
+        detail=str(stop),
+    )
+    t.emit(50, "attempt_recorded", {"agent_id": "a-op-menu-2", "attempt": _dump(attempt4)})
+    t.emit(
+        50,
+        "budget_exhausted",
+        {
+            "agent_id": "a-op-menu-2",
+            "level": "operator",
+            "scope": stop.scope,
+            "key": stop.key,
+            "cap_usd": stop.cap_usd,
+            "committed_usd": stop.committed_usd,
+            "requested_usd": stop.requested_usd,
+        },
+    )
+    result4 = _result(
+        task4, [], "failed; stopped: budget_exhausted", status="failed", schema_valid=False
+    )
+    t.emit(
+        50, "task_result", {"agent_id": "a-op-menu-2", "result": _dump(result4), "label": "failed"}
+    )
+    t.release(50, budget4, "a-op-menu-2", "a-manager-1")
+    t.release(100, manager_budget, "a-manager-1", "a-director")
+
     audit_entry = t.charge(
-        "auditor", "audit", ULTRA, 2_500, 200, Decimal("0.0035"), skills=["prose-style"]
+        "auditor",
+        "audit",
+        ULTRA,
+        2_500,
+        200,
+        Decimal("0.0035"),
+        skills=["prose-style"],
+        budget_id=auditor_budget.id,
     )
     audit = api.AuditVerdict(
         verdict="accepted",
@@ -446,13 +650,15 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     )
     t.emit(1_500, "audit_result", {"audit": _dump(audit)})
     t.budget(50, audit_entry)
+    t.release(50, auditor_budget, "a-auditor", "a-director")
     summary_entry = t.charge("director", "deliver", ULTRA, 2_000, 300, Decimal("0.0030"))
     t.budget(1_000, summary_entry)
     say(
         100,
         "director",
-        "[synthetic] Done: research notes and website copy, audited and "
-        "accepted. See the delivery package.",
+        "[synthetic] Done: research notes and website copy, audited and accepted. The menu "
+        "is missing: its second operator's first call did not fit the task budget. See the "
+        "delivery package.",
     )
 
     report = t.ledger.report(RUN_ID)
@@ -464,7 +670,7 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         "run_finished",
         {
             "status": "finished",
-            "partial": False,
+            "partial": True,
             "spent_usd": report.spent_usd,
             "predicted_usd": predicted,
             "package_url": package_url,
@@ -492,8 +698,8 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         mode="recorded",
         as_of_event_id=t.events[-1]["event"]["id"],
         nodes=[
-            n.model_copy(update={"status": "done"})
-            for n in (director, manager, researcher, copywriter, auditor)
+            n.model_copy(update={"status": "failed" if n in (menu, menu2) else "done"})
+            for n in (director, auditor, manager, researcher, copywriter, menu, menu2)
         ],
     )
     estimated = sum(e.usage_estimated for e in report.entries)
@@ -507,6 +713,16 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         spent_by_level=dict(report.spent_by_level),
         usage_estimated_entries=estimated,
         entries=list(report.entries),
+        stops=[
+            api.CapStop(
+                scope=s.scope,
+                key=s.key,
+                cap_usd=s.cap_usd,
+                committed_usd=s.committed_usd,
+                requested_usd=s.requested_usd,
+            )
+            for s in report.stops
+        ],
     )
     tasks = api.TaskList(
         run_id=RUN_ID,
@@ -531,13 +747,32 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
                 result=result2,
                 attempts=attempts2,
             ),
+            api.TaskView(
+                task=task3,
+                agent_id="a-op-menu",
+                operator_id="copywriter-super-01",
+                status="failed",
+                label="failed",
+                result=result3,
+                attempts=attempts3,
+            ),
+            api.TaskView(
+                task=task4,
+                agent_id="a-op-menu-2",
+                operator_id="copywriter-ultra-01",
+                status="failed",
+                label="failed",
+                result=result4,
+                attempts=[attempt4],
+            ),
         ],
     )
     package = api.DeliveryPackage(
         run_id=RUN_ID,
         mode="recorded",
         simulated_case=True,
-        summary="[synthetic] A one-page site plan: research notes and the page copy.",
+        summary="[synthetic] A one-page site plan: research notes and the page copy. "
+        "The menu is missing.",
         deliverables=[
             api.Deliverable(
                 task_id="t-1",
@@ -570,11 +805,17 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         contracts=[
             api.ContractRecord(task=task1, result=result1),
             api.ContractRecord(task=task2, result=result2),
+            api.ContractRecord(task=task3, result=result3),
+            api.ContractRecord(task=task4, result=result4),
         ],
         decisions=[
-            "[synthetic] Picked the plan with one manager and two operators.",
+            "[synthetic] Picked the plan with one manager and three operator tasks.",
             "[synthetic] t-2 moved from Lightning to Super after an interrupted "
             "stream; that call was charged its full reservation.",
+            "[synthetic] t-3 failed on Super and on Ultra; the manager reassigned it to "
+            "copywriter-ultra-01 as t-3.2.",
+            "[synthetic] t-3.2 stopped on its budget: one Ultra call did not fit its "
+            "USD 0.003 allocation, so the menu is missing.",
         ],
         audit=audit,
     )

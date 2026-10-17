@@ -37,9 +37,9 @@ Every response carries `X-Request-Id`; error bodies follow `ErrorResponse`.
 Headers: `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`. The stream starts with `retry: 3000`, then sends one frame per event, waiting `delay_ms` (divided by `--speed`) before each:
 
 ```
-id: run_8f2c1a7d4b:12
+id: run_8f2c1a7d4b:16
 event: tool_called
-data: {"id": "run_8f2c1a7d4b:12", "seq": 12, ...}
+data: {"id": "run_8f2c1a7d4b:16", "seq": 16, ...}
 
 ```
 

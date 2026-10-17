@@ -2,7 +2,7 @@
   "$defs": {
     "CapStop": {
       "additionalProperties": false,
-      "description": "A stopped scope, with the fields of `rookwise.ledger.CapReached`.",
+      "description": "A stopped scope, with the fields of `rookwise.ledger.CapReached`. Scope `budget` is\nan agent's allocation (a sub-budget); its `key` is the ledger's allocation id.",
       "properties": {
         "cap_usd": {
           "description": "USD as a decimal string with exactly six decimals (micro-USD), e.g. \"0.002350\"",
@@ -30,7 +30,8 @@
           "enum": [
             "run",
             "level",
-            "task"
+            "task",
+            "budget"
           ],
           "title": "Scope",
           "type": "string"

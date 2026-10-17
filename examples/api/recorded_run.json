@@ -50,11 +50,11 @@
       "run_usd": "0.250000",
       "level_usd": {}
     },
-    "spent_usd": "0.013173",
+    "spent_usd": "0.015903",
     "held_usd": "0.000000",
-    "predicted_usd": "0.013500",
+    "predicted_usd": "0.014500",
     "created_at": "2026-10-20T15:00:00Z",
-    "finished_at": "2026-10-20T15:00:16.250000Z",
+    "finished_at": "2026-10-20T15:00:20.250000Z",
     "events_url": "/api/v1/runs/run_8f2c1a7d4b/events"
   },
   "runs": {
@@ -71,11 +71,11 @@
           "run_usd": "0.250000",
           "level_usd": {}
         },
-        "spent_usd": "0.013173",
+        "spent_usd": "0.015903",
         "held_usd": "0.000000",
-        "predicted_usd": "0.013500",
+        "predicted_usd": "0.014500",
         "created_at": "2026-10-20T15:00:00Z",
-        "finished_at": "2026-10-20T15:00:16.250000Z",
+        "finished_at": "2026-10-20T15:00:20.250000Z",
         "events_url": "/api/v1/runs/run_8f2c1a7d4b/events"
       }
     ],
@@ -84,7 +84,7 @@
   "org": {
     "run_id": "run_8f2c1a7d4b",
     "mode": "recorded",
-    "as_of_event_id": "run_8f2c1a7d4b:36",
+    "as_of_event_id": "run_8f2c1a7d4b:64",
     "nodes": [
       {
         "agent_id": "a-director",
@@ -94,6 +94,19 @@
         "operator_id": null,
         "parent_id": null,
         "skills": [],
+        "tools": [],
+        "status": "done"
+      },
+      {
+        "agent_id": "a-auditor",
+        "level": "auditor",
+        "role": "auditor",
+        "model": "nemotron-3-ultra",
+        "operator_id": null,
+        "parent_id": null,
+        "skills": [
+          "prose-style"
+        ],
         "tools": [],
         "status": "done"
       },
@@ -137,17 +150,30 @@
         "status": "done"
       },
       {
-        "agent_id": "a-auditor",
-        "level": "auditor",
-        "role": "auditor",
-        "model": "nemotron-3-ultra",
-        "operator_id": null,
-        "parent_id": null,
+        "agent_id": "a-op-menu",
+        "level": "operator",
+        "role": "copywriter",
+        "model": "nemotron-3-super",
+        "operator_id": "copywriter-super-01",
+        "parent_id": "a-manager-1",
         "skills": [
           "prose-style"
         ],
         "tools": [],
-        "status": "done"
+        "status": "failed"
+      },
+      {
+        "agent_id": "a-op-menu-2",
+        "level": "operator",
+        "role": "copywriter",
+        "model": "nemotron-3-ultra",
+        "operator_id": "copywriter-ultra-01",
+        "parent_id": "a-manager-1",
+        "skills": [
+          "prose-style"
+        ],
+        "tools": [],
+        "status": "failed"
       }
     ]
   },
@@ -158,13 +184,13 @@
       "run_usd": "0.250000",
       "level_usd": {}
     },
-    "spent_usd": "0.013173",
+    "spent_usd": "0.015903",
     "held_usd": "0.000000",
-    "predicted_usd": "0.013500",
+    "predicted_usd": "0.014500",
     "spent_by_level": {
       "director": "0.007700",
       "manager": "0.000960",
-      "operator": "0.001413",
+      "operator": "0.004143",
       "auditor": "0.003100"
     },
     "usage_estimated_entries": 1,
@@ -197,7 +223,7 @@
         "cached_price_fallback": true,
         "usd_real": "0.000960",
         "usd_predicted": "0.001000",
-        "ts": "2026-10-20T15:00:04.450000Z",
+        "ts": "2026-10-20T15:00:04.750000Z",
         "skills": [],
         "usage_estimated": false
       },
@@ -213,7 +239,7 @@
         "cached_price_fallback": true,
         "usd_real": "0.000064",
         "usd_predicted": "0.000100",
-        "ts": "2026-10-20T15:00:06.050000Z",
+        "ts": "2026-10-20T15:00:06.400000Z",
         "skills": [
           "prose-style"
         ],
@@ -231,7 +257,7 @@
         "cached_price_fallback": true,
         "usd_real": "0.000110",
         "usd_predicted": "0.000100",
-        "ts": "2026-10-20T15:00:06.750000Z",
+        "ts": "2026-10-20T15:00:07.100000Z",
         "skills": [
           "prose-style"
         ],
@@ -249,7 +275,7 @@
         "cached_price_fallback": true,
         "usd_real": "0.000132",
         "usd_predicted": "0.000200",
-        "ts": "2026-10-20T15:00:08.200000Z",
+        "ts": "2026-10-20T15:00:08.650000Z",
         "skills": [
           "prose-style"
         ],
@@ -267,7 +293,7 @@
         "cached_price_fallback": true,
         "usd_real": "0.000150",
         "usd_predicted": "0.000200",
-        "ts": "2026-10-20T15:00:09.500000Z",
+        "ts": "2026-10-20T15:00:09.950000Z",
         "skills": [
           "prose-style"
         ],
@@ -285,7 +311,7 @@
         "cached_price_fallback": true,
         "usd_real": "0.000342",
         "usd_predicted": "0.000200",
-        "ts": "2026-10-20T15:00:10.800000Z",
+        "ts": "2026-10-20T15:00:11.250000Z",
         "skills": [
           "prose-style"
         ],
@@ -303,7 +329,43 @@
         "cached_price_fallback": true,
         "usd_real": "0.000615",
         "usd_predicted": "0.000200",
-        "ts": "2026-10-20T15:00:12.100000Z",
+        "ts": "2026-10-20T15:00:12.550000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "run_8f2c1a7d4b",
+        "level": "operator",
+        "task_id": "t-3",
+        "model": "nemotron-3-super",
+        "input_tokens": 1200,
+        "cached_tokens": 0,
+        "output_tokens": 300,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": "0.000630",
+        "usd_predicted": "0.000500",
+        "ts": "2026-10-20T15:00:14.300000Z",
+        "skills": [
+          "prose-style"
+        ],
+        "usage_estimated": false
+      },
+      {
+        "run_id": "run_8f2c1a7d4b",
+        "level": "operator",
+        "task_id": "t-3",
+        "model": "nemotron-3-ultra",
+        "input_tokens": 1200,
+        "cached_tokens": 0,
+        "output_tokens": 300,
+        "reasoning_tokens": 0,
+        "cached_price_fallback": true,
+        "usd_real": "0.002100",
+        "usd_predicted": "0.000500",
+        "ts": "2026-10-20T15:00:15.500000Z",
         "skills": [
           "prose-style"
         ],
@@ -321,7 +383,7 @@
         "cached_price_fallback": true,
         "usd_real": "0.003100",
         "usd_predicted": "0.003500",
-        "ts": "2026-10-20T15:00:13.500000Z",
+        "ts": "2026-10-20T15:00:17.450000Z",
         "skills": [
           "prose-style"
         ],
@@ -339,12 +401,20 @@
         "cached_price_fallback": true,
         "usd_real": "0.002900",
         "usd_predicted": "0.003000",
-        "ts": "2026-10-20T15:00:15.050000Z",
+        "ts": "2026-10-20T15:00:19.050000Z",
         "skills": [],
         "usage_estimated": false
       }
     ],
-    "stops": []
+    "stops": [
+      {
+        "scope": "budget",
+        "key": "budget:t-3.2",
+        "cap_usd": "0.003000",
+        "committed_usd": "0.000000",
+        "requested_usd": "0.005100"
+      }
+    ]
   },
   "messages": {
     "run_id": "run_8f2c1a7d4b",
@@ -354,7 +424,7 @@
         "message_id": "m-1",
         "run_id": "run_8f2c1a7d4b",
         "sender": "director",
-        "text": "[synthetic] Plan: one manager, a researcher and a copywriter, within the USD 0.25 cap. Approve?",
+        "text": "[synthetic] Plan: one manager with a research task and two copywriting tasks (page copy and menu), within the USD 0.25 cap. Approve?",
         "ts": "2026-10-20T15:00:02.250000Z"
       },
       {
@@ -368,8 +438,8 @@
         "message_id": "m-3",
         "run_id": "run_8f2c1a7d4b",
         "sender": "director",
-        "text": "[synthetic] Done: research notes and website copy, audited and accepted. See the delivery package.",
-        "ts": "2026-10-20T15:00:16.150000Z"
+        "text": "[synthetic] Done: research notes and website copy, audited and accepted. The menu is missing: its second operator's first call did not fit the task budget. See the delivery package.",
+        "ts": "2026-10-20T15:00:20.150000Z"
       }
     ]
   },
@@ -387,7 +457,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": "0.010000"
+            "max_usd": "0.003000"
           },
           "deadline_s": 120
         },
@@ -449,7 +519,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": "0.020000"
+            "max_usd": "0.003000"
           },
           "deadline_s": 120
         },
@@ -560,6 +630,144 @@
           }
         ],
         "tool_calls": {}
+      },
+      {
+        "task": {
+          "task_id": "t-3",
+          "run_id": "run_8f2c1a7d4b",
+          "role": "copywriter",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-3",
+          "inputs": [
+            "store://run_8f2c1a7d4b/results/t-1"
+          ],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": "0.003000"
+          },
+          "deadline_s": 120
+        },
+        "agent_id": "a-op-menu",
+        "operator_id": "copywriter-super-01",
+        "status": "failed",
+        "label": "failed",
+        "result": {
+          "task_id": "t-3",
+          "status": "failed",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-3",
+          "usage": {
+            "input_tokens": 2400,
+            "output_tokens": 600,
+            "usd": "0.002730"
+          },
+          "self_check": {
+            "schema_valid": true,
+            "notes": "failed; stopped: top_of_ladder"
+          }
+        },
+        "attempts": [
+          {
+            "task_id": "t-3",
+            "attempt_index": 0,
+            "model": "nemotron-3-super",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.000630",
+            "input_tokens": 1200,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          },
+          {
+            "task_id": "t-3",
+            "attempt_index": 1,
+            "model": "nemotron-3-ultra",
+            "protocol": "native_tools",
+            "reason": "escalation",
+            "retry_reason": "operator_reported_failure",
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.002100",
+            "input_tokens": 1200,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        ],
+        "tool_calls": {}
+      },
+      {
+        "task": {
+          "task_id": "t-3.2",
+          "run_id": "run_8f2c1a7d4b",
+          "role": "copywriter",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-3.2",
+          "inputs": [
+            "store://run_8f2c1a7d4b/results/t-1"
+          ],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": "0.003000"
+          },
+          "deadline_s": 120
+        },
+        "agent_id": "a-op-menu-2",
+        "operator_id": "copywriter-ultra-01",
+        "status": "failed",
+        "label": "failed",
+        "result": {
+          "task_id": "t-3.2",
+          "status": "failed",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-3.2",
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "usd": "0.000000"
+          },
+          "self_check": {
+            "schema_valid": false,
+            "notes": "failed; stopped: budget_exhausted"
+          }
+        },
+        "attempts": [
+          {
+            "task_id": "t-3.2",
+            "attempt_index": 0,
+            "model": "nemotron-3-ultra",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "budget_exhausted",
+            "ok": false,
+            "validation_errors": [
+              "(loop): ended with budget_exhausted: budget cap reached for budget:t-3.2: cap USD 0.003000, committed USD 0.000000, requested USD 0.005100"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 0,
+            "tool_calls": {},
+            "usd": "0.000000",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "usage_estimated": false,
+            "detail": "budget cap reached for budget:t-3.2: cap USD 0.003000, committed USD 0.000000, requested USD 0.005100"
+          }
+        ],
+        "tool_calls": {}
       }
     ]
   },
@@ -567,7 +775,7 @@
     "run_id": "run_8f2c1a7d4b",
     "mode": "recorded",
     "simulated_case": true,
-    "summary": "[synthetic] A one-page site plan: research notes and the page copy.",
+    "summary": "[synthetic] A one-page site plan: research notes and the page copy. The menu is missing.",
     "deliverables": [
       {
         "task_id": "t-1",
@@ -591,13 +799,13 @@
       }
     ],
     "cost_report": {
-      "predicted_usd": "0.013500",
-      "real_usd": "0.013173",
-      "prediction_error": -0.02422222222222222,
+      "predicted_usd": "0.014500",
+      "real_usd": "0.015903",
+      "prediction_error": 0.09675862068965517,
       "spent_by_level": {
         "director": "0.007700",
         "manager": "0.000960",
-        "operator": "0.001413",
+        "operator": "0.004143",
         "auditor": "0.003100"
       },
       "usage_estimated_entries": 1
@@ -613,7 +821,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": "0.010000"
+            "max_usd": "0.003000"
           },
           "deadline_s": 120
         },
@@ -644,7 +852,7 @@
           "budget": {
             "max_input_tokens": 20000,
             "max_output_tokens": 4000,
-            "max_usd": "0.020000"
+            "max_usd": "0.003000"
           },
           "deadline_s": 120
         },
@@ -662,11 +870,75 @@
             "notes": "ok_after_escalation"
           }
         }
+      },
+      {
+        "task": {
+          "task_id": "t-3",
+          "run_id": "run_8f2c1a7d4b",
+          "role": "copywriter",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-3",
+          "inputs": [
+            "store://run_8f2c1a7d4b/results/t-1"
+          ],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": "0.003000"
+          },
+          "deadline_s": 120
+        },
+        "result": {
+          "task_id": "t-3",
+          "status": "failed",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-3",
+          "usage": {
+            "input_tokens": 2400,
+            "output_tokens": 600,
+            "usd": "0.002730"
+          },
+          "self_check": {
+            "schema_valid": true,
+            "notes": "failed; stopped: top_of_ladder"
+          }
+        }
+      },
+      {
+        "task": {
+          "task_id": "t-3.2",
+          "run_id": "run_8f2c1a7d4b",
+          "role": "copywriter",
+          "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-3.2",
+          "inputs": [
+            "store://run_8f2c1a7d4b/results/t-1"
+          ],
+          "budget": {
+            "max_input_tokens": 20000,
+            "max_output_tokens": 4000,
+            "max_usd": "0.003000"
+          },
+          "deadline_s": 120
+        },
+        "result": {
+          "task_id": "t-3.2",
+          "status": "failed",
+          "output_ref": "store://run_8f2c1a7d4b/results/t-3.2",
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "usd": "0.000000"
+          },
+          "self_check": {
+            "schema_valid": false,
+            "notes": "failed; stopped: budget_exhausted"
+          }
+        }
       }
     ],
     "decisions": [
-      "[synthetic] Picked the plan with one manager and two operators.",
-      "[synthetic] t-2 moved from Lightning to Super after an interrupted stream; that call was charged its full reservation."
+      "[synthetic] Picked the plan with one manager and three operator tasks.",
+      "[synthetic] t-2 moved from Lightning to Super after an interrupted stream; that call was charged its full reservation.",
+      "[synthetic] t-3 failed on Super and on Ultra; the manager reassigned it to copywriter-ultra-01 as t-3.2.",
+      "[synthetic] t-3.2 stopped on its budget: one Ultra call did not fit its USD 0.003 allocation, so the menu is missing."
     ],
     "audit": {
       "verdict": "accepted",
