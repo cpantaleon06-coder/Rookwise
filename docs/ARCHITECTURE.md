@@ -294,7 +294,7 @@ The category enum has 8 values (the 6 above plus `code_regression` and `network_
 
 ### Cost estimate for the 36 runs (arithmetic on the corpus size, not measured)
 
-At the harness's calibrated ratio (characters / 2.7 per file, rounded up, without the reservation's 10 percent headroom; see "Built so far"), the six incidents' sources (everything but the ground truth) hold 2,447,407 tokens, 327,001 to 475,641 per incident (407,901 on average). At the earlier ratio of characters / 3 they held 2,202,652. Reading every source once, input tokens only, costs per configuration over its 12 runs (2 repeats of the 6 incidents):
+At the harness's calibrated ratio (characters / 2.7 per file, rounded up, without the reservation's 10 percent headroom; config/harness.json `input_estimate`), the six incidents' sources (everything but the ground truth) hold 2,447,407 tokens, 327,001 to 475,641 per incident (407,901 on average). At the earlier ratio of characters / 3 they held 2,202,652. Reading every source once, input tokens only, costs per configuration over its 12 runs (2 repeats of the 6 incidents):
 
 | Configuration | Model that reads the sources | Arithmetic | USD |
 |---|---|---|---|
@@ -349,7 +349,7 @@ Source: Devpost rules page, read on 2026-10-13 (summarized extract; re-read the 
 
 | Requirement | How Rookwise meets it | Status |
 |---|---|---|
-| Nebius: a runtime call to the Token Factory inference API (or running on Nebius AI Cloud compute) | Every model call goes to Token Factory through the harness | In progress: runtime calls verified in probes (2026-10-13 to 16); no product run yet |
+| Nebius: a runtime call to the Token Factory inference API (or running on Nebius AI Cloud compute) | Every model call goes to Token Factory through the harness | In progress: runtime calls verified in probes (2026-10-13 to 16) and in one live smoke run of the team (2026-10-17, USD 0.010667, 14 calls) |
 | At least one NVIDIA open source model | NVIDIA Nemotron at every level | In progress |
 | A working demo, free and accessible for testing until the Judging Period ends (Dec 15, 2026) | `web/` on Vercel, the executor on a separate host; recorded mode costs nothing, so the demo keeps working without credits. Check credit expiry and any free-tier pausing before depending on them | Planned |
 | Video: under three minutes, public on YouTube, shows the project working, no unlicensed third-party trademarks or music | Target length 2:45 | Planned |
@@ -367,7 +367,17 @@ Source: Devpost rules page, read on 2026-10-13 (summarized extract; re-read the 
 
 ## Built so far
 
-Everything here runs offline in the tests (stubs and cassettes). No product run against the real models has happened yet.
+Everything here runs offline in the tests (stubs and cassettes). One live run against the real models has happened: the first smoke run of the team (`scripts/team_smoke.py` on `examples/team_smoke/`, 2026-10-17). It cost USD 0.010667 over 14 calls and showed:
+
+- 6 calls finished with `finish_reason: "length"`;
+- 6 charges exceeded their reservation by 3 to 5 percent;
+- the input estimate of characters / 3 undercounted the prompts with logs by about 10 percent (3,841 estimated, 4,248 real);
+- the ledger prediction was 0, because nothing set it;
+- operators passed on the first try 0 of 5 times;
+- `citation_verified_rate` was 0.591 (13 of 22), because multi-line quotes failed the quote check (a format problem, not fabrication).
+
+Changed after it (2026-10-18; tested on stubs, not yet in a live run): every role has an explicit output ceiling that the ledger reserves, and a `length` finish is a typed outcome that is not retried; a task that hits its own ceiling gets one reassignment, while a ledger stop ends its scope; citations are single-line and checked in the output schema; the input estimate uses a calibrated 2.7 characters per token plus 10 percent headroom; every call records a predicted cost next to its real cost. See docs/DECISIONS.md, "After the first live run".
+
 
 - Harness (`core/harness/`, Stages 1 and 2, 2026-10-15 and 16): streaming calls with usage, the reserve, charge and release cycle with the ledger, per-model request and token limits and a concurrency cap, bounded retries with `Retry-After`, cancellation, record and replay of model calls and tool results (`HARNESS_MODE`), native tool calls, the tool loop with `json_protocol` and `native_tools`, step, repeat, timeout, truncation and token limits, `finish_reason: "length"` discarded and ended as a typed outcome at the role's output ceiling, final-answer validation with up to two repairs, then the escalation ladder, one `AttemptRecord` per attempt and the outcome labels. `on_missing_usage` charges the full reservation and marks the usage estimated.
 - Ledger and money (`core/ledger.py`, `core/money.py`): `Decimal` end to end, whole micro-USD with the rounding rules in "Cost of a call", caps per run, level and task, and allocations (`allocate`, `close`, `free`; a call reserved with a `budget_id` is drawn from that allocation). A float passed to the ledger raises TypeError.
@@ -379,20 +389,21 @@ Everything here runs offline in the tests (stubs and cassettes). No product run 
 - Tavily search tool (`core/tools/tavily.py`), verified with one live query (2026-10-16).
 - Incident corpus (`scripts/gen_incidents.py`, `benchmarks/incidents/`, 2026-10-17): the six incidents in "The incident corpus", with their ground truth and the manifest.
 - Corpus access and scorer (`core/incidents.py`, 2026-10-17): `load_bundle(incident_id)` returns an incident's sources as an `EvidenceBundle` (source ids are the file paths inside the incident, lines are 1-based, every file is checked against the manifest's sha256, the ground truth is left out); `load_ground_truth`; and `score(claims, truth, category=...)`, the deterministic scorer of `diagnosis_correct`, `citation_verified_rate` and `evidence_recall` from "Benchmark design", with no model.
-- Stage-0 log filter experiment (`benchmarks/log_filter/`, 2026-10-17): a keyword filter and Laya on a separate synthetic corpus; report in `benchmarks/log_filter/REPORT.md`. Whether to use Laya is still open.
+- Smoke run (`scripts/team_smoke.py`, `examples/team_smoke/`, 2026-10-17): a SYNTHETIC scenario (a 60-line app log and a runbook with a planted root cause) and a script with four modes: `estimate` (offline, on a stub transport), `record` and `live` (one live run under a run cap, `--run-usd`), and `replay` (from the recorded cassette, no network). Its run summary gives real and predicted cost per role and per model, the outcome of each agent call by role, and the number of `length` finishes.
+- Stage-0 log filter experiment (`benchmarks/log_filter/`, 2026-10-17): a closed experiment. It ran a keyword filter and Laya on a separate synthetic corpus, and Laya was rejected (report in `benchmarks/log_filter/REPORT.md`). The folder stays only as the record of that experiment; the benchmark uses `benchmarks/incidents/` only.
 
 Not built yet: the incident roles and skills, slicing the evidence across operators (each operator gets every source today), the director's diagnosis with a category and a remediation plan, the approval of the remediation plan, the single-model baselines (b) and (c), the benchmark runner, the auditor's correction cycle, parallel managers and operators, per-call `tool_called` events, cancellation of a team run, reading `x-ratelimit-*` headers, the server and `web/`.
 
 ## Risks and not verified
 
-- No product run yet. Prompts, the plan format and `BudgetPolicy` have only run on stubs; the first live runs may need rework.
+- One live run only: the smoke run on a synthetic 60-line log, not on an incident of the corpus. The changes made after it have run on stubs only, and `BudgetPolicy` is still a set of placeholders.
 - Context windows are UNVERIFIED. An incident's logs are far larger than one prompt, so the hierarchy must slice them, and the single-model baselines (b) and (c) need a defined way to read them (slices in sequence, or a search tool). That method is not decided and changes what (b) and (c) measure.
 - The `diagnosis_correct` rule is a proposal: a category match plus one verified essential citation. A model can name the right category for the wrong reason; evidence recall and the auditor partly cover that.
 - The corpus is synthetic. Real incidents are messier; good scores on it do not prove field accuracy, and the keyword-free incidents are our guess at what makes an incident hard.
 - Public datasets in the proof domains may be in the models' training data (unknown).
 - Reasoning-token billing, cached-token billing and Tavily's per-query cost are UNVERIFIED.
 - Listed model speeds are not reproduced, and the duration of a real run is NOT MEASURED, so the executor host is open.
-- Credits: USD 26 in total (25 event credit plus 1 account credit), minus what the probes spent (each probe's spend is in `docs/HARNESS_RESEARCH.md`). The benchmark costs at least USD 5.48 (see "Cost estimate for the 36 runs"); the real figure is unknown until the first measured runs.
+- Credits: USD 26 in total (25 event credit plus 1 account credit; unverified, check the Nebius console), minus what the probes spent (each probe's spend is in `docs/HARNESS_RESEARCH.md`) and the smoke run's USD 0.010667. The benchmark costs at least USD 5.48 (see "Cost estimate for the 36 runs"); the real figure is unknown until the first measured runs.
 - The auditor is a model and may favor outputs like its own. Mitigation: the deterministic check first, a fixed rubric, a separate context, human review of a sample.
 
 ## Timeline, October 17 to 29 (a plan, not a commitment)
@@ -420,4 +431,4 @@ Rookwise is built with Claude Code and a small set of plugins and skills: stop-s
 
 ## Open decisions
 
-Listed with their context in [docs/DECISIONS.md](DECISIONS.md), "Still open": the Devpost track; whether to use Laya as a local pre-filter; which real run becomes the recorded demo; the executor host; whether to commit recordings; the reasoning-token billing check in the Nebius console; Nano's tool protocol; the model ladder. Also open in this document: how the single-model baselines read logs larger than one prompt; the incident roles; the store (Supabase or SQLite).
+Listed with their context in [docs/DECISIONS.md](DECISIONS.md), "Still open": the Devpost track; which real run becomes the recorded demo; the executor host; whether to commit recordings; the reasoning-token billing check in the Nebius console; Nano's tool protocol; the model ladder. Also open in this document: how the single-model baselines read logs larger than one prompt; the incident roles; the store (Supabase or SQLite).
