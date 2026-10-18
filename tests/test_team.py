@@ -246,9 +246,12 @@ def test_an_operator_running_out_of_budget_fails_its_task_without_a_reassignment
     # The operator's allocation is USD 0.020916; on Ultra its 8,192 output tokens alone
     # cost USD 0.024576 (the task's output ceiling is raised so it does not cap them).
     # Its manager makes no call: no task was completed.
-    expensive = [operator("stub-op-a", "0.001", model=ULTRA, max_tokens=8192)]
+    expensive = [operator("stub-op-a", "0.001", model=ULTRA)]
     policy = BudgetPolicy(operator_max_output_tokens=8192)
-    team, book = run_stub_team(handler, run_usd="0.04", catalog=expensive, policy=policy)
+    config = skills_config(operator_max_tokens=8192)
+    team, book = run_stub_team(
+        handler, run_usd="0.04", catalog=expensive, policy=policy, config=config
+    )
     (task,) = team.blocks[0].tasks
     assert (task.status, task.assignments) == ("failed", ["t-1"])
     assert "ran out of its budget" in team.notes[0]
@@ -424,7 +427,7 @@ def test_roles_are_data_in_the_skills_config():
     )
     assert roles.auditor.skills == ("prose-style",)
     stub = load_team_roles(skills_config(manager_max_tokens=512))
-    assert (stub.manager.role, stub.manager.model, stub.manager.max_tokens) == (
+    assert (stub.manager.role, stub.manager.model, stub.manager.max_output_tokens) == (
         "stub-manager",
         ULTRA,
         512,

@@ -67,12 +67,6 @@ class LoopConfig:
 
 
 @dataclass(frozen=True)
-class LengthRetryConfig:
-    retries: int
-    factor: float
-
-
-@dataclass(frozen=True)
 class EscalationConfig:
     max_repairs: int
     next: Mapping[str, str]
@@ -93,7 +87,6 @@ class HarnessConfig:
     mode: Mode
     cassette_dir: Path
     loop: LoopConfig
-    length_retry: LengthRetryConfig
     escalation: EscalationConfig
 
     def model(self, alias: str) -> ModelConfig:
@@ -163,11 +156,9 @@ def load_config(
         raise ConfigError("max_concurrent_requests must be at least 1")
     if retry["max_attempts"] < 1:
         raise ConfigError("retry.max_attempts must be at least 1")
-    loop, length, escalation = data["loop"], data["length_retry"], data["escalation"]
+    loop, escalation = data["loop"], data["escalation"]
     if loop["max_steps"] < 1 or loop["max_repeats"] < 0 or loop["max_protocol_errors"] < 0:
         raise ConfigError("loop: max_steps >= 1, max_repeats >= 0, max_protocol_errors >= 0")
-    if length["retries"] < 0 or length["factor"] <= 1:
-        raise ConfigError("length_retry: retries >= 0 and factor > 1")
     for low, high in escalation["next"].items():
         if low not in models or high not in models:
             raise ConfigError(f"escalation.next: unknown model in {low} -> {high}")
@@ -204,6 +195,5 @@ def load_config(
                 "loop.json_protocol_response_format",
             ),
         ),
-        length_retry=LengthRetryConfig(int(length["retries"]), float(length["factor"])),
         escalation=EscalationConfig(int(escalation["max_repairs"]), dict(escalation["next"])),
     )

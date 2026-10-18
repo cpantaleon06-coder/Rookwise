@@ -19,6 +19,7 @@ SKILLS_CONFIG: dict[str, Any] = {
     "roles": {
         "stub-operator": {
             "model": "nemotron-3.5-lightning",
+            "max_output_tokens": 2048,
             "skills": ["stub-notes"],
             "max_skill_tokens": 100,
         }

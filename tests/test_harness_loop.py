@@ -28,6 +28,7 @@ from rookwise.harness import CancelHandle, Harness
 from rookwise.harness.cassette import Cassette
 from rookwise.harness.loop import (
     PROTOCOL_HEADING,
+    LengthStop,
     TokenBudget,
     Tool,
     ToolLoop,
@@ -272,28 +273,27 @@ def test_output_budget_also_caps_max_tokens():
     assert outcome.status == "final" and handler.bodies[0]["max_tokens"] == 40
 
 
-def test_length_is_discarded_and_retried_once_with_more_tokens():
+def test_length_is_a_typed_outcome_that_is_never_retried():
     handler = replies(
         text_reply("Here's a thinking process: ...", completion=64, reason="length"),
         text_reply(final_action(42)),
     )
     outcome, book = _loop_run(handler, [], max_tokens=64)
-    assert outcome.status == "final" and outcome.final == 42
-    assert [b["max_tokens"] for b in handler.bodies] == [64, 128]
-    assert outcome.length_retries == 1
-    # The truncated reply never reaches the conversation.
-    assert all("thinking process" not in m.get("content", "") for m in outcome.messages)
-    assert len(_held_zero(book).entries) == 2
-
-
-def test_length_twice_ends_the_run_as_length():
-    handler = replies(
-        text_reply("cut", completion=64, reason="length"),
-        text_reply("cut again", completion=128, reason="length"),
-    )
-    outcome, book = _loop_run(handler, [], max_tokens=64)
     assert outcome.status == "length" and outcome.final is None
-    assert len(_held_zero(book).entries) == 2
+    assert outcome.length == LengthStop(max_tokens=64, limited_by="output_ceiling")
+    assert [b["max_tokens"] for b in handler.bodies] == [64]  # one call, no retry
+    # The truncated reply never reaches the conversation; the call is still charged.
+    assert all("thinking process" not in (m.get("content") or "") for m in outcome.messages)
+    (entry,) = _held_zero(book).entries
+    assert entry.output_tokens == 64
+
+
+def test_a_length_cut_by_the_task_token_budget_says_so():
+    handler = replies(text_reply("cut", completion=40, reason="length"))
+    budget = TokenBudget(max_input_tokens=100_000, max_output_tokens=40)
+    outcome, _ = _loop_run(handler, [], budget=budget, max_tokens=500)
+    assert outcome.status == "length"
+    assert outcome.length == LengthStop(max_tokens=40, limited_by="token_budget")
 
 
 def test_cancel_during_a_tool_settles_and_stops():

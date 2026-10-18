@@ -19,9 +19,11 @@ one identical tool call; `tool_timeout_s` per tool; tool results longer than
 Tool failures (unknown tool, bad arguments, unavailable, timeout, exception) never raise
 through the loop: they go back to the model as `{"ok": false, "error": {...}}`.
 
-`finish_reason: "length"` is never a success (D3): the reply is discarded and the step
-is retried with a larger `max_tokens` (config `length_retry`, up to the model's
-`max_tokens_cap`); after that the run ends with status `length`.
+`finish_reason: "length"` is never a success (D3): the reply is discarded and the run
+ends at once with status `length`, and `LoopOutcome.length` says which ceiling cut it:
+the call's own `max_tokens` (the role's output ceiling, config/skills.json) or what was
+left of the task's output token budget. It is never retried: a retry with the same
+ceiling would pay again for the same cut.
 
 A `TokenBudget` (from task_v1) is enforced from the ledger's own entries for the task:
 a step that could pass it is not sent. USD caps are the ledger's, through reservations.
@@ -115,6 +117,16 @@ class TokenBudget:
     max_output_tokens: int
 
 
+@dataclass(frozen=True)
+class LengthStop:
+    """A reply cut by `finish_reason: "length"`. `limited_by` is `output_ceiling` when the
+    call had its full `max_tokens`, `token_budget` when the task's remaining output token
+    budget had lowered it."""
+
+    max_tokens: int
+    limited_by: Literal["output_ceiling", "token_budget"]
+
+
 @dataclass
 class LoopOutcome:
     status: LoopStatus
@@ -125,7 +137,7 @@ class LoopOutcome:
     messages: list[dict[str, Any]] = field(default_factory=list)
     steps: int = 0
     model_calls: int = 0
-    length_retries: int = 0
+    length: LengthStop | None = None
     usd: Decimal = ZERO_USD
     usage_estimated: bool = False
     input_tokens: int = 0
@@ -333,9 +345,7 @@ class ToolLoop:
         outcome: LoopOutcome,
     ) -> _Reply | _Stop:
         config = self._harness.config
-        model = config.model(request.model)
-        max_tokens = request.max_tokens or model.max_tokens
-        retries_left = config.length_retry.retries
+        max_tokens = request.max_tokens or config.model(request.model).max_tokens
         if protocol == "native_tools":
             shape = {
                 "tools": tuple(t.native_spec() for t in tools),
@@ -349,48 +359,48 @@ class ToolLoop:
                 "tool_choice": None,
                 "response_format": JsonObjectFormat() if json_object else None,
             }
-        while True:
-            step_max = max_tokens
-            if budget is not None:
-                used_in, used_out = self._used_tokens(request)
-                remaining = budget.max_output_tokens - used_out
-                if remaining <= 0:
-                    return _Stop("token_ceiling", "output token budget used up")
-                step_max = min(max_tokens, remaining)
-            step = dataclasses.replace(
-                request, messages=tuple(dict(m) for m in messages), max_tokens=step_max, **shape
+        step_max = max_tokens
+        if budget is not None:
+            used_in, used_out = self._used_tokens(request)
+            remaining = budget.max_output_tokens - used_out
+            if remaining <= 0:
+                return _Stop("token_ceiling", "output token budget used up")
+            step_max = min(max_tokens, remaining)
+        step = dataclasses.replace(
+            request, messages=tuple(dict(m) for m in messages), max_tokens=step_max, **shape
+        )
+        if budget is not None:
+            estimate = build_request(step, config).input_tokens_estimate
+            if used_in + estimate > budget.max_input_tokens:
+                return _Stop("token_ceiling", "input token budget would be passed")
+        try:
+            result = await self._harness.complete(step, cancel)
+        except CapReached as stop:
+            return _Stop("budget_exhausted", str(stop))
+        except StreamInterrupted as error:
+            outcome.model_calls += 1
+            outcome.usd += error.usd
+            outcome.usage_estimated |= error.usage_estimated
+            return _Stop("interrupted", error.message)
+        except ApiError as error:
+            return _Stop("api_error", str(error))
+        self._count(result, outcome)
+        if result.cancelled:
+            return _Stop("cancelled")
+        if result.finish_reason == "length":
+            # D3: never a success; the content is discarded and nothing is retried.
+            limited_by = "output_ceiling" if step_max == max_tokens else "token_budget"
+            outcome.length = LengthStop(step_max, limited_by)
+            outcome.trace.append(
+                {
+                    "step": outcome.steps,
+                    "kind": "length",
+                    "max_tokens": step_max,
+                    "limited_by": limited_by,
+                }
             )
-            if budget is not None:
-                estimate = build_request(step, config).input_tokens_estimate
-                if used_in + estimate > budget.max_input_tokens:
-                    return _Stop("token_ceiling", "input token budget would be passed")
-            try:
-                result = await self._harness.complete(step, cancel)
-            except CapReached as stop:
-                return _Stop("budget_exhausted", str(stop))
-            except StreamInterrupted as error:
-                outcome.model_calls += 1
-                outcome.usd += error.usd
-                outcome.usage_estimated |= error.usage_estimated
-                return _Stop("interrupted", error.message)
-            except ApiError as error:
-                return _Stop("api_error", str(error))
-            self._count(result, outcome)
-            if result.cancelled:
-                return _Stop("cancelled")
-            if result.finish_reason == "length":
-                # D3: never a success; the content is discarded.
-                outcome.trace.append(
-                    {"step": outcome.steps, "kind": "length", "max_tokens": step_max}
-                )
-                bigger = min(model.max_tokens_cap, int(step_max * config.length_retry.factor))
-                if retries_left > 0 and bigger > step_max:
-                    retries_left -= 1
-                    outcome.length_retries += 1
-                    max_tokens = bigger
-                    continue
-                return _Stop("length", f"finish_reason length at max_tokens {step_max}")
-            return _Reply(result.text, result.tool_calls)
+            return _Stop("length", f"finish_reason length at max_tokens {step_max} ({limited_by})")
+        return _Reply(result.text, result.tool_calls)
 
     @staticmethod
     def _count(result: Result, outcome: LoopOutcome) -> None:

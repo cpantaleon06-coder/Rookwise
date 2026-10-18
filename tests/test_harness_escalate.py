@@ -148,13 +148,17 @@ def test_repair_then_success_is_ok_after_retry():
     assert sum(a.usd for a in result.attempts) == sum(e.usd_real for e in report.entries)
 
 
-def test_a_length_retry_on_the_first_model_is_ok_after_retry():
+def test_length_stops_at_once_as_a_typed_outcome_without_escalation():
     handler = replies(
         text_reply("thinking...", completion=64, reason="length"),
         text_reply(final_action(ok())),
     )
-    result, _ = _run(handler)
-    assert result.label == "ok_after_retry" and result.attempts[0].length_retries == 1
+    result, report = _run(handler)
+    assert (result.label, result.stop_reason) == ("failed", "length")
+    assert result.length is not None and result.length.limited_by == "output_ceiling"
+    (attempt,) = result.attempts
+    assert (attempt.loop_status, attempt.length_retries, attempt.model) == ("length", 0, NANO)
+    assert len(handler.bodies) == 1 and len(report.entries) == 1
 
 
 def test_escalation_then_success_after_the_repairs_run_out():
@@ -173,18 +177,6 @@ def test_escalation_then_success_after_the_repairs_run_out():
     assert escalated["model"] == config().model(SUPER).model_id
     assert [m["role"] for m in escalated["messages"]] == ["system", "user"]
     assert [e.model for e in report.entries] == [NANO] * (repairs + 1) + [SUPER]
-
-
-def test_length_twice_escalates_as_a_failure():
-    handler = replies(
-        text_reply("cut", completion=64, reason="length"),
-        text_reply("cut", completion=128, reason="length"),
-        text_reply(json.dumps(ok())),
-    )
-    result, _ = _run(handler)
-    assert result.label == "ok_after_escalation"
-    assert result.attempts[0].loop_status == "length"
-    assert result.attempts[1].retry_reason == "length"
 
 
 def test_operator_reported_failure_escalates_without_repair():

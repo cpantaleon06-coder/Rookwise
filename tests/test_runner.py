@@ -179,6 +179,29 @@ def test_no_float_reaches_the_ledger_on_a_full_operator_run():
     assert all(type(a.usd) is Decimal for a in record.attempts)
 
 
+class _ReserveSpyLedger(InMemoryLedger):
+    """Records the output tokens of every reservation."""
+
+    def __init__(self):
+        super().__init__()
+        self.max_output_tokens = []
+
+    def reserve(self, run_id, **kwargs):
+        self.max_output_tokens.append(kwargs["max_output_tokens"])
+        return super().reserve(run_id, **kwargs)
+
+
+def test_every_operator_call_is_sent_and_reserved_at_the_role_output_ceiling():
+    ceiling = SKILLS_CONFIG["roles"]["stub-operator"]["max_output_tokens"]
+    book = _ReserveSpyLedger()
+    book.open_run("r-1", Caps(run_usd=Decimal("1")))
+    handler = replies(*_model_replies())
+    record, _, _ = _operate(handler, book=book)
+    assert record.label == "first_pass_ok"
+    assert [b["max_tokens"] for b in handler.bodies] == [ceiling, ceiling]
+    assert book.max_output_tokens == [ceiling, ceiling]
+
+
 def test_per_operator_sampling_overrides_reach_the_request():
     handler = replies(text_reply(json.dumps(FINAL)))
     _operate(handler, spec=stub_spec(temperature=0.3, top_p=0.9))

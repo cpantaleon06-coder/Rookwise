@@ -24,18 +24,13 @@
     "dir": "runs/cassettes"
   },
   "loop": {
-    "_note": "Tool loop limits per loop run (core/harness/loop.py). max_repeats: how many times one identical tool call (same name and arguments) may be repeated; the next identical call stops the loop. tool_result_max_tokens is converted to characters with input_estimate.chars_per_token. json_protocol_response_format json_object was accepted by all four models in the tool-calling probe (2026-10-16, one sample each).",
+    "_note": "Tool loop limits per loop run (core/harness/loop.py). max_repeats: how many times one identical tool call (same name and arguments) may be repeated; the next identical call stops the loop. tool_result_max_tokens is converted to characters with input_estimate.chars_per_token. json_protocol_response_format json_object was accepted by all four models in the tool-calling probe (2026-10-16, one sample each). finish_reason length is never a success: the reply is discarded and the loop ends with status length, never retried. Team and operator calls are sent with their role's max_output_tokens (config/skills.json); a model's max_tokens below is the default for calls that set none.",
     "max_steps": 8,
     "tool_timeout_s": 30.0,
     "tool_result_max_tokens": 1500,
     "max_repeats": 1,
     "max_protocol_errors": 2,
     "json_protocol_response_format": "json_object"
-  },
-  "length_retry": {
-    "_note": "finish_reason length is never a success: the content is discarded and the call is retried this many times with max_tokens multiplied by factor, up to the model's max_tokens_cap. After that the attempt fails and escalation decides.",
-    "retries": 1,
-    "factor": 2.0
   },
   "escalation": {
     "_note": "After a final answer fails validation, up to max_repairs repair attempts on the same model (2, as in the failure table of docs/ARCHITECTURE.md) (the validation errors are fed back). Then the next model in `next`, as long as the ledger caps allow it. A model with no entry is the top of the ladder.",

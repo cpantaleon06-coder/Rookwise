@@ -110,5 +110,4 @@ def test_loop_protocols_and_ladder_follow_the_tool_probe():
     assert cfg.escalation.next[NANO] == "nemotron-3-super"
     assert cfg.escalation.next["nemotron-3-super"] == ULTRA
     assert ULTRA not in cfg.escalation.next
-    assert cfg.length_retry.retries == 1
     assert cfg.escalation.max_repairs == 2  # "Same operator retries, max 2" (ARCHITECTURE.md)

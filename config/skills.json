@@ -1,5 +1,5 @@
 {
-  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final. A role that leads a level of the team hierarchy names it in `level` (director, manager or auditor; core/team); every other role is an operator role.",
+  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final. A role that leads a level of the team hierarchy names it in `level` (director, manager or auditor; core/team); every other role is an operator role. max_output_tokens is the role's output ceiling: every call of the role is sent with that max_tokens and the ledger reserves it; a reply cut at the ceiling (finish_reason length) ends the call as a typed `length` outcome and is not retried.",
   "skills": {
     "prose-style": {
       "max_tokens": 800,
@@ -78,6 +78,7 @@
   "roles": {
     "copywriter": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "prose-style"
       ],
@@ -85,6 +86,7 @@
     },
     "researcher": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "prose-style"
       ],
@@ -92,6 +94,7 @@
     },
     "coder": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "minimal-code"
       ],
@@ -99,6 +102,7 @@
     },
     "code-reviewer": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "code-review"
       ],
@@ -106,6 +110,7 @@
     },
     "test-planner": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "testing-strategy"
       ],
@@ -113,6 +118,7 @@
     },
     "debugger": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "debug"
       ],
@@ -120,6 +126,7 @@
     },
     "deploy-reviewer": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "deploy-checklist"
       ],
@@ -127,6 +134,7 @@
     },
     "incident-triager": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "incident-triage"
       ],
@@ -134,6 +142,7 @@
     },
     "status-updater": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "status-update"
       ],
@@ -141,6 +150,7 @@
     },
     "postmortem-writer": {
       "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
       "skills": [
         "postmortem"
       ],
@@ -149,18 +159,21 @@
     "director": {
       "level": "director",
       "model": "nemotron-3-ultra",
+      "max_output_tokens": 2048,
       "skills": [],
       "max_skill_tokens": 0
     },
     "manager": {
       "level": "manager",
       "model": "nemotron-3-super",
+      "max_output_tokens": 2048,
       "skills": [],
       "max_skill_tokens": 0
     },
     "auditor": {
       "level": "auditor",
       "model": "nemotron-3-ultra",
+      "max_output_tokens": 2048,
       "skills": [
         "prose-style"
       ],

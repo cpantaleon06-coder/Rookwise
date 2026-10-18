@@ -21,7 +21,7 @@ Decisions made by the user, with their date and the reason recorded at the time.
 |---|---|
 | `on_missing_usage` stays `charge_full_reservation`. | config/harness.json |
 | `LedgerEntry` carries `usage_estimated` (default false). | core/schemas.py; docs/ARCHITECTURE.md "Messages and shared store" |
-| `finish_reason: "length"` is never a success: the content is discarded, one retry with a larger `max_tokens`, then a failure for escalation. | core/harness/loop.py; config/harness.json `length_retry` |
+| `finish_reason: "length"` is never a success: the content is discarded, one retry with a larger `max_tokens`, then a failure for escalation. Superseded on 2026-10-18: no retry, see "After the first live run". | core/harness/loop.py |
 | `temperature` and `top_p` stay at server defaults, overridable per call and per operator only. | config/harness.json; `OperatorSpec` |
 | Nano stays on `json_protocol`, to revisit after the benchmark. In the reliability run (docs/HARNESS_RESEARCH.md, "Tool-calling reliability") Nano with `native_tools` succeeded 15 of 15 and with `json_protocol` 14 of 15, while the earlier single-sample probe had shown problems. | config/harness.json |
 
@@ -56,6 +56,14 @@ Decisions made by the user, with their date and the reason recorded at the time.
 | Primary product: operational incident investigation (ITOps and DevOps) for small teams without a dedicated SRE, under a hard budget the user sets. Cheap models read the volume of logs and metrics, a strong model judges, deterministic code (not a model) verifies that every claim cites real evidence, an independent auditor checks the result, and a human approves before anything is done. Every run reports predicted versus real cost, and accuracy is measured against known root causes. The engine stays domain-neutral: roles, skills and evidence bundles are data. | docs/ARCHITECTURE.md, all sections |
 | Conventional legal-contract review is out of scope. | docs/ARCHITECTURE.md "Scope cuts" |
 | Two proof domains run on the same engine by swapping skills and evidence bundles: SOC alert triage and smart-contract security review. They are generality proofs shown in the README and the video, with no dedicated UI. They are not products. | docs/ARCHITECTURE.md "Proof domains" |
+
+## After the first live run (decided by the user, 2026-10-18)
+
+The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, charges above their reservation, a ledger prediction of 0 and multi-line quotes failing the evidence check. The user decided these changes.
+
+| Decision | Where |
+|---|---|
+| Every role has an explicit output ceiling, `max_output_tokens` in config/skills.json; each call of the role is sent with it and the ledger reserves it. A `length` finish is a typed outcome (`loop_status` `length`, `LengthStop` with the ceiling that cut it) that ends the attempt at once; it is never retried with the same ceiling. Values chosen for now: 4096 for operator roles (what one length retry used to reach), 2048 for the director, manager and auditor (the model default they ran with). | config/skills.json; core/harness/loop.py; core/harness/escalate.py |
 
 ## Still open
 

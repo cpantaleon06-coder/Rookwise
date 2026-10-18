@@ -43,7 +43,7 @@ From the tool-calling probe of 2026-10-16 (one sample per call, so weak evidence
 - `max_steps` model steps per run; `max_repeats` repeats of one identical call (same name and arguments) before the run stops; `tool_timeout_s` per tool.
 - Tool results longer than `tool_result_max_tokens` (converted with `input_estimate.chars_per_token`) are truncated before they go back, as `{"ok": ..., "truncated": true, "original_characters": n, "content": "..."}`.
 - Unknown tools, bad arguments, missing keys (`unavailable`), timeouts and exceptions go back to the model as structured errors; they never raise through the loop.
-- `finish_reason: "length"` is never a success: the reply is discarded and the step is retried once with `max_tokens` doubled, up to `max_tokens_cap`; then the run ends as `length` and escalation decides.
+- `finish_reason: "length"` is never a success: the reply is discarded and the run ends at once as `length`, with `LoopOutcome.length` naming the ceiling that cut it (the call's `max_tokens`, or what was left of the task's output token budget). It is not retried and does not escalate. Team and operator calls are sent with their role's `max_output_tokens` (config/skills.json), which is what the ledger reserves.
 - A `TokenBudget` (from task_v1) is checked against the ledger's entries for the task before each step; the task's USD cap is the ledger's own.
 - Cancellation (asyncio or a `CancelHandle`) stops the run and the client settles every reservation.
 

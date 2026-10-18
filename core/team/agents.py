@@ -69,7 +69,7 @@ class AgentCaller:
             run_id=self.log.run_id,
             level=level,
             task_id=task_id,
-            max_tokens=role.max_tokens,
+            max_tokens=role.max_output_tokens,
             skills=composed.skill_ids,
             budget_id=budget_id,
         )

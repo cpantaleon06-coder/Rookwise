@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import os
 import sys
@@ -109,7 +110,7 @@ async def one_run(harness: Harness, model: str, protocol: str, index: int) -> di
         "tool_args": calls,
         "steps": outcome.steps,
         "model_calls": outcome.model_calls,
-        "length_retries": outcome.length_retries,
+        "length": dataclasses.asdict(outcome.length) if outcome.length else None,
         "protocol_errors": protocol_errors,
         "failed_tool_results": bad_tool_results,
         "usd": str(outcome.usd),

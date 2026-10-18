@@ -122,7 +122,7 @@ Responsibilities:
 - Send chat completions to Token Factory and return text, tool calls and usage.
 - Run the tool loop: the model proposes `tool_calls`, the harness executes them (for example Tavily search), appends `tool` messages and calls the model again, up to a step cap. Each step is a model call with its own reservation.
 - Validate output against a schema (task_v1, result_v1 and each agent's output model) and repair within limits.
-- Treat `finish_reason: "length"` as a failure, even when some content came back. Retry within limits with a larger `max_tokens`, and charge every attempt to the ledger.
+- Treat `finish_reason: "length"` as a failure, even when some content came back, and charge the call to the ledger. Every role has an output ceiling (`max_output_tokens` in config/skills.json); each call is sent with it and the ledger reserves it, so a `length` finish ends the attempt as a typed outcome and is not retried with the same ceiling.
 - Choose the reasoning mode per call by role. Reasoning off is the starting default for operators, to be confirmed by the benchmark.
 - Set `max_tokens` to cover reasoning plus the answer: reasoning tokens count inside `completion_tokens` and share the same `max_tokens` limit.
 - Respect rate limits: honor `Retry-After` on HTTP 429 and back off. Reading `x-ratelimit-*` headers is not built yet.
@@ -246,7 +246,7 @@ What the token limit counts (input plus output, or something else) and whether t
 | Level budget exhausted | Administrator stops it, manager returns partial result |
 | Loop (repeated messages, no progress) | Automatic stop, escalate one level up |
 | HTTP 429 | Wait for `Retry-After`, then retry with growing backoff |
-| `finish_reason: "length"` | Treat as a failure: retry within limits with a larger `max_tokens`; charge every attempt |
+| `finish_reason: "length"` | Treat as a failure, charge the call, end the attempt with the typed outcome `length`; no retry with the same ceiling |
 | Auditor rejects | One correction cycle, then deliver with a visible warning (the correction cycle is not built) |
 | User cancels | Administrator freezes pending calls |
 
@@ -366,7 +366,7 @@ Source: Devpost rules page, read on 2026-10-13 (summarized extract; re-read the 
 
 Everything here runs offline in the tests (stubs and cassettes). No product run against the real models has happened yet.
 
-- Harness (`core/harness/`, Stages 1 and 2, 2026-10-15 and 16): streaming calls with usage, the reserve, charge and release cycle with the ledger, per-model request and token limits and a concurrency cap, bounded retries with `Retry-After`, cancellation, record and replay of model calls and tool results (`HARNESS_MODE`), native tool calls, the tool loop with `json_protocol` and `native_tools`, step, repeat, timeout, truncation and token limits, `finish_reason: "length"` discarded and retried, final-answer validation with up to two repairs, then the escalation ladder, one `AttemptRecord` per attempt and the outcome labels. `on_missing_usage` charges the full reservation and marks the usage estimated.
+- Harness (`core/harness/`, Stages 1 and 2, 2026-10-15 and 16): streaming calls with usage, the reserve, charge and release cycle with the ledger, per-model request and token limits and a concurrency cap, bounded retries with `Retry-After`, cancellation, record and replay of model calls and tool results (`HARNESS_MODE`), native tool calls, the tool loop with `json_protocol` and `native_tools`, step, repeat, timeout, truncation and token limits, `finish_reason: "length"` discarded and ended as a typed outcome at the role's output ceiling, final-answer validation with up to two repairs, then the escalation ladder, one `AttemptRecord` per attempt and the outcome labels. `on_missing_usage` charges the full reservation and marks the usage estimated.
 - Ledger and money (`core/ledger.py`, `core/money.py`): `Decimal` end to end, whole micro-USD with the rounding rules in "Cost of a call", caps per run, level and task, and allocations (`allocate`, `close`, `free`; a call reserved with a `budget_id` is drawn from that allocation). A float passed to the ledger raises TypeError.
 - Runner (`core/runner.py`): `run_operator`, one task_v1 for one catalog operator, inside an optional allocation.
 - Evidence check (`core/evidence.py`): the rule in "The evidence rule", with a reason code per citation and per claim, the verified rate and the unsupported claims.

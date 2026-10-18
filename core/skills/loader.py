@@ -7,9 +7,11 @@ other field is allowed.
 
 `config/skills.json` maps each role to its model and skill ids and sets a token
 ceiling per skill (`max_tokens`) and per role (`max_skill_tokens`, the sum of its
-skills). A skill's token count is the measured prompt-token cost on the role's model
-when `measured_prompt_tokens` has it and `measured_sha256` still matches the skill's
-text, otherwise an ESTIMATE of characters / 4.
+skills). Every role also sets `max_output_tokens`, its output ceiling: each call of the
+role is sent with that `max_tokens`, so the ledger reserves exactly that
+(`role_max_output_tokens`). A skill's token count is the measured prompt-token cost on
+the role's model when `measured_prompt_tokens` has it and `measured_sha256` still
+matches the skill's text, otherwise an ESTIMATE of characters / 4.
 Composition is deterministic and refuses to exceed a ceiling.
 """
 
@@ -125,7 +127,20 @@ def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
         for skill_id in spec.get("skills", []):
             if skill_id not in config["skills"]:
                 raise SkillError(f"{path.name}: role {role} uses unknown skill {skill_id}")
+        role_max_output_tokens(role, config)
     return config
+
+
+def role_max_output_tokens(role: str, config: dict[str, Any] | None = None) -> int:
+    """The role's output ceiling (`max_output_tokens`), required for every role."""
+    config = config if config is not None else load_config()
+    spec = config["roles"].get(role)
+    if spec is None:
+        raise SkillError(f"role {role} is not in config/skills.json")
+    value = spec.get("max_output_tokens")
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise SkillError(f"role {role}: max_output_tokens must be a positive integer")
+    return value
 
 
 def skill_sha256(skill: Skill) -> str:

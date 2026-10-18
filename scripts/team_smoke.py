@@ -258,7 +258,7 @@ def _label(attempts: list[Any]) -> str:
         return "failed"
     if any(a.reason == "escalation" for a in attempts):
         return "ok_after_escalation"
-    if len(attempts) == 1 and attempts[0].length_retries == 0:
+    if len(attempts) == 1:
         return "first_pass_ok"
     return "ok_after_retry"
 

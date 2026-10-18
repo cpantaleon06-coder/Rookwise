@@ -6,8 +6,10 @@
    adds the final-result instructions for the operator's output model;
 3. reads the instruction and the inputs from the store;
 4. sets the task's USD cap in the ledger (`budget.max_usd`) and passes its token
-   ceilings to the tool loop; with `budget_id`, every call is also drawn from that
-   ledger allocation (the operator's sub-budget);
+   ceilings to the tool loop; every call is sent with the role's output ceiling
+   (`max_output_tokens` in config/skills.json), which is what the ledger reserves for
+   the output; with `budget_id`, every call is also drawn from that ledger allocation
+   (the operator's sub-budget);
 5. runs the tool loop with repair and escalation (`rookwise.harness`), which writes
    every model call to the ledger;
 6. stores the output at `store://<run_id>/results/<task_id>` and returns result_v1,
@@ -33,7 +35,7 @@ from rookwise.harness.request import ChatRequest
 from rookwise.harness.validate import build_result, final_result_instructions
 from rookwise.money import ZERO_USD, Usd
 from rookwise.schemas import ResultV1, TaskV1
-from rookwise.skills import compose_system_prompt
+from rookwise.skills import compose_system_prompt, role_max_output_tokens
 from rookwise.skills.loader import SKILLS_DIR
 from rookwise.store import Store
 
@@ -45,7 +47,8 @@ DEFAULT_BASE_PROMPT = (
 
 class OperatorSpec(BaseModel):
     """A catalog entry (docs/ARCHITECTURE.md, "Operator catalog"), plus optional per-operator
-    sampling and length settings. None keeps the model's config (server defaults)."""
+    sampling settings. None keeps the model's config (server defaults). The output
+    ceiling is the role's (`max_output_tokens` in config/skills.json), not the operator's."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -62,7 +65,6 @@ class OperatorSpec(BaseModel):
     temperature: float | None = None
     top_p: float | None = None
     reasoning: bool | None = None
-    max_tokens: int | None = None
 
 
 class OperatorRun(BaseModel):
@@ -133,7 +135,7 @@ async def run_operator(
         run_id=task.run_id,
         level="operator",
         task_id=task.task_id,
-        max_tokens=spec.max_tokens,
+        max_tokens=role_max_output_tokens(spec.role, skills_config),
         reasoning=spec.reasoning,
         temperature=spec.temperature,
         top_p=spec.top_p,

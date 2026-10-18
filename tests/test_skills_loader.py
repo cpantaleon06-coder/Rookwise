@@ -10,6 +10,7 @@ from rookwise.skills import (
     compose_system_prompt,
     load_config,
     load_skill,
+    role_max_output_tokens,
     skill_sha256,
 )
 
@@ -151,5 +152,24 @@ def test_repo_config_is_consistent_with_prices():
         assert spec["model"] in prices["per_million_tokens"], role
         # A role without skills (the director and the manager today) has a ceiling of 0.
         assert spec["max_skill_tokens"] > 0 or not spec["skills"], role
+        # Every role has an explicit output ceiling the model accepts.
+        ceiling = role_max_output_tokens(role, config)
+        assert 0 < ceiling <= 8192, role
     for skill_id, spec in config["skills"].items():
         assert spec["max_tokens"] > 0, skill_id
+
+
+def test_every_role_needs_an_explicit_output_ceiling(tmp_path):
+    config = _config()
+    with pytest.raises(SkillError, match="max_output_tokens"):
+        role_max_output_tokens("coder", config)
+    config["roles"]["coder"]["max_output_tokens"] = 1024
+    assert role_max_output_tokens("coder", config) == 1024
+    for bad in (0, -1, 2.5, True, "1024"):
+        config["roles"]["coder"]["max_output_tokens"] = bad
+        with pytest.raises(SkillError, match="max_output_tokens"):
+            role_max_output_tokens("coder", config)
+    path = tmp_path / "skills.json"
+    path.write_text(json.dumps(_config()), encoding="utf-8")
+    with pytest.raises(SkillError, match="coder: max_output_tokens"):
+        load_config(path)

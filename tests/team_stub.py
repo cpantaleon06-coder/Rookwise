@@ -38,7 +38,7 @@ ROUTES = (
 )
 
 
-def skills_config(manager_max_tokens: int = 8192) -> dict[str, Any]:
+def skills_config(manager_max_tokens: int = 8192, operator_max_tokens: int = 256) -> dict[str, Any]:
     """Every team agent on Ultra, so a worst case is mostly max_tokens x USD 3 per 1M."""
     return {
         "skills": {"stub-notes": {"max_tokens": 100}},
@@ -48,26 +48,27 @@ def skills_config(manager_max_tokens: int = 8192) -> dict[str, Any]:
                 "model": ULTRA,
                 "skills": [],
                 "max_skill_tokens": 0,
-                "max_tokens": 256,
+                "max_output_tokens": 256,
             },
             "stub-manager": {
                 "level": "manager",
                 "model": ULTRA,
                 "skills": [],
                 "max_skill_tokens": 0,
-                "max_tokens": manager_max_tokens,
+                "max_output_tokens": manager_max_tokens,
             },
             "stub-auditor": {
                 "level": "auditor",
                 "model": ULTRA,
                 "skills": [],
                 "max_skill_tokens": 0,
-                "max_tokens": 256,
+                "max_output_tokens": 256,
             },
             "stub-operator": {
                 "model": LIGHTNING,
                 "skills": ["stub-notes"],
                 "max_skill_tokens": 100,
+                "max_output_tokens": operator_max_tokens,
             },
         },
     }
@@ -85,7 +86,6 @@ def operator(operator_id: str, price: str, **overrides: Any) -> OperatorSpec:
         "skills": ["stub-notes"],
         "input_schema": "task_v1",
         "output_schema": "result_v1",
-        "max_tokens": 256,
     }
     return OperatorSpec.model_validate(data | overrides)
 

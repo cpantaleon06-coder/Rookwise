@@ -6,9 +6,9 @@ alias and skill ids; the role that leads a level of the hierarchy also names the
     "director": {"level": "director", "model": "nemotron-3-ultra", "skills": [], ...}
 
 There must be exactly one role each for `director`, `manager` and `auditor`. Every other
-role is an operator role, staffed from the operator catalog (`OperatorSpec`). An optional
-`max_tokens` sets that role's `max_tokens` per call; without it the model's default
-from config/harness.json applies.
+role is an operator role, staffed from the operator catalog (`OperatorSpec`). Every role
+sets `max_output_tokens`, the `max_tokens` of each of its calls and so what the ledger
+reserves for the output (`rookwise.skills.role_max_output_tokens`).
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from rookwise.money import require_decimal
-from rookwise.skills import load_config
+from rookwise.skills import load_config, role_max_output_tokens
 
 TeamLevel = Literal["director", "manager", "auditor"]
 TEAM_LEVELS: tuple[TeamLevel, ...] = ("director", "manager", "auditor")
@@ -30,7 +30,7 @@ class RoleSpec:
     level: TeamLevel
     model: str
     skills: tuple[str, ...]
-    max_tokens: int | None = None
+    max_output_tokens: int
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,11 @@ def load_team_roles(config: dict[str, Any] | None = None) -> TeamRoles:
         if level in found:
             raise ValueError(f"two roles lead the {level} level: {found[level].role} and {role}")
         found[level] = RoleSpec(
-            role, level, spec["model"], tuple(spec.get("skills", [])), spec.get("max_tokens")
+            role,
+            level,
+            spec["model"],
+            tuple(spec.get("skills", [])),
+            role_max_output_tokens(role, config),
         )
     missing = [level for level in TEAM_LEVELS if level not in found]
     if missing:

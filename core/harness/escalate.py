@@ -4,15 +4,18 @@ An attempt is one tool-loop run on one model. After it:
 - a valid final result with `status: "ok"` ends the call;
 - a final result that fails validation gets up to `max_repairs` repair attempts on the
   same model, continuing the conversation with the validation errors;
-- anything else (repairs used up, the operator reports `failed`, `length` (D3),
-  protocol errors, step limit, repeated tool calls, API errors) escalates to the next
-  model in `escalation.next` (config/harness.json), starting fresh;
-- `budget_exhausted`, `token_ceiling` and `cancelled` stop at once. The ledger caps
-  still apply to every escalated call: when a reservation does not fit, the attempt
-  ends as `budget_exhausted` and nothing more is tried.
+- anything else (repairs used up, the operator reports `failed`, protocol errors, step
+  limit, repeated tool calls, API errors) escalates to the next model in
+  `escalation.next` (config/harness.json), starting fresh;
+- `length` (a reply cut at its output ceiling, D3), `budget_exhausted`, `token_ceiling`
+  and `cancelled` stop at once: the result's `stop_reason` names it, and for `length`,
+  `EscalationResult.length` says which ceiling cut the reply. Nothing is retried with
+  the same ceiling. The ledger caps still apply to every escalated call: when a
+  reservation does not fit, the attempt ends as `budget_exhausted` and nothing more is
+  tried.
 
 Every attempt yields an `AttemptRecord`, so the benchmark can report `first_pass_ok`
-separately from `ok_after_retry` (a repair or a length retry on the first model) and
+separately from `ok_after_retry` (a repair on the first model) and
 `ok_after_escalation`.
 """
 
@@ -27,14 +30,14 @@ from pydantic import BaseModel, ConfigDict
 
 from rookwise.harness.client import CancelHandle
 from rookwise.harness.config import EscalationConfig
-from rookwise.harness.loop import LoopOutcome, TokenBudget, ToolLoop
+from rookwise.harness.loop import LengthStop, LoopOutcome, TokenBudget, ToolLoop
 from rookwise.harness.request import ChatRequest
 from rookwise.harness.validate import Validation, repair_message, validate_final
 from rookwise.money import Usd
 
 OutcomeLabel = Literal["first_pass_ok", "ok_after_retry", "ok_after_escalation", "failed"]
 AttemptReason = Literal["first", "repair", "escalation"]
-_STOP_AT_ONCE = ("budget_exhausted", "token_ceiling", "cancelled")
+_STOP_AT_ONCE = ("length", "budget_exhausted", "token_ceiling", "cancelled")
 
 
 class AttemptRecord(BaseModel):
@@ -51,6 +54,8 @@ class AttemptRecord(BaseModel):
     loop_status: str
     ok: bool
     validation_errors: list[str]
+    # Always 0: a `length` finish is never retried, it ends the attempt with loop_status
+    # `length`. The field stays for API contract v1.
     length_retries: int
     steps: int
     model_calls: int
@@ -70,6 +75,7 @@ class EscalationResult:
     final_model: str
     stop_reason: str | None
     tool_calls: Counter[str] = field(default_factory=Counter)
+    length: LengthStop | None = None
 
     @property
     def ok(self) -> bool:
@@ -87,7 +93,7 @@ def _failure_reason(outcome: LoopOutcome, validation: Validation) -> str:
 def _label(attempts: list[AttemptRecord]) -> OutcomeLabel:
     if any(a.reason == "escalation" for a in attempts):
         return "ok_after_escalation"
-    if len(attempts) == 1 and attempts[0].length_retries == 0:
+    if len(attempts) == 1:
         return "first_pass_ok"
     return "ok_after_retry"
 
@@ -134,7 +140,7 @@ async def run_with_escalation(
                 loop_status=outcome.status,
                 ok=ok,
                 validation_errors=list(validation.errors),
-                length_retries=outcome.length_retries,
+                length_retries=0,
                 steps=outcome.steps,
                 model_calls=outcome.model_calls,
                 tool_calls=dict(outcome.tool_calls),
@@ -150,7 +156,7 @@ async def run_with_escalation(
         failure = _failure_reason(outcome, validation)
         if outcome.status in _STOP_AT_ONCE:
             return EscalationResult(
-                "failed", validation, attempts, model, outcome.status, tool_calls
+                "failed", validation, attempts, model, outcome.status, tool_calls, outcome.length
             )
         if failure == "validation_failed" and repairs_left > 0:
             repairs_left -= 1
