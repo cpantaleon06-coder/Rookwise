@@ -267,7 +267,7 @@ Metrics, per run and aggregated per configuration:
 |---|---|
 | `diagnosis_correct` | The diagnosis's root-cause category matches the ground truth AND at least one essential evidence line is cited by a citation that passes the evidence check. This scoring rule is a proposal. |
 | `citation_verified_rate` | Valid citations over all citations (`core/evidence.py`) |
-| `evidence_recall` | Essential evidence refs covered by at least one valid citation, over all essential refs |
+| `evidence_recall` | Essential evidence refs covered by at least one valid citation, over all essential refs. A valid citation covers a ref when its quote, inside its cited lines, falls on one of the ref's lines; a wide range whose quote comes from another line covers nothing |
 | Cost | Predicted versus real USD, and the prediction error (real minus predicted, over predicted) |
 | Wall time | Seconds from the first reservation to the last charge |
 | Outcome labels | Per task: `first_pass_ok`, `ok_after_retry`, `ok_after_escalation`, `failed` |
@@ -375,6 +375,7 @@ Everything here runs offline in the tests (stubs and cassettes). No product run 
 - Skills (`skills/`, `core/skills/`): nine adapted skills with attribution and measured token costs.
 - Tavily search tool (`core/tools/tavily.py`), verified with one live query (2026-10-16).
 - Incident corpus (`scripts/gen_incidents.py`, `benchmarks/incidents/`, 2026-10-17): the six incidents in "The incident corpus", with their ground truth and the manifest.
+- Corpus access and scorer (`core/incidents.py`, 2026-10-17): `load_bundle(incident_id)` returns an incident's sources as an `EvidenceBundle` (source ids are the file paths inside the incident, lines are 1-based, every file is checked against the manifest's sha256, the ground truth is left out); `load_ground_truth`; and `score(claims, truth, category=...)`, the deterministic scorer of `diagnosis_correct`, `citation_verified_rate` and `evidence_recall` from "Benchmark design", with no model.
 - Stage-0 log filter experiment (`benchmarks/log_filter/`, 2026-10-17): a keyword filter and Laya on a separate synthetic corpus; report in `benchmarks/log_filter/REPORT.md`. Whether to use Laya is still open.
 
 Not built yet: the incident roles and skills, slicing the evidence across operators (each operator gets every source today), the director's diagnosis with a category and a remediation plan, the approval of the remediation plan, the single-model baselines (b) and (c), the benchmark runner, the auditor's correction cycle, parallel managers and operators, per-call `tool_called` events, cancellation of a team run, reading `x-ratelimit-*` headers, the server and `web/`.
