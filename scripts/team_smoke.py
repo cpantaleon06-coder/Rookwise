@@ -17,7 +17,9 @@ Each mode writes runs/team_smoke/<mode>/: events.json (the contract events), cal
 (one record per model call: level, model, seconds, usage, finish reason, retries, the
 reserved and the predicted USD, the raw usage object the API sent) and report.json (the
 run summary: real and predicted cost per role and per model, outcomes per role, the
-number of `length` finishes). Nothing from .env is printed or written.
+number of `length` finishes, every audited citation with its quote and evidence reason,
+and the full reply text of every attempt that ended in a validation or protocol error).
+Nothing from .env is printed or written, and no request headers are kept.
 
 Usage:
     python scripts/team_smoke.py estimate
@@ -48,7 +50,7 @@ sys.path.insert(0, str(REPO_ROOT))  # noqa: E402 (lets `rookwise` resolve from a
 
 import rookwise.harness.sse as sse_module  # noqa: E402
 from rookwise.evidence import EvidenceBundle  # noqa: E402
-from rookwise.harness import Cassette, Harness, load_config  # noqa: E402
+from rookwise.harness import Cassette, Harness, StreamInterrupted, load_config  # noqa: E402
 from rookwise.ledger import Caps, InMemoryLedger  # noqa: E402
 from rookwise.money import ZERO_USD, format_usd  # noqa: E402
 from rookwise.runner import OperatorSpec  # noqa: E402
@@ -211,6 +213,9 @@ async def run(
             result = await complete(request, cancel)
         except Exception as error:  # a refused reservation (CapReached) or an API error
             record |= {"seconds": round(time.perf_counter() - start, 3), "raised": str(error)}
+            # The tool loop counts an interrupted stream as a model call; nothing else that
+            # raised was one.
+            record["counted"] = isinstance(error, StreamInterrupted)
             calls.append(record)
             raise
         held = reservations[first:]
@@ -236,6 +241,8 @@ async def run(
             "reasoning_in_content": bool(result.reasoning.strip())
             and result.reasoning.strip() in result.text,
             "raw_usage": raw_usages[-1] if raw_usages else None,
+            "counted": True,
+            REPLY_TEXT: result.text,
         }
         calls.append(record)
         return result
@@ -258,10 +265,88 @@ async def run(
         sse_module.parse_usage = parse_usage
     total_s = time.perf_counter() - started
     report = build_report(mode, scenario, team, ledger.report(run_id), calls, total_s, catalog)
+    for call in calls:  # reply texts go to report.json only, for the failed attempts
+        call.pop(REPLY_TEXT, None)
     return report, [e.model_dump(mode="json") for e in team.events], calls
 
 
 # -- the report ---------------------------------------------------------------------------
+
+REPLY_TEXT = "_reply_text"  # a call's full reply text, kept until the report is built
+
+
+def citation_details(team: Any, events: list[Any]) -> list[dict[str, Any]]:
+    """Every audited citation as the model wrote it, with the evidence check's reason.
+    Only completed tasks' claims reach the audit, so only they are listed."""
+    model_of = {
+        e.payload.agent.agent_id: e.payload.agent.model for e in events if e.type == "agent_hired"
+    }
+    checked = {}
+    if team.evidence is not None:
+        for claim in team.evidence.claims:
+            for result in claim.citations:
+                checked[(claim.claim_id, result.index)] = result
+    details = []
+    for block in team.blocks:
+        for task in block.tasks:
+            if task.findings is None:
+                continue
+            model = model_of.get(f"a-op-{task.assignments[-1]}") if task.assignments else None
+            for claim in task.findings.claims:
+                claim_id = f"{task.task_id}:{claim.claim_id}"
+                for index, citation in enumerate(claim.citations):
+                    result = checked.get((claim_id, index))
+                    reason = result.reason if result is not None else None
+                    details.append(
+                        {
+                            "claim_id": claim_id,
+                            "task_id": task.task_id,
+                            "operator_id": task.operator_ids[-1],
+                            "model": model,
+                            "index": index,
+                            "source_id": citation.source_id,
+                            "line_start": citation.line_start,
+                            "line_end": citation.line_end,
+                            "quote": citation.quote,
+                            "reason": reason,
+                            "status": "not_checked"
+                            if reason is None
+                            else ("verified" if reason == "ok" else "failed"),
+                        }
+                    )
+    return details
+
+
+def error_replies(
+    attempts: list[tuple[str, Any]], calls: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The full reply texts of every attempt that ended in a validation error or a
+    protocol error. `attempts` are (agent_id, AttemptRecord) in event order; each takes
+    its `model_calls` from the calls of its task, in the order they were made."""
+    queues: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for call in calls:
+        if call.get("counted"):
+            queues[call["task_id"]].append(call)
+    found = []
+    for agent_id, attempt in attempts:
+        queue = queues[attempt.task_id]
+        own, queues[attempt.task_id] = queue[: attempt.model_calls], queue[attempt.model_calls :]
+        validation = attempt.loop_status == "final" and bool(attempt.validation_errors)
+        if not validation and attempt.loop_status != "protocol_error":
+            continue
+        found.append(
+            {
+                "agent_id": agent_id,
+                "task_id": attempt.task_id,
+                "attempt_index": attempt.attempt_index,
+                "model": attempt.model,
+                "kind": "validation_error" if validation else "protocol_error",
+                "validation_errors": attempt.validation_errors,
+                "detail": attempt.detail,
+                "replies": [{"model": call["model"], "text": call.get(REPLY_TEXT)} for call in own],
+            }
+        )
+    return found
 
 
 def _label(attempts: list[Any]) -> str:
@@ -438,6 +523,15 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         "citation_verified_rate": team.evidence.citation_verified_rate if team.evidence else None,
         "unsupported_claims": team.evidence.unsupported_claims if team.evidence else None,
         "claims": claims,
+        "citations": citation_details(team, events),
+        "error_replies": error_replies(
+            [
+                (e.payload.agent_id, e.payload.attempt)
+                for e in events
+                if e.type == "attempt_recorded"
+            ],
+            calls,
+        ),
         "root_cause_claims": hits,
         "root_cause_found": any(h["supported"] for h in hits),
         "calls": len(calls),
