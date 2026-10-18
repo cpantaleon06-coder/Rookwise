@@ -26,7 +26,9 @@ from rookwise.team.models import AuditJudgment
 AUDITOR_PROMPT = (
     "You are the independent auditor of a team of AI agents. Judge whether the deliverable "
     "meets the goal and whether its claims are supported by the sources you are given. "
-    "Keep to the required final result format."
+    "Each citation names a source_id, a line_start and a line_end, and quotes those lines "
+    "on a single line; the deterministic check has already verified every quote, so judge "
+    "whether the quoted lines support the claim. Keep to the required final result format."
 )
 DETERMINISTIC_CRITERION = "Every claim quotes the lines it cites (deterministic check)"
 

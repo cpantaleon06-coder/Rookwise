@@ -76,6 +76,8 @@ Every claim cites its evidence: a source id, the first and last line (1-based) a
 - the line range is inside the source (`line_out_of_range`);
 - the quote appears in the cited lines after whitespace normalization only, with no case folding and no fuzzy matching (`quote_not_found`).
 
+Agents write citations with exactly four fields (`source_id`, `line_start`, `line_end`, `quote`), and the quote must be a single line. A quote with a line break fails the agent's output schema (`SourceCitation` in `core/team/models.py`), so the harness asks for a repair, which counts toward the repair limit, instead of the quote failing later in the evidence check. The check itself is unchanged. In the first live run, 9 of 22 citations failed because their quotes ran over several lines (a format problem, not fabrication).
+
 A claim is supported only when it has at least one citation and every citation is valid; a claim with none is `no_citations`. Unsupported claims are reported as unsupported in the result, the audit and the UI. They are never dropped or hidden. The auditor runs this check before any model judgment and rejects a deliverable with an unsupported claim without spending on a model call.
 
 ## Budget and cost reporting

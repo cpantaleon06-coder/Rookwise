@@ -76,7 +76,7 @@ from rookwise.api.models import (
     TaskAssignedPayload,
     TaskResultPayload,
 )
-from rookwise.evidence import Claim, EvidenceBundle, EvidenceReport
+from rookwise.evidence import EvidenceBundle, EvidenceReport
 from rookwise.harness import Harness, Tool
 from rookwise.ledger import Allocation, CapReached, RunReport
 from rookwise.money import ZERO_USD, format_usd, to_micro_usd
@@ -100,8 +100,11 @@ MANAGER_PROMPT = (
     "short summary of your block. Keep to the required final result format."
 )
 OPERATOR_PROMPT = (
-    f"{DEFAULT_BASE_PROMPT} Back every claim with citations: the source id, the first and "
-    "last line numbers, and a quote copied exactly from those lines."
+    f"{DEFAULT_BASE_PROMPT} Back every claim with citations. A citation has exactly four "
+    "fields: source_id, line_start, line_end and quote. The quote is text copied exactly "
+    "from the cited lines and written on a single line: never put a line break in a quote "
+    'and never copy the line-number prefix (the "12: " before each line). To cite several '
+    "lines, give one citation per line, with line_start equal to line_end."
 )
 # Why an operator stopped. A task ceiling is this one task hitting its own cap (its
 # output ceiling or its token budget); a ledger stop is the ledger refusing a reservation.
@@ -308,7 +311,7 @@ class _Team:
             blocks.append(await self._manage(f"b-{index}", block, budget, ids, manager, director))
 
         claims = [
-            Claim(claim_id=f"{t.task_id}:{c.claim_id}", text=c.text, citations=c.citations)
+            c.claim(f"{t.task_id}:{c.claim_id}")
             for b in blocks
             for t in b.tasks
             if t.findings is not None
