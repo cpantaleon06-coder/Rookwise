@@ -88,7 +88,14 @@ from rookwise.team.agents import AgentCaller
 from rookwise.team.auditor import audit, render_source
 from rookwise.team.config import BudgetPolicy, RoleSpec, load_team_roles
 from rookwise.team.events import EventLog
-from rookwise.team.models import BlockSummary, Findings, Plan, PlanBlock, PlanTask
+from rookwise.team.models import (
+    BlockSummary,
+    Findings,
+    Plan,
+    PlanBlock,
+    PlanTask,
+    findings_model,
+)
 
 DIRECTOR_PROMPT = (
     "You are the director of a team of AI agents. Split the goal into blocks of work, one "
@@ -101,10 +108,11 @@ MANAGER_PROMPT = (
 )
 OPERATOR_PROMPT = (
     f"{DEFAULT_BASE_PROMPT} Back every claim with citations. A citation has exactly four "
-    "fields: source_id, line_start, line_end and quote. The quote is text copied exactly "
-    "from the cited lines and written on a single line: never put a line break in a quote "
-    'and never copy the line-number prefix (the "12: " before each line). To cite several '
-    "lines, give one citation per line, with line_start equal to line_end."
+    "fields: source_id, line_start, line_end and quote. The quote is copied verbatim from "
+    "one single line between line_start and line_end, including its timestamp, and never "
+    'includes the line-number prefix (the "12: " before each line). To support a claim '
+    "with several lines, give several citations, one per line, with line_start equal to "
+    'line_end. Never join lines in one quote, with a line break, " | " or anything else.'
 )
 # Why an operator stopped. A task ceiling is this one task hitting its own cap (its
 # output ceiling or its token budget); a ledger stop is the ledger refusing a reservation.
@@ -231,6 +239,8 @@ class _Team:
         self.simulated_case = simulated_case
         self.roles = load_team_roles(skills_config)
         self.caller = AgentCaller(harness, log, skills_config=skills_config, skills_dir=skills_dir)
+        # The operators' output model checks every quote against this run's sources.
+        self.findings_model = findings_model(evidence)
         self.notes: list[str] = []
         self.plan: Plan | None = None
 
@@ -490,7 +500,7 @@ class _Team:
                 spec,
                 harness=self.harness,
                 store=self.store,
-                output_model=Findings,
+                output_model=self.findings_model,
                 tools=self.tools,
                 base_prompt=OPERATOR_PROMPT,
                 skills_config=self.skills_config,

@@ -109,6 +109,7 @@ GOOD_CLAIM = {
         }
     ],
 }
+UNCITED_CLAIM = {"claim_id": "c2", "text": "[stub] The widget is heavy.", "citations": []}
 FABRICATED_CLAIM = {
     "claim_id": "c2",
     "text": "[stub] The widget weighs 15 units.",
@@ -195,6 +196,7 @@ def run_stub_team(
     config=None,
     harness_config=None,
     cassette=None,
+    bundle=None,
 ):
     book = InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
@@ -217,7 +219,7 @@ def run_stub_team(
                 harness=harness,
                 store=InMemoryStore(),
                 catalog=catalog or CATALOG,
-                evidence=BUNDLE,
+                evidence=bundle or BUNDLE,
                 skills_config=config or skills_config(),
                 skills_dir=SKILLS_DIR,
                 policy=policy,

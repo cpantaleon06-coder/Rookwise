@@ -18,6 +18,7 @@ from team_stub import (
     LIGHTNING,
     RUN_ID,
     ULTRA,
+    UNCITED_CLAIM,
     TeamHandler,
     assert_budget_tree,
     assert_contract_order,
@@ -462,18 +463,37 @@ def test_a_token_ceiling_is_a_task_ceiling_too():
     assert_contract_order(team, book)
 
 
-def test_the_auditor_rejects_an_unsupported_claim_without_a_model_call():
+def test_a_fabricated_quote_fails_the_operators_validation_and_is_repaired():
     handler = TeamHandler(
         director=[plan_reply(block(1))],
-        operator=[findings_reply(GOOD_CLAIM, FABRICATED_CLAIM)],
+        operator=[findings_reply(GOOD_CLAIM, FABRICATED_CLAIM), findings_reply(GOOD_CLAIM)],
+        manager=[summary_reply()],
+        auditor=[judgment_reply()],
+    )
+    team, _ = run_stub_team(handler, run_usd="0.5")
+    first = next(
+        p.attempt for p in _payloads(team, "attempt_recorded") if p.attempt.task_id == "t-1"
+    )
+    assert first.reason == "first" and not first.ok
+    assert any("is not part of one line" in e for e in first.validation_errors)
+    # Only the repaired reply reached the audit.
+    assert team.evidence.citations_total == 1 and team.evidence.all_supported
+    assert team.audit.verdict == "accepted"
+
+
+def test_the_auditor_rejects_an_unsupported_claim_without_a_model_call():
+    # A claim with no citation passes the operator's schema; the evidence check rejects it.
+    handler = TeamHandler(
+        director=[plan_reply(block(1))],
+        operator=[findings_reply(GOOD_CLAIM, UNCITED_CLAIM)],
         manager=[summary_reply()],
     )
     team, book = run_stub_team(handler, run_usd="0.5")
     assert team.audit.verdict == "rejected"
     assert team.evidence.unsupported_claims == ["t-1:c2"]
-    assert team.evidence.citation_verified_rate == 0.5
+    assert team.evidence.citation_verified_rate == 1.0
     (check,) = team.audit.checks
-    assert not check.passed and "t-1:c2 (quote_not_found)" in check.note
+    assert not check.passed and "t-1:c2 (no_citations)" in check.note
     assert handler.calls["auditor"] == 0  # the deterministic check comes first
     assert [p.audit.verdict for p in _payloads(team, "audit_result")] == ["rejected"]
     assert not any(e.level == "auditor" for e in book.report(RUN_ID).entries)
