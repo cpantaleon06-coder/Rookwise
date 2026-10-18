@@ -1,0 +1,60 @@
+# SYNTHETIC log written for a Rookwise smoke test. Fictional service "parcelpost-api"; no real system, company or person.
+2026-03-04T01:58:02Z INFO  parcelpost-api[pid 4121] service started version=3.8.1 config_version=41
+2026-03-04T01:58:02Z INFO  db.pool initialized host=pg-primary.internal max_connections=50 min_idle=5
+2026-03-04T01:58:03Z INFO  http listening on :8080 workers=16
+2026-03-04T02:00:00Z INFO  healthcheck ok latency_ms=4
+2026-03-04T02:01:12Z INFO  GET /v1/parcels/PP-10442 200 latency_ms=38
+2026-03-04T02:02:40Z WARN  cache.redis miss_rate=0.21 above soft threshold 0.20
+2026-03-04T02:03:15Z INFO  GET /v1/parcels/PP-10458 200 latency_ms=41
+2026-03-04T02:05:00Z INFO  healthcheck ok latency_ms=5
+2026-03-04T02:06:31Z INFO  POST /v1/parcels 201 latency_ms=77
+2026-03-04T02:08:09Z INFO  jvm.gc pause_ms=120 heap_used_pct=61
+2026-03-04T02:10:00Z INFO  healthcheck ok latency_ms=4
+2026-03-04T02:12:44Z INFO  deploy.agent received config bundle config_version=42 author=ci-bot change_ticket=CHG-0917
+2026-03-04T02:12:45Z INFO  config.diff db.pool.max_connections: 50 -> 5
+2026-03-04T02:12:45Z INFO  config.diff http.request_timeout_ms: 3000 -> 3000 (unchanged)
+2026-03-04T02:12:46Z INFO  config reloaded config_version=42 restart=false
+2026-03-04T02:12:46Z INFO  db.pool resized max_connections=5 active=11 idle=2
+2026-03-04T02:13:02Z INFO  GET /v1/parcels/PP-10471 200 latency_ms=52
+2026-03-04T02:13:40Z WARN  db.pool wait for connection waited_ms=850 active=5 max=5 queued=7
+2026-03-04T02:13:58Z WARN  db.pool wait for connection waited_ms=1900 active=5 max=5 queued=19
+2026-03-04T02:14:10Z ERROR db.pool timeout acquiring connection after 2000 ms active=5 max=5 queued=31
+2026-03-04T02:14:10Z ERROR GET /v1/parcels/PP-10480 503 latency_ms=2004 error=PoolTimeout
+2026-03-04T02:14:11Z ERROR POST /v1/parcels 503 latency_ms=2001 error=PoolTimeout
+2026-03-04T02:14:15Z INFO  healthcheck degraded latency_ms=1890
+2026-03-04T02:14:20Z WARN  cache.redis miss_rate=0.22 above soft threshold 0.20
+2026-03-04T02:14:31Z ERROR GET /v1/parcels/PP-10482 503 latency_ms=2003 error=PoolTimeout
+2026-03-04T02:14:33Z INFO  pg-primary.internal connections=9 of 200 cpu_pct=12 (from db metrics exporter)
+2026-03-04T02:14:40Z ERROR GET /v1/parcels/PP-10490 503 latency_ms=2002 error=PoolTimeout
+2026-03-04T02:14:52Z WARN  http queue depth=44 workers_busy=16 of 16
+2026-03-04T02:15:00Z ERROR healthcheck failed latency_ms=2005 error=PoolTimeout
+2026-03-04T02:15:03Z INFO  jvm.gc pause_ms=135 heap_used_pct=63
+2026-03-04T02:15:10Z ERROR POST /v1/parcels 503 latency_ms=2000 error=PoolTimeout
+2026-03-04T02:15:21Z WARN  disk /var/log used_pct=78
+2026-03-04T02:15:30Z ERROR GET /v1/parcels/PP-10495 503 latency_ms=2001 error=PoolTimeout
+2026-03-04T02:15:44Z INFO  alerting fired alert=ParcelpostHigh5xx rate_5xx=0.62 window=1m
+2026-03-04T02:16:02Z ERROR GET /v1/parcels/PP-10501 503 latency_ms=2003 error=PoolTimeout
+2026-03-04T02:16:10Z WARN  db.pool wait for connection waited_ms=1990 active=5 max=5 queued=52
+2026-03-04T02:16:30Z INFO  pg-primary.internal connections=8 of 200 cpu_pct=11 (from db metrics exporter)
+2026-03-04T02:16:45Z ERROR POST /v1/parcels 503 latency_ms=2002 error=PoolTimeout
+2026-03-04T02:17:00Z ERROR healthcheck failed latency_ms=2004 error=PoolTimeout
+2026-03-04T02:17:12Z INFO  oncall ack alert=ParcelpostHigh5xx responder=oncall-a
+2026-03-04T02:18:05Z INFO  cache.redis flush requested by oncall-a
+2026-03-04T02:18:06Z INFO  cache.redis flushed keys=18233
+2026-03-04T02:18:40Z ERROR GET /v1/parcels/PP-10512 503 latency_ms=2001 error=PoolTimeout
+2026-03-04T02:19:00Z ERROR healthcheck failed latency_ms=2003 error=PoolTimeout
+2026-03-04T02:19:30Z WARN  cache.redis miss_rate=0.48 above soft threshold 0.20
+2026-03-04T02:20:02Z ERROR POST /v1/parcels 503 latency_ms=2002 error=PoolTimeout
+2026-03-04T02:21:15Z INFO  deploy.agent rollback requested to config_version=41 by oncall-a
+2026-03-04T02:21:16Z INFO  config.diff db.pool.max_connections: 5 -> 50
+2026-03-04T02:21:16Z INFO  config reloaded config_version=41 restart=false
+2026-03-04T02:21:17Z INFO  db.pool resized max_connections=50 active=5 idle=0
+2026-03-04T02:21:30Z INFO  GET /v1/parcels/PP-10530 200 latency_ms=61
+2026-03-04T02:21:45Z INFO  POST /v1/parcels 201 latency_ms=88
+2026-03-04T02:22:00Z INFO  healthcheck ok latency_ms=9
+2026-03-04T02:22:30Z INFO  http queue depth=0 workers_busy=3 of 16
+2026-03-04T02:23:10Z INFO  alerting resolved alert=ParcelpostHigh5xx rate_5xx=0.00 window=1m
+2026-03-04T02:24:00Z WARN  cache.redis miss_rate=0.31 above soft threshold 0.20
+2026-03-04T02:25:00Z INFO  healthcheck ok latency_ms=5
+2026-03-04T02:27:00Z WARN  cache.redis miss_rate=0.19 below soft threshold 0.20, warning cleared
+2026-03-04T02:30:00Z INFO  healthcheck ok latency_ms=4

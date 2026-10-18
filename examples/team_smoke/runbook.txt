@@ -1,0 +1,20 @@
+# SYNTHETIC runbook written for a Rookwise smoke test. Fictional service "parcelpost-api".
+Runbook: parcelpost-api returns HTTP 503
+1. Confirm the alert ParcelpostHigh5xx and the error type in the service log.
+2. If the errors are PoolTimeout, the service is waiting for a database connection.
+3. Compare db.pool active with max: active equal to max with a growing queue means the pool is saturated.
+4. Check the database side (pg-primary.internal connections and cpu_pct) before blaming the database.
+5. A healthy database with a saturated pool points to the pool size, not the database.
+6. Look for a config.diff or deploy.agent line shortly before the first PoolTimeout.
+7. db.pool.max_connections must stay at 50 or more in production (capacity plan CP-12).
+8. To mitigate, roll back to the last good config_version with deploy.agent rollback.
+9. Do not flush the Redis cache to fix 503s: it raises the miss rate and the database load.
+10. Cache miss rate warnings above 0.20 are informational unless above 0.50.
+11. GC pauses under 500 ms are normal for this service.
+12. Disk warnings under 90 percent are not urgent.
+13. After mitigation, confirm healthcheck ok and the alert resolved.
+14. Record the change ticket of the bad config in the incident report.
+15. Open a follow-up to add a validation rule for db.pool.max_connections in CI.
+Escalation: page the platform team if a rollback does not clear the errors within 10 minutes.
+Owner: platform team (fictional). Last reviewed: 2026-02-10 (fictional).
+End of runbook.

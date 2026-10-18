@@ -1,0 +1,66 @@
+{
+  "_note": "SYNTHETIC smoke scenario for one live run of core/team (scripts/team_smoke.py). The service, log, runbook and incident are made up. Roles, models and skills come from config/skills.json and prices from config/prices.json; the operator catalog below is data for this scenario only (no catalog exists in config/ yet). The planted root cause is what the run should find; it is checked deterministically against the claims the operators cite.",
+  "run_id": "run_smoke01",
+  "run_usd": "0.250000",
+  "goal": "Explain what went wrong with the parcelpost-api service between 02:12 and 02:22 UTC, citing the evidence by source and line.",
+  "sources": {
+    "app-log": "app_log.txt",
+    "runbook": "runbook.txt"
+  },
+  "catalog": [
+    {
+      "operator_id": "triage-lightning-01",
+      "role": "incident-triager",
+      "model": "nemotron-3.5-lightning",
+      "price_per_task_est_usd": "0.002000",
+      "avg_latency_s": 8,
+      "reputation": 0.6,
+      "tools": [],
+      "skills": ["incident-triage"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "triage-super-01",
+      "role": "incident-triager",
+      "model": "nemotron-3-super",
+      "price_per_task_est_usd": "0.006000",
+      "avg_latency_s": 12,
+      "reputation": 0.6,
+      "tools": [],
+      "skills": ["incident-triage"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "debug-lightning-01",
+      "role": "debugger",
+      "model": "nemotron-3.5-lightning",
+      "price_per_task_est_usd": "0.002000",
+      "avg_latency_s": 8,
+      "reputation": 0.6,
+      "tools": [],
+      "skills": ["debug"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "debug-super-01",
+      "role": "debugger",
+      "model": "nemotron-3-super",
+      "price_per_task_est_usd": "0.006000",
+      "avg_latency_s": 12,
+      "reputation": 0.6,
+      "tools": [],
+      "skills": ["debug"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    }
+  ],
+  "root_cause": {
+    "summary": "Config bundle config_version=42 (change CHG-0917) cut db.pool.max_connections from 50 to 5. The pool saturated (active=5, max=5, growing queue) and requests failed with PoolTimeout and HTTP 503, while the database itself stayed healthy. Rolling back to config_version=41 restored the pool and cleared the errors. The Redis flush, cache miss warnings, GC pauses and the disk warning are red herrings.",
+    "source_id": "app-log",
+    "lines": [13, 14, 16, 17],
+    "line_texts": ["config_version=42", "db.pool.max_connections: 50 -> 5", "config reloaded config_version=42", "db.pool resized max_connections=5"]
+  }
+}
