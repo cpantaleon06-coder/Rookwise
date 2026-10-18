@@ -1,0 +1,12 @@
+{
+  "name": "rookwise-laya-filter",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Experiment: @receptron/laya as a local stage-0 log filter (benchmarks/log_filter)",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "@receptron/laya": "0.2.0"
+  }
+}

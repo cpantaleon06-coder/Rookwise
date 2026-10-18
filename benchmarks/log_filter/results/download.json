@@ -1,0 +1,15 @@
+{
+  "note": "First-run download of the Laya ONNX bundle by tools/laya-filter/download.mjs on 2026-10-17 (machine in REPORT.md).",
+  "repo": "receptron/laya-onnx",
+  "revision": "d42786bdff8a7550316339c5fbf8f46caa83ea1b",
+  "bytes": 1692649422,
+  "files": {
+    "laya.onnx": 3807291,
+    "laya.onnx.data": 1685258240,
+    "laya_config.json": 355,
+    "tokenizer/tokenizer.json": 3583228,
+    "tokenizer/tokenizer_config.json": 308
+  },
+  "seconds": 713.3,
+  "npm_node_modules_bytes_note": "tools/laya-filter/node_modules was 290 MB after npm install (du -sh), mostly onnxruntime-node binaries"
+}

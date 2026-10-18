@@ -47,6 +47,22 @@ Rookwise is MIT licensed (see `LICENSE`). This repository also contains material
   - `skills/postmortem/SKILL.md`, from `skills/postmortem/SKILL.md`
 - Modifications: kept only the tool-independent guidance; removed every incident.io tool, account, MCP server, desktop app and channel reference and every step that asks the user; added the rule that demo incidents are simulated and labeled as simulated.
 
+## Laya (experiment dependency, not shipped)
+
+Used only by the stage-0 log filter experiment (`tools/laya-filter/`, results in
+`benchmarks/log_filter/`). Installed from npm as a normal dependency; no code or weights from it
+are copied into this repository, and `core/` does not use it.
+
+- `@receptron/laya` 0.2.0, https://github.com/receptron/laya. License: MIT, "Copyright (c) 2026
+  Receptron" (from the LICENSE in the npm package).
+- Model weights: the ONNX export `receptron/laya-onnx` (commit
+  `d42786bdff8a7550316339c5fbf8f46caa83ea1b`) of `convaiinnovations/laya` by Convai Innovations,
+  downloaded at run time into the gitignored `tools/laya-filter/.laya-cache/`. License:
+  Apache-2.0, per both model cards ("Weights are Convai Innovations' and remain under Apache
+  2.0").
+- Its runtime dependencies, also installed from npm: `onnxruntime-node` 1.30.0 (MIT) and
+  `@huggingface/tokenizers` 0.2.0 (Apache-2.0).
+
 ## Not used
 
 harness-engineering (https://github.com/vinicius91carvalho/harness-engineering) has no license. No text from it appears in this repository.

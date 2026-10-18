@@ -279,5 +279,8 @@ Thumbs.db
 
 design-refs/
 
+# Laya model cache for the tools/laya-filter experiment (about 1.7 GB of ONNX weights; never commit)
+tools/laya-filter/.laya-cache/
+
 # Generated SYNTHETIC logs for benchmarks/log_filter (several MB; rebuild with gen_corpus.py, hashes in manifest.json)
 benchmarks/log_filter/corpus/*/*.synthetic.*
