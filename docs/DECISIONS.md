@@ -49,6 +49,14 @@ Decisions made by the user, with their date and the reason recorded at the time.
 | Added to the v1 contract: `budget_allocation` (`action`: allocated or released, `agent_id`, `parent_agent_id`, `usd`, `parent_free_usd`), `budget_exhausted` (`agent_id`, `level` and the `CapStop` fields) and `escalation` (`from_agent_id`, `to_agent_id`, `task_id`, `reason`); and `"budget"` in `CapStop.scope`, the scope of a stopped allocation. The team emits them: `budget_allocation` on every ledger `allocate` and `close`, `budget_exhausted` wherever a level stops on its budget, and `escalation` on a reassignment and on an escalation to the director. | Before, a manager that ran out of budget showed only as a director `message` and `run_finished` with `partial: true`, and the UI had no way to show sub-budgets or reassignments. | `core/api/models.py`, `docs/api/schemas/`, docs/api.md "Event catalog", `core/team/flow.py`, `examples/api/` |
 | Implementation choices, pending the user's review: `parent_agent_id` is the director for allocations drawn from the run (the director holds the run budget; this includes the auditor's); on a reassignment `to_agent_id` is the next operator, hired just before the event, so the UI links the failed task to the new one without parsing ids; `escalation.task_id` is null when a manager escalates a whole block with no completed task, and the manager's own call (`b-1-summary`) when it could not consolidate; `budget_exhausted` is sent only for a ledger stop (`CapReached`), not for a token ceiling or a manager with nothing left for an operator; the auditor and every manager are now hired right after the plan, before their allocations (the hire order changed); the synthetic fixture run gained a third task that is reassigned and then stops on its budget, so it is now partial and its total is `"0.015903"`. | Every event names only agents already hired (docs/api.md, "Ordering and idempotency"), and every `CapStop` field is the ledger's own value. | `core/team/flow.py`, `scripts/gen_api_fixtures.py`, docs/api.md |
 
+## Product definition (decided by the user, 2026-10-17)
+
+| Decision | Where |
+|---|---|
+| Primary product: operational incident investigation (ITOps and DevOps) for small teams without a dedicated SRE, under a hard budget the user sets. Cheap models read the volume of logs and metrics, a strong model judges, deterministic code (not a model) verifies that every claim cites real evidence, an independent auditor checks the result, and a human approves before anything is done. Every run reports predicted versus real cost, and accuracy is measured against known root causes. The engine stays domain-neutral: roles, skills and evidence bundles are data. | docs/ARCHITECTURE.md, all sections |
+| Conventional legal-contract review is out of scope. | docs/ARCHITECTURE.md "Scope cuts" |
+| Two proof domains run on the same engine by swapping skills and evidence bundles: SOC alert triage and smart-contract security review. They are generality proofs shown in the README and the video, with no dedicated UI. They are not products. | docs/ARCHITECTURE.md "Proof domains" |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
@@ -57,4 +65,5 @@ Decisions made by the user, with their date and the reason recorded at the time.
 - **Reasoning-token billing**: whether Token Factory bills reasoning tokens at the output price. `completion_tokens` includes them (VERIFIED); check the billed amount against the Nebius console.
 - **Nano's tool protocol**: revisit after the benchmark.
 - **Model ladder**: escalation inside the runner, with a manager reassigning only after the ladder is exhausted, is proposed and pending the user's decision (docs/ARCHITECTURE.md "Failures and loops").
-- **Domain and demo cases**: the ITOps and DevOps domain, and the final demo cases.
+- **Devpost track**: Best Apps and Agents, or Coding and Agentic Engineering.
+- **Laya as a local pre-filter**: whether to run `@receptron/laya` before the operators. The user lists the experiment as pending. A stage-0 run already exists (`benchmarks/log_filter/REPORT.md`, 2026-10-17); its report recommends dropping Laya. Not decided.

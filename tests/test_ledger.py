@@ -1,6 +1,6 @@
 """Budget ledger: cost formula, reservations, caps, and money as Decimal.
 
-The first two tests use the arithmetic in docs/ARCHITECTURE.md ("Estimate of one run")
+The first two tests use the worked examples in docs/ARCHITECTURE.md ("Cost of a call")
 as test vectors, with prices read from config/prices.json.
 """
 

@@ -1,79 +1,86 @@
 # Rookwise: Architecture
 
-Source of truth for humans and coding agents (Claude Code). Version of October 16, 2026.
-Hackathon: Nebius x NVIDIA Global AI Hackathon 2026, track Best Apps and Agents. Submission deadline: October 30, 2026, 10:00 AM PDT.
+Source of truth for humans and coding agents (Claude Code). Version of October 17, 2026.
+Hackathon: Nebius x NVIDIA Global AI Hackathon 2026. Submission deadline: October 30, 2026, 10:00 AM PDT; we submit on the night of October 29. Devpost track: not decided (Best Apps and Agents, or Coding and Agentic Engineering; see docs/DECISIONS.md, "Still open").
 
 ## Rules for any agent working in this repo
 
-- Write all code, comments, docs and UI text in English.
+- Write all code, comments, docs and UI text in English. No em dashes in documents; use parentheses.
 - Never expose keys. Keys live in `.env` (see `.env.example`) or in server-side environment variables. Never commit a key, never print it, never send it to the browser.
 - Prices are never hard-coded. Read them from `config/prices.json`.
 - Do not assume API details. Check `docs/HARNESS_RESEARCH.md` first and mark anything unverified as such.
 - Every module in `core/` ships with tests in `tests/`.
-- Ownership: `core/` and `web/` are both built with Claude Code (GLM is not available). They only talk through the API described in `docs/api.md` (written by Claude Code before the web UI starts).
+- Ownership: `core/` and `web/` are both built with Claude Code. They only talk through the API described in `docs/api.md`.
+- Test data is synthetic and says so in every file. No real hostnames, keys or people.
 - Report results exactly as measured. Do not invent numbers.
 
-## Summary
+## Value proposition and target user
 
-A hierarchical team of AI agents with a controlled token budget. The user sets a goal and a spending cap. The system splits the goal, hires operators from a catalog with price, speed and reputation, runs them in parallel, audits the result, and returns a verifiable package showing real cost next to predicted cost.
+Rookwise investigates operational incidents for small teams without a dedicated SRE, under a hard budget the user sets.
 
-Thesis to test with our own measurements: a hierarchy that uses a different model per level costs less than running the largest model for everything, with comparable quality according to an independent auditor. If the benchmark does not confirm it, we report what we measured.
+The user: a team of a few engineers that runs its own services and carries the pager itself. When something breaks at 3 a.m., nobody on the team has the time to read 20,000 log lines across three services. Agents could read them, but the team has two reasons not to trust them:
 
-Runs on NVIDIA Nemotron models on Nebius Token Factory. Demo cases are simulated and labeled as simulated. Kosmo (an in-house small language model under development) is a roadmap item and is not part of this submission.
+1. Trust. An agent can state a root cause with confidence and cite log lines that do not exist. The team cannot check every claim at 3 a.m.
+2. Cost. An agent run has no price tag up front. The bill arrives after the run, and a long investigation on a large model can cost more than the team expects.
 
-## Hackathon requirements
+What Rookwise offers against each:
 
-Source: Devpost rules page, read on 2026-10-13 (summarized extract; re-read the original before submitting).
-**Verify against the Devpost page before submitting:** https://nebiusglobalaihackathon.devpost.com/rules
+- Every claim in a diagnosis cites a source and line numbers, and deterministic code (not a model) checks that the quoted text is really there. Claims that fail the check are shown as unsupported, never hidden.
+- The user sets a hard budget before the run. The ledger reserves money before every model call and refuses calls that do not fit, so the run cannot pass the cap through rounding or retries. Every run reports predicted versus real cost.
+- Cheap models read the volume (logs and metrics), a strong model judges, an independent auditor checks the result, and a human approves before anything happens. In v1 nothing is executed at all.
+- Accuracy is measured, not claimed: a benchmark of simulated incidents with known root causes scores every configuration (see "Benchmark design").
 
-| Requirement | How Rookwise meets it | Status |
+The engine is domain-neutral. Roles, skills and evidence bundles are data, so the same code runs two other domains as generality proofs (see "Proof domains").
+
+## What Rookwise does, end to end
+
+1. Intake. An alert or ticket starts the investigation. The user picks the incident's evidence (logs, metrics, the recent deploy diff, the runbook) and sets the USD cap.
+2. Budget. The administrator layer opens the run in the ledger with that cap.
+3. Plan. The director (the strong model) reads the ticket, the runbook and a short inventory of the sources, then plans the investigation: which sources to read, split into tasks for operators, grouped into blocks for managers.
+4. Read. Operators (cheap models) each read one slice of the evidence and return findings: short claims, each with citations (source id, first and last line, exact quote). Operators may search error signatures and advisories with Tavily.
+5. Consolidate. Each manager merges its operators' findings for its block.
+6. Judge. The director turns the findings into a diagnosis: root cause, a root-cause category, the claims that support it, and a proposed remediation plan.
+7. Verify. `core/evidence.py` checks every citation of every claim against the evidence. Unsupported claims are reported as unsupported.
+8. Audit. The independent auditor (a separate context and prompt) reviews the diagnosis. It sees the deterministic result first and rejects a diagnosis with unsupported claims without a model call.
+9. Approve. The human reads the diagnosis, the evidence check, the audit and the cost report, and approves or rejects the remediation plan. In v1 approving only records the decision.
+10. Close. The ledger closes; the run's package keeps the diagnosis, the evidence check, the audit, the decision and predicted versus real cost.
+
+Steps 3 to 8 run today as the `core/team` skeleton on stubs; the incident-specific parts (source slicing, the diagnosis with a category and a remediation plan, the approval of the remediation) are not built yet (see "Built so far").
+
+## Roles and levels
+
+| Level | Role | Model (proposed) |
 |---|---|---|
-| Nebius: a runtime call to the Token Factory inference API (or running on Nebius AI Cloud compute) | Every model call goes to the Token Factory API through the harness | In progress: runtime calls verified in the smoke test (2026-10-13); product runtime planned |
-| At least one NVIDIA open source model | NVIDIA Nemotron at every level, which is stricter than the rule | In progress: Nemotron used in the smoke test; product runtime planned |
-| A working demo, hosted application or test build, free and accessible for testing until the Judging Period ends (Dec 15, 2026) | `web/` deployed on Vercel; the run executor and the live event stream on a separate host, chosen after measuring a real run (see "Interface and deployment"). Recorded mode replays stored event logs and costs nothing, so the demo keeps working without credits. Check credit expiry and any free-tier pausing (hosting, database) before depending on them | Planned (Phase 3) |
-| Video: under three minutes, public on YouTube, shows the project working, no unlicensed third-party trademarks or music | Demo video, target length 2:45 | Planned (Phase 5) |
-| Public repo with source code, assets and setup instructions | Public GitHub repo with source code; setup instructions go in the README | In progress: repo public with source code; setup instructions planned (Phase 5) |
-| Open source license visible in the repository's About section | MIT `LICENSE` in the repo root; GitHub detects it as MIT (checked 2026-10-13) | Done |
-| README with setup instructions that highlights how Nemotron and Token Factory were used | README written in Phase 5 | Planned (Phase 5) |
-| Feedback on Nebius and NVIDIA tools | `FEEDBACK.md`, kept from day one | In progress |
-| Track selection and a text description of features and functionality | Track: Best Apps and Agents. Description: Devpost text | Planned (Phase 5): track decided, description not written |
-| Newly created or significantly updated after Aug 26, 2026 | Newly created: repo created 2026-10-12. The summary of significant updates only applies to pre-existing projects, so it does not apply here | Done |
-| English, or English translations | All code, docs and UI text in English; business deliverables in other languages include an English summary | In progress |
-| Optional: Best Use of Tavily bonus (USD 3,000), which requires a functional runtime call to the Tavily API as part of the solution. A project can win one Overall or one Track award, plus one Bonus | Researcher operators call Tavily search at runtime | Planned (Phase 3) |
-| Judging stage one, pass/fail: fit with the theme and reasonable use of the required APIs | Token Factory and Nemotron at every level, Tavily at runtime | Planned |
-| Judging stage two, four equally weighted criteria: Technological Implementation, Design, Potential Impact, Quality of the Idea | Implementation: budget ledger, harness, measured benchmark. Design: chat, live org chart, budget panel. Impact: cost governance for agent teams, microbusiness demo cases. Idea: a cost thesis measured, not assumed | Planned |
-| Key dates: submission closes Oct 30, 2026, 10:00 am PT; judging Dec 1 to Dec 15, 2026; winners around Jan 11, 2027 | Submit on Devpost on the night of Oct 29 (Phase 5); keep the demo up through Dec 15 | Planned |
+| Human | Sets the cap and the evidence, reads the result, approves or rejects the remediation plan | n/a |
+| Director | Plans the investigation, writes the diagnosis and the remediation plan. The only agent that talks to the user | Ultra |
+| Managers | Own one block of the plan, give its tasks to operators, consolidate their findings | Super (Lightning to be tested) |
+| Operators | Read one slice of the evidence, one task at a time, and return cited findings | Lightning (Super for hard tasks) |
+| Independent auditor | Reviews the diagnosis in a separate context, after the deterministic evidence check | Ultra, different prompt and context |
+| Administrator layer (the ledger) | Budget, caps, sub-budgets, retries, concurrency | Deterministic code, no model |
+| Evidence check | Verifies every citation | Deterministic code (`core/evidence.py`), no model |
+| Harness | The only code that calls the model API; runs tools, validates output, reports usage | Code, no model |
 
-## Levels
+Communication is vertical. Operators talk to their manager, managers to the director, and only the director talks to the user. Roles, their model alias and their skills are data in `config/skills.json` (the director, manager and auditor roles carry a `level`); the operators come from the operator catalog.
 
-| Level | Role | Proposed model |
-|---|---|---|
-| User (chair) | Sets goal and cap, approves, directs everything | n/a |
-| Vice president (only with a board) | Only voice toward the user. Splits the goal among directors | Ultra |
-| Director | Analyzes, splits, predicts trajectories and costs, picks the plan. Without a board it is the only agent that talks to the user | Ultra |
-| Managers | Optimize a block of the plan, hire operators, consolidate | Super (Lightning to be tested) |
-| Operators | One task at a time, parallel across operators | Lightning (Super for hard tasks) |
-| Independent auditor | Validates the final deliverable in a separate context | Ultra, different prompt and context |
-| Administrator layer | Budget, caps, retries, concurrency | Deterministic code, no model |
-| Harness | Runtime that calls models, runs tools, validates output, reports usage | Code, no model |
+## The human approval gate
 
-Communication is vertical. Operators talk to their manager, managers to the director, and only the director (or the VP with a board) talks to the user.
+v1 is read-only. Rookwise investigates and proposes a remediation plan; the human approves or rejects it; approving records the decision in the run and executes nothing. Rookwise has no credentials for the user's systems and no tool that changes them.
 
-## Flow of a run
+The API contract today has one approval: `POST /runs/{run_id}/approval`, while a run is `awaiting_approval`, which approves the investigation plan before the operators start (docs/api.md). The approval of the remediation plan at the end of a run is not in the contract yet; it needs a contract change before the web app builds it.
 
-1. The user writes the goal and the spending cap.
-2. The administrator layer opens the budget ledger.
-3. The director produces the plan: tasks, dependencies, 2 or 3 candidate trajectories with predicted cost and time, and picks one.
-4. The user approves or adjusts.
-5. The administrator layer assigns sub-budgets per manager and task.
-6. Managers hire operators from the catalog.
-7. Operators execute, save results in the shared store, send their manager a JSON message with a reference.
-8. Managers validate and consolidate, report to the director.
-9. The director checks against the goal; the auditor validates the deliverable.
-10. The director (or VP) hands the package to the user for approval and next directives.
-11. The ledger closes and operator reputation updates.
+## The evidence rule
 
-## Administrator layer (deterministic code)
+Every claim cites its evidence: a source id, the first and last line (1-based) and a quote copied from those lines. `core/evidence.py` checks each citation with no model and no network:
+
+- the source exists (`source_missing` otherwise);
+- the line range is inside the source (`line_out_of_range`);
+- the quote appears in the cited lines after whitespace normalization only, with no case folding and no fuzzy matching (`quote_not_found`).
+
+A claim is supported only when it has at least one citation and every citation is valid; a claim with none is `no_citations`. Unsupported claims are reported as unsupported in the result, the audit and the UI. They are never dropped or hidden. The auditor runs this check before any model judgment and rejects a deliverable with an unsupported claim without spending on a model call.
+
+## Budget and cost reporting
+
+### Administrator layer (deterministic code)
 
 - Reserve budget before each call, charge real cost after.
 - Caps per run, per level and per task, and sub-budgets as ledger allocations: the managers' and the auditor's allocations are held out of the run, each operator's out of its manager's; an agent's calls are drawn from its allocation, and closing it gives the unspent part back to the parent.
@@ -81,6 +88,8 @@ Communication is vertical. Operators talk to their manager, managers to the dire
 - Stop at a cap and return the partial result.
 - Limit retries and concurrency. Rate limiting and concurrency are per model and read from `config/rate_limits.json`. The administrator enforces requests per minute and tokens per minute for each model before reserving a call.
 - Honor the user's brake: cancel. Pause and resume are planned; the API reserves them (HTTP 501) and the UI shows no pause or resume control until core supports them.
+
+How the run budget is split (the auditor's share first, then one equal allocation per block, then per operator task) is `BudgetPolicy` in `core/team/config.py`. Its shares are placeholders, not measured.
 
 ### Cost of a call
 
@@ -94,39 +103,41 @@ cost = (input_tokens - cached_tokens) x price_in
 
 - `input_tokens` is `usage.prompt_tokens`. `cached_tokens` is `usage.prompt_tokens_details.cached_tokens` (VERIFIED as a field in the docs); treat a missing value as 0. Whether Token Factory reports non-zero cached tokens for Nemotron is UNVERIFIED.
 - `price_cached_in` is the optional `cached_input` price per model in `config/prices.json`. It is `null` for every model because no cached price is published in what we have. When it is `null`, the ledger uses `price_in` for cached tokens and says so: the ledger entry carries `"cached_price_fallback": true`.
-- `output_tokens` is `usage.completion_tokens`. VERIFIED (2026-10-16, Stage 2 Task 0, from the saved streaming probe data; see "Reasoning token accounting" in `docs/HARNESS_RESEARCH.md`): `completion_tokens` already includes the reasoning tokens (`usage.completion_tokens_details.reasoning_tokens`) on all four models, so reasoning is billed once, as part of `output_tokens`. As a safeguard, if a response ever reports more reasoning tokens than completion tokens, they are added to `output_tokens`; no observed call did. UNVERIFIED, pending a console check: whether Token Factory bills reasoning tokens at the output price.
-- Money is `decimal.Decimal`, never float, and prices are parsed from the JSON text as Decimal. The formula is computed exactly; the ledger then holds whole micro-USD (USD 0.000001): reservations and charges round up, caps round down, predictions round to the nearest micro-USD. Rounding therefore never lets spend pass a cap, and every total is an exact sum. Spend can still pass a cap the way it could before: when a call's real usage is larger than its reservation (an input estimate that was too low), the charge is recorded and the scope stops.
+- `output_tokens` is `usage.completion_tokens`. VERIFIED (2026-10-16, from the saved streaming probe data; see "Reasoning token accounting" in `docs/HARNESS_RESEARCH.md`): `completion_tokens` already includes the reasoning tokens on all four models, so reasoning is billed once, as part of `output_tokens`. As a safeguard, if a response ever reports more reasoning tokens than completion tokens, they are added to `output_tokens`; no observed call did. UNVERIFIED, pending a console check: whether Token Factory bills reasoning tokens at the output price.
+- Money is `decimal.Decimal`, never float, and prices are parsed from the JSON text as Decimal. The formula is computed exactly; the ledger then holds whole micro-USD (USD 0.000001): reservations and charges round up, caps round down, predictions round to the nearest micro-USD. Rounding therefore never lets spend pass a cap, and every total is an exact sum. Spend can still pass a cap when a call's real usage is larger than its reservation (an input estimate that was too low): the charge is recorded and the scope stops.
+- Worked examples (the ledger tests use them): 40,000 input and 8,000 output tokens on Ultra cost (40,000 x 1.00 + 8,000 x 3.00) / 1M = USD 0.064; 10,000 input and 2,000 output tokens on Lightning cost (10,000 x 0.06 + 2,000 x 0.24) / 1M = USD 0.00108, so 20 such calls cost USD 0.0216.
+
+### What a run reports
+
+Every run reports predicted versus real cost: per call, per level and for the run, with the prediction error (real minus predicted, over predicted) and the number of charges whose usage was estimated. The API sends money as six-decimal strings (docs/api.md, "Conventions"). The run's predicted cost is the sum of the predictions made before each call; how the director predicts a run's cost before it starts is not built yet.
 
 ## Harness (`core/harness/`)
 
-The harness is the only code that talks to the model API. Agents are built on top of it and never call the API directly.
+The harness is the only code that talks to the model API. Agents are built on top of it and never call the API directly. A test (`tests/test_harness_boundary.py`) fails if any other module in `core/` reaches the model API or imports an HTTP client outside the allowlist.
 
-Every model call is gated by the administrator layer. Before each call the harness asks it to RESERVE budget for that call (a worst-case estimate from the prompt size, `max_tokens` and the model's prices). After the call it reports the real usage, and the administrator layer charges the real cost and releases the rest of the reservation. No model call happens without a reservation; if the reservation is refused, the call is not made.
+Every model call is gated by the administrator layer. Before each call the harness asks it to reserve budget for that call (a worst-case estimate from the prompt size, `max_tokens` and the model's prices). After the call it reports the real usage, and the ledger charges the real cost and releases the rest of the reservation. No model call happens without a reservation; if the reservation is refused, the call is not made.
 
 Responsibilities:
 - Reserve budget with the administrator layer before every model call, and report real usage after it.
 - Send chat completions to Token Factory and return text, tool calls and usage.
-- Run the tool loop: model proposes `tool_calls`, harness executes them (for example Tavily search), appends `tool` messages, calls the model again, up to a step cap. Each step is a model call, so each step needs its own reservation.
-- Validate output against a schema (task_v1, result_v1) and retry within limits.
-- Treat `finish_reason: "length"` as a failure, even when some content came back. Retry within limits with a larger `max_tokens` or with reasoning off, and charge every attempt to the ledger. (Observed in the smoke test: Lightning with reasoning on hit the 600-token limit in 6 of its 11 successful calls, 5 of them with no final answer.)
+- Run the tool loop: the model proposes `tool_calls`, the harness executes them (for example Tavily search), appends `tool` messages and calls the model again, up to a step cap. Each step is a model call with its own reservation.
+- Validate output against a schema (task_v1, result_v1 and each agent's output model) and repair within limits.
+- Treat `finish_reason: "length"` as a failure, even when some content came back. Retry within limits with a larger `max_tokens`, and charge every attempt to the ledger.
 - Choose the reasoning mode per call by role. Reasoning off is the starting default for operators, to be confirmed by the benchmark.
 - Set `max_tokens` to cover reasoning plus the answer: reasoning tokens count inside `completion_tokens` and share the same `max_tokens` limit.
-- Respect rate limits: read `x-ratelimit-*` headers, honor `Retry-After` on HTTP 429, back off with a queue.
-- Model-agnostic interface: a model is a name, an endpoint, a price entry and a few flags, so non-Nemotron models can be added later.
+- Respect rate limits: honor `Retry-After` on HTTP 429 and back off. Reading `x-ratelimit-*` headers is not built yet.
+- Record and replay: in record mode every model call and every tool result goes into a cassette; replay never calls the API or a tool.
+- Model-agnostic interface: a model is a name, an endpoint, a price entry and a few flags.
 
-What is verified and what is not is tracked in `docs/HARNESS_RESEARCH.md`.
+What is verified and what is not is tracked in `docs/HARNESS_RESEARCH.md`. The loop protocols (`native_tools` for Ultra, Super and Lightning, `json_protocol` for Nano) are described in `core/harness/README.md`.
 
-Built so far (Stage 1, 2026-10-15): streaming calls with `stream_options.include_usage`, the reserve, charge and release cycle with the ledger, per-model limits on requests and tokens per minute plus a concurrency cap, bounded retries, cancellation, and record and replay of calls (`HARNESS_MODE`: live, record or replay). Settings and model quirks live in `config/harness.json`. When a stream ends or is cut without usage, the harness charges the full reservation and marks the usage estimated (`on_missing_usage`). The public surface is documented at the top of `core/harness/__init__.py`.
+## Tavily use
 
-Built so far (Stage 2, 2026-10-16): native tool calls in the stream; the tool loop (`core/harness/loop.py`) with two protocols, `json_protocol` (the baseline) and `native_tools`, chosen per model in `config/harness.json` (native for Ultra, Super and Lightning, JSON actions for Nano, from the tool-calling probe); step, repeat, timeout, truncation and token limits; `finish_reason: "length"` discarded and retried once with a larger `max_tokens`, then treated as a failure; tool results in cassettes, so a full tool run replays offline; Tavily search (`core/tools/tavily.py`, query counts only, cost UNVERIFIED); final answer validation, up to two repairs with the validation errors, then the escalation ladder (Lightning or Nano to Super, Super to Ultra) under the ledger caps, with one record per attempt and the labels `first_pass_ok`, `ok_after_retry`, `ok_after_escalation` and `failed`; and `core/runner.py` (`run_operator`, one task_v1 for one catalog operator, no hierarchy). The loop protocols are described in `core/harness/README.md`. Not built yet at Stage 2: reading `x-ratelimit-*` headers, the hierarchy (director, managers, auditor; its skeleton came on 2026-10-17, below) and the server.
-
-Built so far (2026-10-17): money is `decimal.Decimal` end to end (`core/money.py`): prices parsed from the JSON text, the ledger's reservations, charges, caps, predictions and totals in whole micro-USD (rounding rules in "Cost of a call"), the harness's charges and attempt records, task_v1 budgets, result_v1 usage and the catalog price. A float passed to the ledger raises TypeError and a float in any contract model fails validation. The API contract sends money as six-decimal strings (docs/api.md, "Conventions"), with regenerated schemas and fixtures. Deterministic evidence verification (`core/evidence.py`, no model, no network): a citation is valid only if its source exists, its 1-based line range is inside the source, and its quote appears in the cited lines after whitespace normalization only; results carry a reason code per citation and per claim (`ok`, `source_missing`, `line_out_of_range`, `quote_not_found`, and `no_citations` for a claim), a citation verified rate and the list of unsupported claims. A claim is supported only when it has citations and all of them are valid.
-
-Built so far (2026-10-17, hierarchy skeleton): ledger allocations (`allocate`, `close`, `free`; a call reserved with a `budget_id` is drawn from that allocation, which `ChatRequest.budget_id` and `run_operator(budget_id=...)` pass through). `core/team` runs director, managers, operators and auditor on the harness and the runner only, sequentially: the director's plan call, the auditor and the managers hired right after it with their allocations (the auditor's share first, then one equal allocation per block), one allocation per operator assignment, a failed operator replaced by the next catalog operator for the role (lowest price first) and escalated to the director when none is left, one consolidation call per manager, then the auditor, which runs `core/evidence.py` first and rejects any unsupported claim without a model call. The director, manager and auditor roles are data in `config/skills.json` (`level`, `model`, `skills`); the split rules are `BudgetPolicy` (placeholder shares, not measured). A level that runs out of budget sends `budget_exhausted` with the ledger's stop and ends cleanly (`run_failed` with `budget_exhausted` for the director, a partial block and `run_finished` with `partial: true` for a manager, a failed `task_result` for an operator, `accepted_with_warning` for the auditor). Every step emits API contract events (`core/team/events.py`), including the hierarchy events added to v1 the same day (docs/DECISIONS.md, "Hierarchy events"): `budget_allocation` on every ledger `allocate` and `close`, `budget_exhausted`, and `escalation` on a reassignment (from the failed operator to the next) and on an escalation to the director. Tested on scripted stubs and a recorded cassette only; no real run yet. Not built yet: the user's approval of the plan, parallel managers and operators, the auditor's correction cycle, per-call `tool_called` events, cancellation of a team run, reputation updates, reading `x-ratelimit-*` headers, and the server.
+Operators may call Tavily search at runtime to look up an error signature or a vendor advisory (for example the text of an exception, or a dependency version and "memory leak"). The tool is `core/tools/tavily.py`; it records query counts, not a dollar cost (Tavily's billing per query is UNVERIFIED). In record mode the harness stores every Tavily result in the run's cassette next to the model calls, so a recorded run replays with the same search results and the benchmark stays deterministic. A search result is not evidence: claims must still cite the incident's own sources, which the evidence check reads; a search can only point an operator to where to look.
 
 ## Operator catalog
 
-Each operator is a catalog entry with role, model, price estimate, latency, reputation, tools, skills and schemas. `skills` lists the ids of the Nemotron-adapted skills composed into the operator's system prompt; `config/skills.json` maps each role to its skills.
+Each operator is a catalog entry: role, model, a price estimate, a latency estimate, tools, skills and schemas. `skills` lists the ids of the Nemotron-adapted skills composed into the operator's system prompt; `config/skills.json` maps each role to its skills. The catalog is configuration, not a market: a manager takes the cheapest entry for the task's role and, if that operator fails, the next one.
 
 ```json
 {
@@ -143,23 +154,22 @@ Each operator is a catalog entry with role, model, price estimate, latency, repu
 }
 ```
 
-Selection: lowest expected cost that meets a minimum reputation and maximum latency. Reputation is a moving average of auditor acceptance. All numbers above are placeholders until measured.
+`reputation` is a static field in the entry, used only to break ties between equally priced operators; no formula updates it (see "Scope cuts"). All numbers above are placeholders. The incident roles (a log reader, a metrics reader, a deploy-diff reader) are not defined yet; today's ITOps roles in `config/skills.json` (`incident-triager`, `status-updater`, `postmortem-writer`) are placeholders.
 
 ## Skills layer (Nemotron-adapted)
 
 Operators and the auditor receive role-specific instructions called skills. Each skill is a short text in `skills/<id>/SKILL.md`, adapted for Nemotron with reasoning off and JSON output. Its frontmatter names the source, the version or commit, the license, the copyright holder, the roles it serves and the changes made. `THIRD_PARTY_NOTICES.md` and `licenses/` carry the attribution.
 
 - `config/skills.json` maps each role to its model and skills, and sets a token ceiling per skill and per role.
-- `core/skills` validates each skill and composes a role's system prompt the same way every time: the base prompt first, then the role's skills in config order. It returns the text and the skill ids; the harness records the ids in the ledger entry (`skills`). It refuses to compose when a ceiling would be passed.
-- Token counts come from measurement. `scripts/skill_check.py` measures each skill's prompt-token cost on its role's model (prompt tokens with the skill minus without). A measurement counts only while its SHA-256 matches the skill text; after an edit, the loader falls back to characters / 4 and labels the count an estimate.
+- `core/skills` composes a role's system prompt the same way every time: the base prompt first, then the role's skills in config order. The harness records the skill ids in each ledger entry (`skills`). Composition refuses to pass a ceiling.
+- Token counts come from measurement. `scripts/skill_check.py` measures each skill's prompt-token cost on its role's model. A measurement counts only while its SHA-256 matches the skill text; after an edit, the loader falls back to characters / 4 and labels the count an estimate.
 - Measured on 2026-10-15: 205 to 656 prompt tokens per skill (see "Skills on Nemotron" in `docs/HARNESS_RESEARCH.md`). At Lightning's input price that adds at most 656 x 0.06 / 1M = USD 0.0000394 per call; at Ultra's, 656 x 1.00 / 1M = USD 0.000656.
-- Skills: `prose-style` (copywriter, researcher, and the auditor's rubric), `minimal-code` (coder), `code-review`, `testing-strategy`, `debug` and `deploy-checklist` (reviewer roles), and `incident-triage`, `status-update` and `postmortem` (ITOps roles, placeholders until the ITOps and DevOps use case is final). Demo incident data is simulated and labeled as simulated.
 - Each skill ends with a rule that keeps the output format the task requires, so the harness's JSON schema stays in charge of the format.
 - The Claude Code plugins in `.claude/` stay development tools. The runtime reads only the adapted copies in `skills/` (see `docs/PLUGINS.md`).
 
 ## Messages and shared store
 
-Messages carry ids and references, not content. Content lives in the store (Supabase Postgres in production, SQLite for tests), behind one interface.
+Messages carry ids and references, not content. Content lives in the store (Supabase Postgres or SQLite; not decided, `InMemoryStore` today), behind one interface.
 
 ```json
 // task_v1 (manager to operator)
@@ -200,11 +210,9 @@ Messages carry ids and references, not content. Content lives in the store (Supa
 }
 ```
 
-Contract change on 2026-10-16: `ledger_entry` gained `usage_estimated` (boolean, default false). It is true when the API sent no usage and the harness charged under `on_missing_usage` in `config/harness.json` (the full reservation by default), so estimated charges stay visible in the ledger. The contracts carry no version number (`task_v1` and `result_v1` are unchanged); a reader that does not know the field can treat a missing value as false.
+Contract changes: on 2026-10-16 `ledger_entry` gained `usage_estimated` (default false), true when the API sent no usage and the harness charged under `on_missing_usage` in `config/harness.json`. On 2026-10-17 every money field became a decimal string with exactly six decimals, as above; in Python it is `decimal.Decimal` (`core/money.py`) and a float is refused.
 
-Contract change on 2026-10-17: every money field (`max_usd`, `usd`, `usd_real`, `usd_predicted`, `price_per_task_est_usd`) is a decimal string with exactly six decimals (micro-USD), as in the examples above, never a JSON number. In Python it is `decimal.Decimal` (`core/money.py`); a float is refused.
-
-## Models, prices and cost estimate
+## Models, prices and rate limits
 
 Prices and speeds from the Nebius console model cards, read October 12, 2026.
 
@@ -215,42 +223,9 @@ Prices and speeds from the Nebius console model cards, read October 12, 2026.
 | Nemotron-3.5-Lightning | 0.06 | 0.24 | 314.12 tok/s | eu-north1 |
 | Nemotron-3-Nano-30B-A3B | 0.06 | 0.24 | 60 tok/s | eu-north1 |
 
-Observations to confirm by measurement: Lightning costs the same as Nano and is listed about 5x faster. Super is cheaper than Ultra but listed slower; Ultra at 523 tok/s versus Super at 127 tok/s is an odd ordering for the larger model. The first smoke test (2026-10-13) did not reproduce the listed speeds, but its outputs were short; a long-output test is needed (see HARNESS_RESEARCH.md). Only Nano's card mentions multilingual support, so output quality of Lightning in non-English languages must be checked early.
+Ultra costs about 16.7 times Lightning per input token (1.00 / 0.06) and 12.5 times per output token (3.00 / 0.24). That gap is why cheap models read the volume. The listed speeds are not reproduced yet (see `docs/HARNESS_RESEARCH.md`, "Speed").
 
-### Estimate of one run (assumed volumes, not measured)
-
-Every token volume below is assumed by the author, not measured. Costs are arithmetic on those volumes and the prices above: count x (input tokens x input price + output tokens x output price) / 1,000,000. They ignore caching, retries and reasoning overhead.
-
-Assumption to replace with measurements: the assumed output volumes ignore reasoning tokens. In the smoke test, reasoning tokens appear to count inside `completion_tokens` (see HARNESS_RESEARCH.md), so real output, cost and rate-limit use may be higher than below.
-
-Config B, hierarchy with a different model per level:
-
-| Role | Count | Tokens per agent (in / out) | Arithmetic | USD |
-|---|---|---|---|---|
-| Director (Ultra) | 1 | 40,000 / 8,000 | 1 x (40,000 x 1.00 + 8,000 x 3.00) / 1M | 0.0640 |
-| Managers (Super) | 5 | 20,000 / 4,000 | 5 x (20,000 x 0.30 + 4,000 x 0.90) / 1M | 0.0480 |
-| Operators (Lightning) | 20 | 10,000 / 2,000 | 20 x (10,000 x 0.06 + 2,000 x 0.24) / 1M | 0.0216 |
-| Auditor (Ultra) | 1 | 30,000 / 3,000 | 1 x (30,000 x 1.00 + 3,000 x 3.00) / 1M | 0.0390 |
-| Total | 27 calls | 370,000 / 71,000 (441,000 tokens) | | 0.1726 |
-
-In theory about 150 runs of B fit in the USD 26 of credits (26 / 0.1726 = 150.6), before retries and Tavily.
-
-Config A2, the same hierarchy and volumes with every agent on Ultra: director 0.0640 + managers 5 x (20,000 x 1.00 + 4,000 x 3.00) / 1M = 0.1600 + operators 20 x (10,000 x 1.00 + 2,000 x 3.00) / 1M = 0.3200 + auditor 0.0390 = USD 0.5830 per run. Equivalently, 370,000 x 1.00 / 1M + 71,000 x 3.00 / 1M = 0.370 + 0.213 = 0.583. This is the "same volume entirely on Ultra" figure (about USD 0.58), so it corresponds to A2, not to A. On these assumptions A2 costs 0.5830 / 0.1726 = 3.4x B.
-
-Config C, B plus a board and a VP. The extra volume is a placeholder assumption until the board is built: one more director with the same volume as the first (a board of two), and a VP on Ultra at 30,000 in / 6,000 out. Managers, operators and auditor are unchanged.
-
-| Role | Count | Tokens per agent (in / out) | Arithmetic | USD |
-|---|---|---|---|---|
-| Directors (Ultra) | 2 | 40,000 / 8,000 | 2 x (40,000 x 1.00 + 8,000 x 3.00) / 1M | 0.1280 |
-| VP (Ultra) | 1 | 30,000 / 6,000 | 1 x (30,000 x 1.00 + 6,000 x 3.00) / 1M | 0.0480 |
-| Managers, operators, auditor | 26 | as in B | 0.0480 + 0.0216 + 0.0390 | 0.1086 |
-| Total | 29 calls | 440,000 / 85,000 (525,000 tokens) | | 0.2846 |
-
-Config A, a single Ultra agent with no hierarchy, has no estimate until it is measured. Its token volume does not follow from the hierarchy volumes above.
-
-### Rate-limit implication (lower bound, per model)
-
-Per-model limits for this account, read from the `x-ratelimit-*` response headers on 2026-10-13 and stored in `config/rate_limits.json` (see HARNESS_RESEARCH.md). They may change with dynamic scaling.
+Per-model limits for this account, read from the `x-ratelimit-*` response headers on 2026-10-13 and stored in `config/rate_limits.json`. They may change with dynamic scaling.
 
 | Model | Requests per minute | Tokens per minute |
 |---|---|---|
@@ -259,15 +234,7 @@ Per-model limits for this account, read from the `x-ratelimit-*` response header
 | Lightning | 600 | 400,000 |
 | Nano | 100 | 800,000 |
 
-Benchmark tokens per model for A2, B and C, from the assumed volumes in "Estimate of one run" (tokens = input + output per agent, 9 runs per configuration):
-
-- Ultra. B: director 40,000 + 8,000 = 48,000 and auditor 30,000 + 3,000 = 33,000, so 81,000 per run. A2: every agent, 441,000 per run. C: two directors 2 x 48,000 = 96,000, VP 30,000 + 6,000 = 36,000 and auditor 33,000, so 165,000 per run. Total 9 x 81,000 + 9 x 441,000 + 9 x 165,000 = 729,000 + 3,969,000 + 1,485,000 = 6,183,000 tokens. At 200,000 TPM: 6,183,000 / 200,000 = 30.9 minutes.
-- Super (managers in B and C): 5 x (20,000 + 4,000) = 120,000 per run. Total 18 x 120,000 = 2,160,000 tokens. At 200,000 TPM: 2,160,000 / 200,000 = 10.8 minutes.
-- Lightning (operators in B and C): 20 x (10,000 + 2,000) = 240,000 per run. Total 18 x 240,000 = 4,320,000 tokens. At 400,000 TPM: 4,320,000 / 400,000 = 10.8 minutes.
-- Nano: not used by any configuration.
-- Requests: Ultra 9 x (2 + 27 + 4) = 297 at 300 RPM = 1.0 minute; Super 18 x 5 = 90 at 300 RPM = 0.3 minutes; Lightning 18 x 20 = 360 at 600 RPM = 0.6 minutes. Tokens per minute, not requests per minute, is the binding limit.
-
-So the benchmark needs at least 30.9 minutes on Ultra alone, and Ultra is the bottleneck. Config A is not included (no estimate until measured). This is a lower bound. It assumes the limits are independent per model and that the token limit counts input plus output tokens (both UNVERIFIED), and it uses the assumed token volumes, which ignore reasoning tokens. The documented dynamic scaling (x1.2 for the next 15-minute window at 80% usage or more) may raise the limits during a long benchmark. Do not plan on it.
+What the token limit counts (input plus output, or something else) and whether the limits are independent per model are UNVERIFIED. The context window of each model is not recorded in `docs/HARNESS_RESEARCH.md` and is UNVERIFIED.
 
 ## Failures and loops
 
@@ -279,64 +246,63 @@ So the benchmark needs at least 30.9 minutes on Ultra alone, and Ultra is the bo
 | Level budget exhausted | Administrator stops it, manager returns partial result |
 | Loop (repeated messages, no progress) | Automatic stop, escalate one level up |
 | HTTP 429 | Wait for `Retry-After`, then retry with growing backoff |
-| `finish_reason: "length"` | Treat as a failure: retry within limits with a larger `max_tokens` or reasoning off; charge every attempt |
-| Auditor rejects | One correction cycle, then deliver with a visible warning |
-| User pauses or cancels | Administrator freezes pending calls |
+| `finish_reason: "length"` | Treat as a failure: retry within limits with a larger `max_tokens`; charge every attempt |
+| Auditor rejects | One correction cycle, then deliver with a visible warning (the correction cycle is not built) |
+| User cancels | Administrator freezes pending calls |
 
-Model ladder (proposed, pending the user's decision, not final): escalation runs inside the operator runner as a mechanical retry. After the repairs above, the same task moves up the model ladder in `config/harness.json` (Lightning or Nano to Super, Super to Ultra) under the ledger caps. A manager reassigns the task to another operator only after the ladder is exhausted.
+Model ladder (proposed, pending the user's decision): after the repairs above, the same task moves up the model ladder in `config/harness.json` (Lightning or Nano to Super, Super to Ultra) under the ledger caps. A manager reassigns the task to another operator only after the ladder is exhausted. `core/team` follows this today.
 
-## Board and vice president
+## Benchmark design
 
-Optional, turned on by the user for many tasks. Several directors work at the same time, each with a block and a sub-budget. The VP exists only with a board: it is the only voice toward the user and splits tasks among directors. The user chairs everything. The board reduces time, not cost; extra coordination cost is shown separately. Provider rate limits may cap the benefit.
+The benchmark measures accuracy against known root causes and cost against the prediction. Its data is the simulated-incident corpus (`benchmarks/incidents/`, generated by `scripts/gen_incidents.py`), the single source of test data for the benchmark, the live runs and later experiments.
 
-## Review at each level
+- Incidents: 6, split 3 dev and 3 test. Each split has three different root-cause categories, so the test set does not repeat a dev category. Prompts, skills and `BudgetPolicy` are tuned on dev only and frozen before the test runs.
+- Configurations: (a) the full hierarchy (director, managers, operators, auditor, a model per level); (b) a single large model (Ultra) doing the whole investigation; (c) a single small model (Lightning) doing the whole investigation. (b) and (c) get the same evidence, the same output schema and the same evidence check.
+- Repeats: 2 per incident and configuration, so 6 x 3 x 2 = 36 runs.
+- Reporting: TEST incidents are reported separately from DEV. Dev numbers show tuning, not generalization.
 
-Operator: schema validation by code. Manager: coherence and per-task criteria. Director: result versus goal and budget. Auditor: fixed rubric, separate context. User: final approval.
+Metrics, per run and aggregated per configuration:
 
-## Delivery package
+| Metric | Definition |
+|---|---|
+| `diagnosis_correct` | The diagnosis's root-cause category matches the ground truth AND at least one essential evidence line is cited by a citation that passes the evidence check. This scoring rule is a proposal. |
+| `citation_verified_rate` | Valid citations over all citations (`core/evidence.py`) |
+| `evidence_recall` | Essential evidence refs covered by at least one valid citation, over all essential refs |
+| Cost | Predicted versus real USD, and the prediction error (real minus predicted, over predicted) |
+| Wall time | Seconds from the first reservation to the last charge |
+| Outcome labels | Per task: `first_pass_ok`, `ok_after_retry`, `ok_after_escalation`, `failed` |
 
-Director (or VP) summary, deliverables, predicted versus real cost report, log of contracts and decisions, auditor verdict.
+The thesis to test is that the hierarchy (a) reaches the accuracy of the single large model (b) at a lower cost. The pitch does not depend on that thesis. If (a) costs as much as (b), or (c) is as accurate as (a), Rookwise reports it: a budget the agent cannot pass, claims checked by code, an independent audit and a human gate are worth having whichever configuration wins, and the benchmark tells the team which configuration to run. A cost estimate for the 36 runs needs the corpus size; it comes with the corpus.
 
-## Evaluation and benchmark
+## Proof domains
 
-Metrics: cost per accepted deliverable, cost prediction error (real minus predicted, over predicted), time versus sequential, retry rate, auditor acceptance.
+Two other domains run on the same engine by swapping skills and evidence bundles. They are generality proofs shown in the README and the video, with no dedicated UI. They are not products.
 
-Configurations:
-
-| Config | Setup | What it shows |
+| Domain | Dataset | What the evidence bundle would hold |
 |---|---|---|
-| A | A single Ultra agent, no hierarchy | What a user would do naively |
-| A2 | The same hierarchy as B, every agent on Ultra | Isolates the effect of per-level model choice |
-| B | Hierarchy with a different model per level | The proposed design |
-| C | B plus board and VP | Time saved by the board, and its coordination cost |
+| SOC alert triage | splunk/attack_data | The raw logs of a few attack techniques, with the technique as ground truth |
+| Smart-contract security review | ASSERT-KTH/smartbugs-curated | A few contracts with their comments stripped, with the DASP category and the vulnerable lines as ground truth |
 
-The thesis (a different model per level costs less, at comparable quality) is tested by B versus A2, which differ only in the models. A versus B is the practical comparison against a naive single agent.
+Facts below were verified on 2026-10-17 from the repository pages only (README level). Nothing has been downloaded.
 
-Design: 4 configurations x 3 cases x 3 repetitions = 36 runs, 9 per configuration.
+- splunk/attack_data: Apache-2.0 (README: "Copyright 2023 Splunk Inc."). The raw logs come from SIMULATED attacks, not real incidents. Datasets are organized by MITRE ATT&CK technique id under `datasets/attack_techniques/<id>/<tool>/`, with a YAML file per dataset. The whole repository is over 9 GB with Git LFS, so we fetch only a few techniques.
+- ASSERT-KTH/smartbugs-curated: contracts organized by DASP category (Reentrancy, Access Control, Arithmetic, Unchecked Low Level Calls, Denial Of Service, Bad Randomness, Front Running, Time Manipulation, Short Addresses). The labels are comments in the code (a `@vulnerable_at_lines` header and `// <yes> <report> CATEGORY` lines), so the comments MUST be stripped before a model sees the code; otherwise the benchmark leaks its answers. The contracts keep their original licenses. The number of contracts is NOT verified.
+- OTRF Security-Datasets (Mordor) is not used: its README contradicts itself on the license.
+- Whether these public datasets appear in the models' training data is unknown. A good score on them may come from memory, not from reasoning.
 
-Estimated cost, based on the assumed volumes in "Estimate of one run" (not measured), before retries and Tavily:
+## Scope cuts
 
-| Config | Runs | USD per run | USD total | Tokens total |
-|---|---|---|---|---|
-| A | 9 | not estimated until measured | unknown | unknown |
-| A2 | 9 | 0.5830 | 9 x 0.5830 = 5.2470 | 9 x 441,000 = 3,969,000 |
-| B | 9 | 0.1726 | 9 x 0.1726 = 1.5534 | 9 x 441,000 = 3,969,000 |
-| C | 9 | 0.2846 | 9 x 0.2846 = 2.5614 | 9 x 525,000 = 4,725,000 |
-| A2 + B + C | 27 | | 5.2470 + 1.5534 + 2.5614 = 9.3618 | 12,663,000 |
-
-Budget to compare against: USD 26 of credits (25 event credit plus 1 account credit). After the 27 estimated runs, 26 - 9.3618 = USD 16.64 remains for the 9 runs of A, retries, development runs, the smoke test and the public live mode. If nothing else were spent, A could cost up to 16.6382 / 9 = USD 1.85 per run before the credits run out. That is a ceiling, not an estimate. Tavily is billed by Tavily, not from these credits. The real figures are set after the first measured run of each configuration.
-
-Known limitation: the auditor is a model and may favor outputs similar to its own. Mitigation: fixed rubric, separate context, human review of a sample.
-
-## Demo cases
-
-Three simulated microbusiness cases written by the team and declared as simulated (initial proposal: beauty salon, corner grocery, workshop; the market is global, not tied to one country). Processes: basic digital presence (research with Tavily and a published site), customer replies, simple sales and expense tracking. Project material is in English; deliverables for a business may need another language, so each package includes an English summary.
-
-Market evidence: public statistics on micro and small businesses from international sources (World Bank, OECD) still need to be collected and verified. Do not quote figures that have not been checked against the original publication.
+- No VP and no board meeting. The contract still carries a `board` flag (always false) and a `vp` level and sender, unused.
+- No reputation formula. `reputation` in a catalog entry is a static tie-breaker.
+- No agent-marketplace framing: the catalog is configuration. The contract's `agent_hired` event keeps its name for compatibility; it means an agent joined the run.
+- No execution of remediations in v1, and no credentials for the user's systems.
+- Conventional legal-contract review is out of scope.
+- No dedicated UI for the proof domains.
+- Kosmo (an in-house small model in development) is not part of this submission.
 
 ## Interface and deployment
 
-Chat with the director (or VP), live feed of hires and tasks, live org chart, budget panel (predicted versus real), delivery package view. Site and chat are built with Claude Code in `web/`. The API between `core/` and `web/` is [docs/api.md](api.md) (v1: decided for visitors, modes, refusals, hosting, ids and money; the rest is draft, frontend may start), with JSON Schemas in `docs/api/schemas/` (what the frontend consumes), synthetic fixtures in `examples/api/` and a mock server described in [docs/api-mock.md](api-mock.md).
+The web app (`web/`, built with Claude Code, not started) shows the chat with the director, a live feed of the run (agents, tasks, attempts, budget events), the org chart, the budget panel (predicted versus real, sub-budgets), the evidence view (each claim with its citation status, unsupported claims marked) and the approval gate. The API between `core/` and `web/` is [docs/api.md](api.md), with JSON Schemas in `docs/api/schemas/` (what the frontend consumes), synthetic fixtures in `examples/api/` and a mock server described in [docs/api-mock.md](api-mock.md).
 
 Deployment (decided 2026-10-16, see [docs/DECISIONS.md](DECISIONS.md)):
 
@@ -346,26 +312,80 @@ Deployment (decided 2026-10-16, see [docs/DECISIONS.md](DECISIONS.md)):
 - A refused live request stays refused (HTTP 429 for the daily cap and the visitor limit). The UI offers a recorded run as an explicit choice; the server never falls back on its own.
 - Keys in environment variables only.
 
-## Vision
+## Hackathon requirements
 
-A cost and quality governance layer for agent teams. The catalog is model-independent. Next step after this submission: add proprietary models such as Kosmo (in development, not included here).
+Source: Devpost rules page, read on 2026-10-13 (summarized extract; re-read the original before submitting).
+**Verify against the Devpost page before submitting:** https://nebiusglobalaihackathon.devpost.com/rules
+
+| Requirement | How Rookwise meets it | Status |
+|---|---|---|
+| Nebius: a runtime call to the Token Factory inference API (or running on Nebius AI Cloud compute) | Every model call goes to Token Factory through the harness | In progress: runtime calls verified in probes (2026-10-13 to 16); no product run yet |
+| At least one NVIDIA open source model | NVIDIA Nemotron at every level | In progress |
+| A working demo, free and accessible for testing until the Judging Period ends (Dec 15, 2026) | `web/` on Vercel, the executor on a separate host; recorded mode costs nothing, so the demo keeps working without credits. Check credit expiry and any free-tier pausing before depending on them | Planned |
+| Video: under three minutes, public on YouTube, shows the project working, no unlicensed third-party trademarks or music | Target length 2:45 | Planned |
+| Public repo with source code, assets and setup instructions | Public GitHub repo; setup instructions in the README | In progress: source public; README planned |
+| Open source license visible in the repository's About section | MIT `LICENSE`; GitHub detects it as MIT (checked 2026-10-13) | Done |
+| README with setup instructions that highlights how Nemotron and Token Factory were used | README written last | Planned |
+| Feedback on Nebius and NVIDIA tools | `FEEDBACK.md`, kept from day one | In progress |
+| Track selection and a text description | Track not decided (Best Apps and Agents, or Coding and Agentic Engineering) | Open |
+| Newly created after Aug 26, 2026 | Repo created 2026-10-12 | Done |
+| English | All code, docs and UI text in English | In progress |
+| Optional: Best Use of Tavily bonus (USD 3,000), a functional runtime call to the Tavily API as part of the solution | Operators search error signatures and advisories at runtime | Tool built; not used in a product run yet |
+| Judging stage one, pass/fail: fit with the theme and reasonable use of the required APIs | Token Factory and Nemotron at every level, Tavily at runtime | Planned |
+| Judging stage two: Technological Implementation, Design, Potential Impact, Quality of the Idea | Implementation: ledger, harness, evidence check, measured benchmark. Design: evidence view, budget panel, approval gate. Impact: incident investigation for teams without an SRE. Idea: trust and cost made checkable | Planned |
+| Key dates: submission closes Oct 30, 2026, 10:00 am PT; judging Dec 1 to Dec 15, 2026 | Submit on the night of Oct 29; keep the demo up through Dec 15 | Planned |
+
+## Built so far
+
+Everything here runs offline in the tests (stubs and cassettes). No product run against the real models has happened yet.
+
+- Harness (`core/harness/`, Stages 1 and 2, 2026-10-15 and 16): streaming calls with usage, the reserve, charge and release cycle with the ledger, per-model request and token limits and a concurrency cap, bounded retries with `Retry-After`, cancellation, record and replay of model calls and tool results (`HARNESS_MODE`), native tool calls, the tool loop with `json_protocol` and `native_tools`, step, repeat, timeout, truncation and token limits, `finish_reason: "length"` discarded and retried, final-answer validation with up to two repairs, then the escalation ladder, one `AttemptRecord` per attempt and the outcome labels. `on_missing_usage` charges the full reservation and marks the usage estimated.
+- Ledger and money (`core/ledger.py`, `core/money.py`): `Decimal` end to end, whole micro-USD with the rounding rules in "Cost of a call", caps per run, level and task, and allocations (`allocate`, `close`, `free`; a call reserved with a `budget_id` is drawn from that allocation). A float passed to the ledger raises TypeError.
+- Runner (`core/runner.py`): `run_operator`, one task_v1 for one catalog operator, inside an optional allocation.
+- Evidence check (`core/evidence.py`): the rule in "The evidence rule", with a reason code per citation and per claim, the verified rate and the unsupported claims.
+- Team skeleton (`core/team/`): director, managers, operators and auditor on the harness and the runner only, run one after another; the plan call, the auditor's and the managers' allocations, one allocation per operator assignment, reassignment to the next catalog operator and escalation to the director, one consolidation call per manager, the auditor with the evidence check first. A level that runs out of budget ends cleanly with a `budget_exhausted` event. Every step emits API contract events, including `budget_allocation`, `budget_exhausted` and `escalation`.
+- API contract v1 (`core/api/models.py`, docs/api.md): generated JSON Schemas, synthetic fixtures, a standard-library mock server, money as six-decimal strings.
+- Skills (`skills/`, `core/skills/`): nine adapted skills with attribution and measured token costs.
+- Tavily search tool (`core/tools/tavily.py`), verified with one live query (2026-10-16).
+- Stage-0 log filter experiment (`benchmarks/log_filter/`, 2026-10-17): a keyword filter and Laya on a separate synthetic corpus; report in `benchmarks/log_filter/REPORT.md`. Whether to use Laya is still open.
+
+Not built yet: the incident roles and skills, slicing the evidence across operators (each operator gets every source today), the director's diagnosis with a category and a remediation plan, the approval of the remediation plan, the single-model baselines (b) and (c), the benchmark runner, the auditor's correction cycle, parallel managers and operators, per-call `tool_called` events, cancellation of a team run, reading `x-ratelimit-*` headers, the server and `web/`.
+
+## Risks and not verified
+
+- No product run yet. Prompts, the plan format and `BudgetPolicy` have only run on stubs; the first live runs may need rework.
+- Context windows are UNVERIFIED. An incident's logs are far larger than one prompt, so the hierarchy must slice them, and the single-model baselines (b) and (c) need a defined way to read them (slices in sequence, or a search tool). That method is not decided and changes what (b) and (c) measure.
+- The `diagnosis_correct` rule is a proposal: a category match plus one verified essential citation. A model can name the right category for the wrong reason; evidence recall and the auditor partly cover that.
+- The corpus is synthetic. Real incidents are messier; good scores on it do not prove field accuracy, and the keyword-free incidents are our guess at what makes an incident hard.
+- Public datasets in the proof domains may be in the models' training data (unknown).
+- Reasoning-token billing, cached-token billing and Tavily's per-query cost are UNVERIFIED.
+- Listed model speeds are not reproduced, and the duration of a real run is NOT MEASURED, so the executor host is open.
+- Credits: USD 26 in total (25 event credit plus 1 account credit), minus what the probes spent (each probe's spend is in `docs/HARNESS_RESEARCH.md`). The benchmark's cost is not estimated yet.
+- The auditor is a model and may favor outputs like its own. Mitigation: the deterministic check first, a fixed rubric, a separate context, human review of a sample.
+
+## Timeline, October 17 to 29 (a plan, not a commitment)
+
+About 3 hours a day. Submission on the night of October 29 for the October 30, 10:00 AM PDT deadline.
+
+| Date | Work |
+|---|---|
+| Oct 17 | Product definition, this document, the incident corpus and the deterministic scorer |
+| Oct 18 | Incident roles and skills; slicing the evidence across operators; the director's diagnosis (category, cited claims, remediation plan) |
+| Oct 19 | First live run on one dev incident (only after the user approves it with a cost estimate); cassettes; Tavily on error signatures |
+| Oct 20 | Single-model baselines (b) and (c); measure a real run's duration and choose the executor host |
+| Oct 21 | Tune on the dev incidents only, then freeze prompts, skills and `BudgetPolicy` |
+| Oct 22 | The 36 benchmark runs; report test separately from dev |
+| Oct 23 to 24 | `web/`: chat, live feed, org chart, budget panel, evidence view, approval gate, recorded mode |
+| Oct 25 | Deploy the web app and the executor with the live caps |
+| Oct 26 | Proof domains: one run each on a few splunk/attack_data techniques and a few smartbugs-curated contracts with comments stripped |
+| Oct 27 | Choose the recorded demo; fixes; `FEEDBACK.md` |
+| Oct 28 | README; video script and recording |
+| Oct 29 | Video edit, Devpost text, submission |
 
 ## Development toolchain (Claude Code plugins)
 
 Rookwise is built with Claude Code and a small set of plugins and skills: stop-slop for human-facing text, ponytail as a guard against over-building in `core/`, harness-engineering as a Claude Code workflow that plans the work, builds it in stages and checks the result, and the engineering and incident.io plugins from the user's account. They run at development time only. The Rookwise runtime (`core/`, Nemotron on Nebius Token Factory) must not depend on any of them, and their cost comes from the Claude plan, not from the Nebius credits. The runtime uses adapted, attributed copies of four of them in `skills/` (see "Skills layer"). harness-engineering is a development workflow and is not the Rookwise harness in `core/harness/`. Setup, pinned versions, licenses, per-tool rules and the boundary are in [docs/PLUGINS.md](PLUGINS.md).
 
-## Schedule (3 h/day, Oct 12 to 29, 54 h)
-
-| Phase | Dates | Hours | Deliverable |
-|---|---|---|---|
-| 1. Foundations | Oct 12 to 14 | 9 | Repo, credits, console prices, Tavily key, schemas, ledger skeleton, harness research |
-| 2. Core | Oct 15 to 19 | 15 | Administrator layer, harness, catalog, store. One end-to-end run |
-| 3. Agents and interface | Oct 20 to 24 | 15 | Full agents with Tavily, retries, reputation, chat and feed, deployed URL |
-| 4. Board and evidence | Oct 25 to 27 | 9 | Board and VP, cost panel, 36-run benchmark, one good run for the video |
-| 5. Submission | Oct 28 and 29 | 6 | Video, README, feedback, Devpost on the night of Oct 29 |
-
-README is written at the end (Phase 5).
-
 ## Open decisions
 
-Whether Token Factory bills reasoning tokens at the output price (compare with the console balance); caching under other conditions; long-output speed per model; what the token rate limit counts and whether limits are independent per model; reputation formula; store choice (Supabase or SQLite); the host for the run executor and the live stream (after measuring a real run); which real run becomes the recorded demo, and whether demo recordings are committed; Nano's tool protocol (revisit after the benchmark); the model ladder inside the runner versus reassignment by a manager (proposed, pending); the ITOps and DevOps domain and the final demo cases. The scope of the public live mode is decided. Decisions and their reasons are logged in [docs/DECISIONS.md](DECISIONS.md).
+Listed with their context in [docs/DECISIONS.md](DECISIONS.md), "Still open": the Devpost track; whether to use Laya as a local pre-filter; which real run becomes the recorded demo; the executor host; whether to commit recordings; the reasoning-token billing check in the Nebius console; Nano's tool protocol; the model ladder. Also open in this document: how the single-model baselines read logs larger than one prompt; the incident roles; the store (Supabase or SQLite).
