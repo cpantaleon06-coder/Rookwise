@@ -71,6 +71,45 @@ def test_a_slightly_changed_quote_is_altered_with_its_ratio_and_nearest_line():
     assert row["ratio"] >= 0.8 and row["nearest_line"] == 3
 
 
+# Lines 2 to 4 without their timestamps and levels, joined with " | ", the shape of the
+# failed quotes of task t-6 in the second record run (2026-10-18).
+JOINED = (
+    "deploy.agent received config_version=42 | config.diff db.pool.max_connections: 50 -> 5 "
+    "| db.pool wait waited_ms=850 active=5 max=5"
+)
+
+
+def test_a_quote_joining_lines_with_a_separator_is_joined_not_absent():
+    module = _script()
+    row = module.classify(_citation(JOINED, 2, 4), SOURCE)
+    assert row["class"] == "joined"
+    assert (row["piece_lines"], row["all_inside"]) == ([2, 3, 4], True)
+
+
+def test_a_quote_joining_lines_with_a_line_break_is_joined():
+    module = _script()
+    quote = "config.diff db.pool.max_connections: 50 -> 5\r\ndb.pool timeout active=5"
+    row = module.classify(_citation(quote, 3, 5), SOURCE)
+    assert (row["class"], row["piece_lines"]) == ("joined", [3, 5])
+
+
+def test_joined_pieces_may_sit_just_outside_the_range():
+    module = _script()
+    row = module.classify(_citation(JOINED, 5, 6), SOURCE)  # pieces on 2 to 4: within 3
+    assert (row["class"], row["all_inside"]) == ("joined", False)
+    far = _citation(JOINED.replace("config_version=42", "config_version=42 x"), 2, 4)
+    assert module.classify(far, SOURCE)["class"] != "joined"  # one piece matches no line
+    wide = "deploy.agent received config_version=42 | rollback requested to config_version=41"
+    row = module.classify(_citation(wide, 2, 2), SOURCE)  # line 8 is 6 lines away
+    assert row["class"] != "joined"
+
+
+def test_a_single_piece_is_never_joined():
+    module = _script()
+    row = module.classify(_citation("deploy.agent received config_version=99 |", 2, 2), SOURCE)
+    assert row["class"] == "altered"
+
+
 def test_a_quote_that_is_nowhere_near_is_absent():
     module = _script()
     row = module.classify(_citation("kernel panic: unable to mount root fs", 2, 2), SOURCE)
@@ -91,6 +130,8 @@ def test_range_widths_are_bucketed_and_counted():
             _citation("db.pool.max_connections: 50 -> 5", 5, 5),  # 1 line, line_offset
             _citation("rollback requested to config_version=41", 2, 4),  # 2 to 4, line_offset
             _citation("no such text in this source at all here", 1, 6),  # 5 or more, absent
+            _citation(JOINED, 2, 4),  # 2 to 4, joined
+            _citation(JOINED, 1, 8),  # 5 or more, joined
             _citation(
                 "02:12:45 INFO config.diff db.pool.max_connections: 50 -> 5", 3, 3, reason="ok"
             ),
@@ -102,13 +143,17 @@ def test_range_widths_are_bucketed_and_counted():
         ("1 line", "line_offset"),
         ("2 to 4", "line_offset"),
         ("5 or more", "absent"),
+        ("2 to 4", "joined"),
+        ("5 or more", "joined"),
     ]
     assert other == {"line_out_of_range": 1}  # verified citations are not counted at all
     text = module.render(rows, other)
-    assert "| 1 line | 1 | 0 | 0 | 1 |" in text
-    assert "| 2 to 4 | 1 | 0 | 0 | 1 |" in text
-    assert "| 5 or more | 0 | 0 | 1 | 1 |" in text
-    assert "| nemotron-3.5-lightning | 2 | 0 | 1 | 3 |" in text
+    assert "| Cited lines | line_offset | joined | altered | absent | All |" in text
+    assert "| 1 line | 1 | 0 | 0 | 0 | 1 |" in text
+    assert "| 2 to 4 | 1 | 1 | 0 | 0 | 2 |" in text
+    assert "| 5 or more | 0 | 1 | 0 | 1 | 2 |" in text
+    assert "| nemotron-3.5-lightning | 2 | 2 | 0 | 1 | 5 |" in text
+    assert "| joined | 2 |" in text and "3 pieces on lines 2, 3, 4" in text
     assert "line_out_of_range 1" in text
 
 
@@ -125,7 +170,7 @@ def test_the_cli_reads_a_report_and_the_scenario_sources(tmp_path, monkeypatch, 
     monkeypatch.setattr(sys, "argv", argv)
     assert module.main() == 0
     out = capsys.readouterr().out
-    assert "| line_offset | 1 |" in out and "| nemotron-3-super | 1 | 0 | 0 | 1 |" in out
+    assert "| line_offset | 1 |" in out and "| nemotron-3-super | 1 | 0 | 0 | 0 | 1 |" in out
     assert "true lines 3-3, distance -2" in out
 
 

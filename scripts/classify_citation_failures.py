@@ -6,6 +6,10 @@ scenario's source files, and puts every failed citation in one class, checked in
 - line_offset: the quote, after the evidence check's whitespace normalization, is in the
   same source on other lines. Reported: the true first and last line of the occurrence
   nearest the cited line_start, and the distance (true first line minus cited line_start).
+- joined: the quote splits on " | " or on a line break into two or more pieces, and every
+  piece (normalized) is part of one source line in or near the cited range (up to
+  NEAR_LINES lines outside it). Reported: the line each piece sits on (the one nearest the
+  range) and whether all of them are inside the range.
 - altered: no exact occurrence, but a near one: the best similarity ratio (difflib) of the
   quote against any window of consecutive lines is at least the threshold (0.8 by
   default). Reported: that ratio and the window's first line.
@@ -41,7 +45,9 @@ DEFAULT_REPORT = REPO_ROOT / "runs" / "team_smoke" / "record" / "report.json"
 DEFAULT_SCENARIO = REPO_ROOT / "examples" / "team_smoke"
 THRESHOLD = 0.8
 MAX_WINDOW = 20
-CLASSES = ("line_offset", "altered", "absent")
+NEAR_LINES = 3
+SEPARATORS = (" | ", "\r\n", "\n", "\r")
+CLASSES = ("line_offset", "joined", "altered", "absent")
 WIDTHS = ("1 line", "2 to 4", "5 or more")
 
 
@@ -81,6 +87,28 @@ def exact_occurrences(lines: list[str], quote: str) -> list[tuple[int, int]]:
         numbers = [n for first, last, n in spans if first < end and start < last]
         found.append((numbers[0], numbers[-1]))
         start = joined.find(quote, start + 1)
+    return found
+
+
+def joined_pieces(lines: list[str], quote: str, line_start: int, line_end: int) -> list[int] | None:
+    """The line of each piece when the quote joins two or more source lines, else None."""
+    pieces = [quote]
+    for separator in SEPARATORS:
+        pieces = [part for piece in pieces for part in piece.split(separator)]
+    pieces = [normalize_whitespace(piece) for piece in pieces]
+    pieces = [piece for piece in pieces if piece]
+    if len(pieces) < 2:
+        return None
+    low, high = max(line_start - NEAR_LINES, 1), min(line_end + NEAR_LINES, len(lines))
+    found = []
+    for piece in pieces:
+        candidates = [
+            n for n in range(low, high + 1) if piece in normalize_whitespace(lines[n - 1])
+        ]
+        if not candidates:
+            return None
+        inside = [n for n in candidates if line_start <= n <= line_end]
+        found.append(inside[0] if inside else min(candidates, key=lambda n: abs(n - line_start)))
     return found
 
 
@@ -133,6 +161,13 @@ def classify(citation: dict[str, Any], text: str, threshold: float = THRESHOLD) 
             "true_line_start": first,
             "true_line_end": last,
             "distance": first - start,
+        }
+    pieces = joined_pieces(lines, citation["quote"], start, end)
+    if pieces is not None:
+        return row | {
+            "class": "joined",
+            "piece_lines": pieces,
+            "all_inside": all(start <= n <= end for n in pieces),
         }
     window = min(max(end - start + 1, 1) + 2, MAX_WINDOW)
     ratio, nearest = best_window(lines, citation["quote"], window)
@@ -211,6 +246,10 @@ def render(rows: list[dict[str, Any]], other: Counter[str]) -> str:
         if r["class"] == "line_offset":
             found = f"true lines {r['true_line_start']}-{r['true_line_end']}, "
             found += f"distance {r['distance']:+d}"
+        elif r["class"] == "joined":
+            found = f"{len(r['piece_lines'])} pieces on lines "
+            found += ", ".join(map(str, r["piece_lines"]))
+            found += "" if r["all_inside"] else " (some outside the range)"
         else:
             found = f"ratio {r['ratio']}, nearest line {r['nearest_line']}"
         quote = json.dumps(r["quote"], ensure_ascii=False).replace("|", "\\|")
