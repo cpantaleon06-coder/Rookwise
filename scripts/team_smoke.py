@@ -7,11 +7,12 @@ Modes:
   prompt is built and reserved by the ledger. Prints the ledger's worst-case reservation
   per call and an expected cost under the output assumptions in STUB_OUTPUT_TOKENS.
 - record: ONE LIVE run on Token Factory (needs NEBIUS_API_KEY in .env; costs credits).
-  The cassette goes to runs/cassettes/team_smoke.json (gitignored).
+  The cassette goes to runs/cassettes/team_smoke.json (gitignored), or to `--cassette
+  PATH`; recording replaces that file on its first write.
 - live: ONE LIVE run like record, with HARNESS_MODE=live: nothing is recorded, so it
   cannot be replayed.
-- replay: replays that cassette with a transport that fails on any request, and checks
-  that the events match the recorded ones.
+- replay: replays that cassette (or `--cassette PATH`) with a transport that fails on
+  any request, and checks that the events match the recorded ones.
 
 Each mode writes runs/team_smoke/<mode>/: events.json (the contract events), calls.json
 (one record per model call: level, model, seconds, usage, finish reason, retries, the
@@ -26,6 +27,7 @@ Usage:
     HARNESS_MODE=record python scripts/team_smoke.py record
     HARNESS_MODE=live python scripts/team_smoke.py live --run-usd 0.05
     HARNESS_MODE=replay python scripts/team_smoke.py replay
+    HARNESS_MODE=record python scripts/team_smoke.py record --cassette runs/cassettes/x.json
 """
 
 from __future__ import annotations
@@ -154,8 +156,14 @@ def _no_network(request: httpx.Request) -> httpx.Response:
 
 
 async def run(
-    mode: str, scenario: dict[str, Any], run_usd: str | None = None
+    mode: str,
+    scenario: dict[str, Any],
+    run_usd: str | None = None,
+    cassette: Path = CASSETTE,
+    transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[dict[str, Any], list, list]:
+    """One run. `cassette` is the file record writes and replay reads; `transport`
+    replaces the network in record mode (tests only)."""
     run_id = scenario["run_id"]
     ledger = InMemoryLedger()
     ledger.open_run(run_id, Caps(run_usd=Decimal(run_usd or scenario["run_usd"])))
@@ -165,8 +173,10 @@ async def run(
             ledger, config=config, api_key="offline-stub", transport=_stub_transport()
         )
     elif mode == "record":
-        CASSETTE.parent.mkdir(parents=True, exist_ok=True)
-        harness = Harness(ledger, config=config, cassette=Cassette(CASSETTE, "record"))
+        cassette.parent.mkdir(parents=True, exist_ok=True)
+        harness = Harness(
+            ledger, config=config, transport=transport, cassette=Cassette(cassette, "record")
+        )
     elif mode == "live":
         harness = Harness(ledger, config=config)
     else:
@@ -175,7 +185,7 @@ async def run(
             config=config,
             api_key="",
             transport=httpx.MockTransport(_no_network),
-            cassette=Cassette(CASSETTE, "replay"),
+            cassette=Cassette(cassette, "replay"),
         )
 
     calls: list[dict[str, Any]] = []
@@ -561,26 +571,36 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("mode", choices=("estimate", "record", "live", "replay"))
     parser.add_argument("--run-usd", help="the run cap in USD, instead of scenario.json's")
+    parser.add_argument(
+        "--cassette",
+        type=Path,
+        default=CASSETTE,
+        help="the cassette file for record and replay (default runs/cassettes/team_smoke.json)",
+    )
     args = parser.parse_args()
+    cassette = args.cassette.resolve()
     sys.stdout.reconfigure(encoding="utf-8")  # model text is not always cp1252 (Windows)
     if args.run_usd is not None and not Decimal(args.run_usd) > 0:
         print("--run-usd must be a positive amount; nothing was run.")
         return 2
+    if cassette != CASSETTE.resolve() and args.mode not in ("record", "replay"):
+        print("--cassette is for record and replay only; nothing was run.")
+        return 2
     if args.mode in ("record", "live"):
+        if os.environ.get("HARNESS_MODE") != args.mode:
+            print(f"Set HARNESS_MODE={args.mode} for the live run; nothing was run.")
+            return 2
         load_dotenv(REPO_ROOT / ".env")
         if not os.environ.get("NEBIUS_API_KEY"):
             print("NEBIUS_API_KEY is not set in .env; nothing was run.")
             return 2
-        if os.environ.get("HARNESS_MODE") != args.mode:
-            print(f"Set HARNESS_MODE={args.mode} for the live run; nothing was run.")
-            return 2
-    if args.mode == "replay" and not CASSETTE.exists():
-        print(f"No cassette at {CASSETTE.relative_to(REPO_ROOT)}; record first.")
+    if args.mode == "replay" and not cassette.exists():
+        print(f"No cassette at {cassette}; record first.")
         return 2
     scenario = load_scenario()
     out = OUT_DIR / args.mode
     out.mkdir(parents=True, exist_ok=True)
-    report, events, calls = asyncio.run(run(args.mode, scenario, args.run_usd))
+    report, events, calls = asyncio.run(run(args.mode, scenario, args.run_usd, cassette))
     if args.mode == "replay":
         recorded = json.loads((OUT_DIR / "record" / "events.json").read_text("utf-8"))
         report["replay_matches_record"] = _normalized(events) == _normalized(recorded)
