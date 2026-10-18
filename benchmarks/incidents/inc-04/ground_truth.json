@@ -1,0 +1,128 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC ground truth for Rookwise benchmark incident inc-04, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.",
+  "incident_id": "inc-04",
+  "split": "test",
+  "difficulty": "hard",
+  "root_cause": "The external address-verification API (addr.example.net) slowed down at 03:05, from about 130 ms to about 4.8 s per call. checkout-api waits for it on every order, so its worker pool filled and edge-proxy returned 504 after its 5 s timeout. The 02:40 checkout-api deploy, a logging refactor, is unrelated.",
+  "root_cause_category": "dependency_latency",
+  "categories": [
+    "bad_config",
+    "code_regression",
+    "resource_leak",
+    "certificate_expiry",
+    "capacity_exhaustion",
+    "dependency_latency",
+    "disk_exhaustion",
+    "network_failure"
+  ],
+  "essential_evidence": [
+    {
+      "source_id": "logs/checkout-api.log",
+      "line_start": 2414,
+      "line_end": 2414,
+      "quote": "2026-07-02T03:05:07.431Z INFO  checkout-api[checkout-2] addr_client: verify done upstream=addr.example.net dur_ms=4730 status=200",
+      "note": "first slow call to the address-verification API"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 186,
+      "line_end": 191,
+      "quote": "2026-07-02T03:05Z,4875,24.9,4691,0.0",
+      "note": "address-verification latency jumps at 03:05 while CPU stays flat"
+    }
+  ],
+  "supporting_evidence": [
+    {
+      "source_id": "logs/checkout-api.log",
+      "line_start": 2095,
+      "line_end": 2095,
+      "quote": "2026-07-02T02:40:18.200Z INFO  checkout-api[checkout-1] deploy: rollout finished version=2026.07.02-1 healthy=3/3",
+      "note": "the deploy finished 25 minutes before the latency rose"
+    },
+    {
+      "source_id": "logs/checkout-api.log",
+      "line_start": 2474,
+      "line_end": 2474,
+      "quote": "2026-07-02T03:09:44.050Z WARN  checkout-api[checkout-3] http: worker pool full active=64 max=64 queued=37",
+      "note": "workers are all waiting on the slow calls"
+    },
+    {
+      "source_id": "logs/edge-proxy.log",
+      "line_start": 1790,
+      "line_end": 1790,
+      "quote": "2026-07-02T03:07:12.660Z INFO  edge-proxy[edge-1] proxy: POST /v1/checkout status=504 dur_ms=5001 upstream=checkout-api req=d15ea5e0",
+      "note": "first 504 at the edge"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 161,
+      "line_end": 167,
+      "quote": "2026-07-02T02:40Z,267,25.3,141,0.0",
+      "note": "nothing changes around the 02:40 deploy"
+    }
+  ],
+  "decoys": [
+    {
+      "source_id": "logs/fraud-worker.jsonl",
+      "line_start": 599,
+      "line_end": 599,
+      "quote": "{\"ts\":\"2026-07-02T03:12:02.800Z\",\"level\":\"error\",\"service\":\"fraud-worker\",\"host\":\"fraud-1\",\"component\":\"model\",\"msg\":\"model file checksum mismatch, keeping previous model\",\"model\":\"fraud-v19\"}",
+      "note": "the fraud model update failed; scoring continues on the old model"
+    },
+    {
+      "source_id": "logs/edge-proxy.log",
+      "line_start": 1633,
+      "line_end": 1633,
+      "quote": "2026-07-02T02:51:30.300Z FATAL edge-proxy[edge-2] waf: rule set reload failed, keeping previous rules ruleset=r-2026-07-01",
+      "note": "a WAF rule reload; traffic keeps flowing on the old rules"
+    },
+    {
+      "source_id": "logs/checkout-api.log",
+      "line_start": 1206,
+      "line_end": 1206,
+      "quote": "2026-07-02T01:33:08.120Z ERROR checkout-api[checkout-1] coupons: legacy endpoint called client=partner-feed path=/v1/coupons/apply-legacy",
+      "note": "a partner still calls a deprecated endpoint"
+    }
+  ],
+  "acceptable_remediations": [
+    "Call the address-verification provider with a short timeout and a fallback",
+    "Skip address verification while the provider is slow and flag those orders for review",
+    "Contact the address-verification provider and check its status page"
+  ],
+  "keyword_free_evidence": true,
+  "cause_in_deploy_diff": false,
+  "misleading_first_hypothesis": "The 02:40 checkout-api deploy (a regression in the app)",
+  "sources": {
+    "deploy.diff": {
+      "lines": 15,
+      "committed": true
+    },
+    "logs/checkout-api.log": {
+      "lines": 4613,
+      "committed": false
+    },
+    "logs/edge-proxy.log": {
+      "lines": 3459,
+      "committed": false
+    },
+    "logs/fraud-worker.jsonl": {
+      "lines": 1154,
+      "committed": false
+    },
+    "metrics.csv": {
+      "lines": 362,
+      "committed": true
+    },
+    "runbook.md": {
+      "lines": 9,
+      "committed": true
+    },
+    "ticket.md": {
+      "lines": 9,
+      "committed": true
+    }
+  },
+  "log_lines": 9226,
+  "seed": 20261017
+}

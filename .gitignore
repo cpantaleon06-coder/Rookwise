@@ -284,3 +284,6 @@ tools/laya-filter/.laya-cache/
 
 # Generated SYNTHETIC logs for benchmarks/log_filter (several MB; rebuild with gen_corpus.py, hashes in manifest.json)
 benchmarks/log_filter/corpus/*/*.synthetic.*
+
+# Generated SYNTHETIC incident logs (about 6 MB; rebuild with scripts/gen_incidents.py, hashes in benchmarks/incidents/manifest.json)
+benchmarks/incidents/*/logs/

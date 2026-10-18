@@ -1,0 +1,114 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC ground truth for Rookwise benchmark incident inc-02, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.",
+  "incident_id": "inc-02",
+  "split": "test",
+  "difficulty": "easy",
+  "root_cause": "The 01:00 deploy of catalog-api upgraded imgcodec-sim from 3.1.0 to 3.2.0. After it, memory on every catalog-api worker grew by about 13 MB a minute until the 2,048 MB limit, and the supervisor killed and restarted each worker (exit code 137).",
+  "root_cause_category": "resource_leak",
+  "categories": [
+    "bad_config",
+    "code_regression",
+    "resource_leak",
+    "certificate_expiry",
+    "capacity_exhaustion",
+    "dependency_latency",
+    "disk_exhaustion",
+    "network_failure"
+  ],
+  "essential_evidence": [
+    {
+      "source_id": "logs/catalog-api.log",
+      "line_start": 1998,
+      "line_end": 1998,
+      "quote": "2026-06-09T03:07:17.123Z WARN  catalog-api[catalog-1] supervisor: worker killed by OOM, restarting exit_code=137 rss_mb=2048 limit_mb=2048",
+      "note": "first OOM kill and restart"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 83,
+      "line_end": 98,
+      "quote": "2026-06-09T01:30Z,691,0,96,0.2",
+      "note": "memory climbs steadily after the 01:00 deploy"
+    },
+    {
+      "source_id": "deploy.diff",
+      "line_start": 10,
+      "line_end": 10,
+      "quote": "+imgcodec-sim==3.2.0",
+      "note": "the dependency upgrade shipped at 01:00"
+    }
+  ],
+  "supporting_evidence": [
+    {
+      "source_id": "logs/catalog-api.log",
+      "line_start": 647,
+      "line_end": 647,
+      "quote": "2026-06-09T01:00:41.000Z INFO  catalog-api[catalog-1] app: started version=2026.06.09-1 imgcodec_sim=3.2.0 rss_mb=402",
+      "note": "the new version starts with imgcodec-sim 3.2.0"
+    }
+  ],
+  "decoys": [
+    {
+      "source_id": "logs/search-indexer.jsonl",
+      "line_start": 485,
+      "line_end": 485,
+      "quote": "{\"ts\":\"2026-06-09T02:21:09.500Z\",\"level\":\"error\",\"service\":\"search-indexer\",\"host\":\"indexer-1\",\"component\":\"jobs\",\"msg\":\"shard rebalance failed, will retry\",\"shard\":7,\"cluster\":\"search-a\"}",
+      "note": "search shard rebalance; catalog-api memory is unrelated"
+    },
+    {
+      "source_id": "logs/edge-proxy.log",
+      "line_start": 908,
+      "line_end": 908,
+      "quote": "2026-06-09T01:47:03.200Z ERROR edge-proxy[edge-2] tls: OCSP refresh failed domain=static.example.com responder=ocsp.example.net",
+      "note": "OCSP stapling refresh for static assets; the old staple stays valid"
+    },
+    {
+      "source_id": "logs/catalog-api.log",
+      "line_start": 2896,
+      "line_end": 2896,
+      "quote": "2026-06-09T04:40:17.710Z ERROR catalog-api[catalog-2] cache: redis command timeout cmd=GET key=price:1093 dur_ms=1003",
+      "note": "a single cache timeout"
+    }
+  ],
+  "acceptable_remediations": [
+    "Roll back catalog-api to the previous version (imgcodec-sim 3.1.0)",
+    "Pin imgcodec-sim to 3.1.0 and redeploy",
+    "Raise the memory limit only as a stopgap while the leak is fixed"
+  ],
+  "keyword_free_evidence": false,
+  "cause_in_deploy_diff": true,
+  "misleading_first_hypothesis": null,
+  "sources": {
+    "deploy.diff": {
+      "lines": 12,
+      "committed": true
+    },
+    "logs/catalog-api.log": {
+      "lines": 3719,
+      "committed": false
+    },
+    "logs/edge-proxy.log": {
+      "lines": 3098,
+      "committed": false
+    },
+    "logs/search-indexer.jsonl": {
+      "lines": 1154,
+      "committed": false
+    },
+    "metrics.csv": {
+      "lines": 362,
+      "committed": true
+    },
+    "runbook.md": {
+      "lines": 9,
+      "committed": true
+    },
+    "ticket.md": {
+      "lines": 9,
+      "committed": true
+    }
+  },
+  "log_lines": 7971,
+  "seed": 20261017
+}

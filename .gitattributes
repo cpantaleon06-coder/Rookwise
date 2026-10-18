@@ -1,0 +1,3 @@
+# The synthetic incident corpus is hashed byte for byte (benchmarks/incidents/manifest.json),
+# so its files keep LF line endings on every platform.
+benchmarks/incidents/** text eol=lf

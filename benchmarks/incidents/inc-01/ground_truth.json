@@ -1,0 +1,128 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC ground truth for Rookwise benchmark incident inc-01, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.",
+  "incident_id": "inc-01",
+  "split": "dev",
+  "difficulty": "easy",
+  "root_cause": "The client certificate that billing-api presents to the payment gateway (pay-gw.example.net) expired at 03:40 UTC. The renewal job had skipped it (approval pending), so every TLS handshake to the gateway failed from 03:40 and invoice payments returned 502.",
+  "root_cause_category": "certificate_expiry",
+  "categories": [
+    "bad_config",
+    "code_regression",
+    "resource_leak",
+    "certificate_expiry",
+    "capacity_exhaustion",
+    "dependency_latency",
+    "disk_exhaustion",
+    "network_failure"
+  ],
+  "essential_evidence": [
+    {
+      "source_id": "logs/billing-api.log",
+      "line_start": 447,
+      "line_end": 447,
+      "quote": "2026-05-04T00:43:30.836Z WARN  billing-api[billing-1] tls: client certificate expires soon peer=pay-gw.example.net cert=pay-gw-client not_after=2026-05-04T03:40:00Z hours_left=2.9",
+      "note": "the gateway client certificate expires at 03:40"
+    },
+    {
+      "source_id": "logs/billing-api.log",
+      "line_start": 2293,
+      "line_end": 2293,
+      "quote": "2026-05-04T03:40:02.114Z ERROR billing-api[billing-3] tls: handshake failed peer=pay-gw.example.net reason=certificate_expired not_after=2026-05-04T03:40:00Z",
+      "note": "first handshake failure: the certificate has expired"
+    }
+  ],
+  "supporting_evidence": [
+    {
+      "source_id": "logs/billing-api.log",
+      "line_start": 754,
+      "line_end": 754,
+      "quote": "2026-05-04T01:10:40.600Z INFO  billing-api[billing-2] scheduler: job finished name=cert-renew renewed=0 skipped=1 cert=pay-gw-client reason=approval_pending",
+      "note": "the renewal job skipped this certificate"
+    },
+    {
+      "source_id": "logs/edge-proxy.log",
+      "line_start": 2374,
+      "line_end": 2374,
+      "quote": "2026-05-04T03:40:31.507Z INFO  edge-proxy[edge-2] proxy: POST /v1/invoices/pay status=502 dur_ms=21 upstream=billing-api req=5a0c11e7",
+      "note": "user-facing payment failure"
+    },
+    {
+      "source_id": "logs/invoice-worker.jsonl",
+      "line_start": 990,
+      "line_end": 990,
+      "quote": "{\"ts\":\"2026-05-04T03:41:12.340Z\",\"level\":\"error\",\"service\":\"invoice-worker\",\"host\":\"worker-1\",\"component\":\"jobs\",\"msg\":\"charge failed\",\"job\":\"collect-payment\",\"invoice\":\"inv-402117\",\"reason\":\"billing-api 502\"}",
+      "note": "the invoice worker sees the 502s"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 221,
+      "line_end": 227,
+      "quote": "2026-05-04T03:40Z,9.4,42,21.3,5",
+      "note": "5xx jumps at 03:40"
+    }
+  ],
+  "decoys": [
+    {
+      "source_id": "logs/edge-proxy.log",
+      "line_start": 1871,
+      "line_end": 1871,
+      "quote": "2026-05-04T02:57:13.080Z ERROR edge-proxy[edge-1] geoip: database update failed source=geoip-updates.example.org status=404",
+      "note": "GeoIP update failure; payments do not use GeoIP"
+    },
+    {
+      "source_id": "logs/invoice-worker.jsonl",
+      "line_start": 954,
+      "line_end": 954,
+      "quote": "{\"ts\":\"2026-05-04T03:31:52.602Z\",\"level\":\"fatal\",\"service\":\"invoice-worker\",\"host\":\"worker-2\",\"component\":\"pdf\",\"msg\":\"renderer crashed, restarting\",\"exit_code\":139,\"signal\":\"SIGSEGV\"}",
+      "note": "PDF renderer crash before the incident; it restarts and does not charge"
+    },
+    {
+      "source_id": "logs/billing-api.log",
+      "line_start": 2600,
+      "line_end": 2600,
+      "quote": "2026-05-04T04:09:32.920Z ERROR billing-api[billing-1] db: replica lag high replica=reporting-1 lag_s=48 used_by=reports",
+      "note": "the reporting replica lags; payments use the primary"
+    }
+  ],
+  "acceptable_remediations": [
+    "Renew or reissue the pay-gw-client certificate and reload billing-api",
+    "Approve the pending renewal so the cert-renew job rotates the certificate",
+    "Alert on client certificates that expire within 14 days"
+  ],
+  "keyword_free_evidence": false,
+  "cause_in_deploy_diff": false,
+  "misleading_first_hypothesis": null,
+  "sources": {
+    "deploy.diff": {
+      "lines": 12,
+      "committed": true
+    },
+    "logs/billing-api.log": {
+      "lines": 3713,
+      "committed": false
+    },
+    "logs/edge-proxy.log": {
+      "lines": 3819,
+      "committed": false
+    },
+    "logs/invoice-worker.jsonl": {
+      "lines": 1587,
+      "committed": false
+    },
+    "metrics.csv": {
+      "lines": 362,
+      "committed": true
+    },
+    "runbook.md": {
+      "lines": 9,
+      "committed": true
+    },
+    "ticket.md": {
+      "lines": 9,
+      "committed": true
+    }
+  },
+  "log_lines": 9119,
+  "seed": 20261017
+}

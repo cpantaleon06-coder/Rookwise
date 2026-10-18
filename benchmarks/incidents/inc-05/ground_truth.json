@@ -1,0 +1,114 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC ground truth for Rookwise benchmark incident inc-05, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.",
+  "incident_id": "inc-05",
+  "split": "dev",
+  "difficulty": "hard",
+  "root_cause": "A traffic spike at 03:00 (about 3.3 times normal) made the autoscaler grow orders-api from 4 to 12 replicas. Each replica opens up to 25 database connections, 300 in total, but pg-proxy accepts 200 client connections, so the new replicas waited for connections and requests timed out. The database itself stayed healthy (CPU about 50%).",
+  "root_cause_category": "capacity_exhaustion",
+  "categories": [
+    "bad_config",
+    "code_regression",
+    "resource_leak",
+    "certificate_expiry",
+    "capacity_exhaustion",
+    "dependency_latency",
+    "disk_exhaustion",
+    "network_failure"
+  ],
+  "essential_evidence": [
+    {
+      "source_id": "logs/orders-api.log",
+      "line_start": 1316,
+      "line_end": 1316,
+      "quote": "2026-06-23T03:02:16.400Z INFO  orders-api[orders-1] autoscaler: scaled deployment deployment=orders-api replicas_from=4 replicas_to=12 reason=cpu_target",
+      "note": "the autoscaler triples the replicas after the spike"
+    },
+    {
+      "source_id": "logs/pg-proxy.log",
+      "line_start": 364,
+      "line_end": 364,
+      "quote": "2026-06-23T03:04:41.250Z WARN  pg-proxy[pgproxy-1] pool: client connections at limit, new clients wait current=200 max_client_conn=200",
+      "note": "pg-proxy reaches its client connection limit"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 182,
+      "line_end": 189,
+      "quote": "2026-06-23T03:00Z,387,4,100,135,52.6",
+      "note": "traffic triples at 03:00, replicas go to 12, client connections hit 200"
+    }
+  ],
+  "supporting_evidence": [
+    {
+      "source_id": "logs/orders-api.log",
+      "line_start": 1381,
+      "line_end": 1381,
+      "quote": "2026-06-23T03:05:02.070Z ERROR orders-api[orders-9] db: could not get a connection waited_ms=5000 pool=orders active=25 max=25",
+      "note": "a new replica cannot get a connection"
+    }
+  ],
+  "decoys": [
+    {
+      "source_id": "logs/pg-proxy.log",
+      "line_start": 334,
+      "line_end": 334,
+      "quote": "2026-06-23T02:48:11.600Z ERROR pg-proxy[pgproxy-1] replication: standby lag high standby=pg-standby-2 lag_s=95",
+      "note": "the reporting standby lags; orders-api uses the primary"
+    },
+    {
+      "source_id": "logs/orders-api.log",
+      "line_start": 1548,
+      "line_end": 1548,
+      "quote": "2026-06-23T03:11:27.300Z ERROR orders-api[orders-2] db: deadlock detected, retrying transaction table=audit_log",
+      "note": "a one-off deadlock on the audit table, retried"
+    },
+    {
+      "source_id": "logs/notify-worker.jsonl",
+      "line_start": 852,
+      "line_end": 852,
+      "quote": "{\"ts\":\"2026-06-23T03:25:40.000Z\",\"level\":\"fatal\",\"service\":\"notify-worker\",\"host\":\"notify-1\",\"component\":\"templates\",\"msg\":\"template cache corrupted, rebuilding\",\"cache\":\"email-templates\"}",
+      "note": "the email template cache rebuilds; orders are unaffected"
+    }
+  ],
+  "acceptable_remediations": [
+    "Lower the per-replica pool size so that replicas times pool size stays under pg-proxy's max_client_conn",
+    "Raise pg-proxy max_client_conn if the database can take the connections",
+    "Cap the autoscaler's maximum replicas to what the connection budget allows"
+  ],
+  "keyword_free_evidence": false,
+  "cause_in_deploy_diff": false,
+  "misleading_first_hypothesis": "The database (or pg-proxy) is down",
+  "sources": {
+    "deploy.diff": {
+      "lines": 10,
+      "committed": true
+    },
+    "logs/notify-worker.jsonl": {
+      "lines": 1514,
+      "committed": false
+    },
+    "logs/orders-api.log": {
+      "lines": 5825,
+      "committed": false
+    },
+    "logs/pg-proxy.log": {
+      "lines": 687,
+      "committed": false
+    },
+    "metrics.csv": {
+      "lines": 362,
+      "committed": true
+    },
+    "runbook.md": {
+      "lines": 9,
+      "committed": true
+    },
+    "ticket.md": {
+      "lines": 9,
+      "committed": true
+    }
+  },
+  "log_lines": 8026,
+  "seed": 20261017
+}

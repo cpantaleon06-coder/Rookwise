@@ -1,0 +1,12 @@
+# SYNTHETIC deploy diff for Rookwise benchmark incident inc-01, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.
+# Fictional repository; the code and the configuration below are made up.
+commit 4f1c2a9e (deploy billing-api 2026.05.04-1, 01:30 UTC)
+diff --git a/config/billing.yaml b/config/billing.yaml
+--- a/config/billing.yaml
++++ b/config/billing.yaml
+@@ -12,4 +12,4 @@ invoices:
+   pdf:
+-    font: "Inter"
++    font: "Source Sans"
+     paper: A4
+   footer_text: "Thank you for your business"

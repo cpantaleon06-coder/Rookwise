@@ -1,0 +1,15 @@
+# SYNTHETIC deploy diff for Rookwise benchmark incident inc-03, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.
+# Fictional repository; the code and the configuration below are made up.
+commit 1b7e44c0 (deploy storefront-api 2026.05.20-3, 02:10 UTC)
+diff --git a/config/storefront.yaml b/config/storefront.yaml
+--- a/config/storefront.yaml
++++ b/config/storefront.yaml
+@@ -30,6 +30,6 @@ cart_client:
+   base_url: http://cart-svc.example
+-  timeout_ms: 3000
++  timeout_ms: 30
+   retries: 0
+ search_client:
+-  page_size: 20
++  page_size: 24
+   timeout_ms: 800

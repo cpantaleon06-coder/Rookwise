@@ -1,0 +1,15 @@
+# SYNTHETIC deploy diff for Rookwise benchmark incident inc-06, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.
+# Fictional repository; the code and the configuration below are made up.
+commit 70cd1e95 (deploy ops config ops-2026.07.15-1, 00:30 UTC)
+diff --git a/logrotate.d/media-api b/logrotate.d/media-api
+--- a/logrotate.d/media-api
++++ b/logrotate.d/media-api
+@@ -1,7 +1,7 @@
+ /data/log/media-api/app.log {
+     hourly
+-    size 500M
++    size 50G
+     rotate 5
+     compress
+     missingok
+ }

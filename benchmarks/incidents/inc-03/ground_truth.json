@@ -1,0 +1,117 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC ground truth for Rookwise benchmark incident inc-03, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.",
+  "incident_id": "inc-03",
+  "split": "dev",
+  "difficulty": "medium",
+  "root_cause": "The 02:10 deploy of storefront-api changed cart_client.timeout_ms from 3000 to 30 in config/storefront.yaml. cart-svc answers in 40 to 60 ms, so storefront-api gave up on almost every cart call after 30 ms and returned 503.",
+  "root_cause_category": "bad_config",
+  "categories": [
+    "bad_config",
+    "code_regression",
+    "resource_leak",
+    "certificate_expiry",
+    "capacity_exhaustion",
+    "dependency_latency",
+    "disk_exhaustion",
+    "network_failure"
+  ],
+  "essential_evidence": [
+    {
+      "source_id": "logs/storefront-api.log",
+      "line_start": 1734,
+      "line_end": 1734,
+      "quote": "2026-05-20T02:10:52.480Z INFO  storefront-api[shop-1] config: loaded file=storefront.yaml version=2026.05.20-3 cart_client.timeout_ms=30 cart_client.retries=0",
+      "note": "the new config is live: the cart client gives up after 30 ms"
+    },
+    {
+      "source_id": "logs/storefront-api.log",
+      "line_start": 1740,
+      "line_end": 1740,
+      "quote": "2026-05-20T02:11:03.117Z INFO  storefront-api[shop-2] http: POST /api/v2/cart/items status=503 dur_ms=31 upstream=cart-svc req=c0ffee03",
+      "note": "first cart call cut at 30 ms and answered 503"
+    },
+    {
+      "source_id": "deploy.diff",
+      "line_start": 10,
+      "line_end": 10,
+      "quote": "+  timeout_ms: 30",
+      "note": "the timeout drops from 3000 ms to 30 ms"
+    }
+  ],
+  "supporting_evidence": [
+    {
+      "source_id": "logs/cart-svc.jsonl",
+      "line_start": 843,
+      "line_end": 843,
+      "quote": "{\"ts\":\"2026-05-20T02:11:03.090Z\",\"level\":\"info\",\"service\":\"cart-svc\",\"host\":\"cart-1\",\"component\":\"jobs\",\"msg\":\"client went away before response\",\"path\":\"/v1/cart/items\",\"dur_ms\":44}",
+      "note": "cart-svc answered in 44 ms, after storefront-api had given up"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 132,
+      "line_end": 138,
+      "quote": "2026-05-20T02:11Z,37.0,143,49,77",
+      "note": "5xx jumps after the deploy while cart-svc stays fast"
+    }
+  ],
+  "decoys": [
+    {
+      "source_id": "logs/storefront-api.log",
+      "line_start": 970,
+      "line_end": 970,
+      "quote": "2026-05-20T01:12:44.000Z ERROR storefront-api[shop-3] payments: webhook signature mismatch source=hooks.example.com event=refund.created",
+      "note": "a refund webhook from a test sender; carts are unrelated"
+    },
+    {
+      "source_id": "logs/cart-svc.jsonl",
+      "line_start": 1196,
+      "line_end": 1196,
+      "quote": "{\"ts\":\"2026-05-20T03:05:21.900Z\",\"level\":\"fatal\",\"service\":\"cart-svc\",\"host\":\"cart-2\",\"component\":\"metrics\",\"msg\":\"exporter crashed, restarting\",\"exit_code\":139}",
+      "note": "the metrics exporter sidecar; cart requests keep being served"
+    },
+    {
+      "source_id": "logs/storefront-api.log",
+      "line_start": 3623,
+      "line_end": 3623,
+      "quote": "2026-05-20T04:31:07.250Z ERROR storefront-api[shop-1] images: upload to CDN failed cdn=cdn.example.net status=413 file_mb=31",
+      "note": "an oversized product image"
+    }
+  ],
+  "acceptable_remediations": [
+    "Roll back storefront-api to 2026.05.20-2",
+    "Set cart_client.timeout_ms back to 3000 and redeploy",
+    "Add a config check that rejects client timeouts below the downstream p95"
+  ],
+  "keyword_free_evidence": true,
+  "cause_in_deploy_diff": true,
+  "misleading_first_hypothesis": null,
+  "sources": {
+    "deploy.diff": {
+      "lines": 15,
+      "committed": true
+    },
+    "logs/cart-svc.jsonl": {
+      "lines": 2307,
+      "committed": false
+    },
+    "logs/storefront-api.log": {
+      "lines": 4793,
+      "committed": false
+    },
+    "metrics.csv": {
+      "lines": 362,
+      "committed": true
+    },
+    "runbook.md": {
+      "lines": 8,
+      "committed": true
+    },
+    "ticket.md": {
+      "lines": 9,
+      "committed": true
+    }
+  },
+  "log_lines": 7100,
+  "seed": 20261017
+}

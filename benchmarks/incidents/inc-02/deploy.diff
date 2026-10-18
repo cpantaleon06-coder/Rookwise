@@ -1,0 +1,12 @@
+# SYNTHETIC deploy diff for Rookwise benchmark incident inc-02, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.
+# Fictional repository; the code and the configuration below are made up.
+commit 9d03be17 (deploy catalog-api 2026.06.09-1, 01:00 UTC)
+diff --git a/requirements.lock b/requirements.lock
+--- a/requirements.lock
++++ b/requirements.lock
+@@ -21,4 +21,4 @@
+ httpkit-sim==5.4.2
+-imgcodec-sim==3.1.0
++imgcodec-sim==3.2.0
+ orjson-sim==3.9.1
+ pydantic-sim==2.7.4

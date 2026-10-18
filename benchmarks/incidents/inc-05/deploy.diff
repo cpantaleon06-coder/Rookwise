@@ -1,0 +1,10 @@
+# SYNTHETIC deploy diff for Rookwise benchmark incident inc-05, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.
+# Fictional repository; the code and the configuration below are made up.
+commit e2504d81 (deploy notify-worker 2026.06.22-4, yesterday 18:20 UTC)
+diff --git a/templates/shipping_update.txt b/templates/shipping_update.txt
+--- a/templates/shipping_update.txt
++++ b/templates/shipping_update.txt
+@@ -1,2 +1,2 @@
+-Your order {order_id} has shipped.
++Good news: your order {order_id} is on its way.
+ Track it at https://track.example.com/{tracking_id}

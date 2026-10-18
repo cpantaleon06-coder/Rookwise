@@ -1,0 +1,117 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC ground truth for Rookwise benchmark incident inc-06, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.",
+  "incident_id": "inc-06",
+  "split": "test",
+  "difficulty": "medium",
+  "root_cause": "The 00:30 deploy changed the logrotate rule for media-api's app.log from size 500M to size 50G. The hourly rotation stopped from 01:00, app.log grew by about 35 MB a minute on the 20 GB /data volume it shares with the upload temp files, and the volume filled at 04:41; after that every write failed with ENOSPC and uploads failed.",
+  "root_cause_category": "disk_exhaustion",
+  "categories": [
+    "bad_config",
+    "code_regression",
+    "resource_leak",
+    "certificate_expiry",
+    "capacity_exhaustion",
+    "dependency_latency",
+    "disk_exhaustion",
+    "network_failure"
+  ],
+  "essential_evidence": [
+    {
+      "source_id": "logs/media-api.log",
+      "line_start": 713,
+      "line_end": 713,
+      "quote": "2026-07-15T01:00:01.957Z INFO  media-api[media-1] logrotate: /data/log/media-api/app.log not rotated size_mb=2134 threshold_mb=51200",
+      "note": "the hourly rotation does not run: the new threshold is 50 GB"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 61,
+      "line_end": 67,
+      "quote": "2026-07-15T01:01Z,62.4,2143,9.6,0.0",
+      "note": "no drop at 01:00: app.log keeps growing past the hourly rotation"
+    },
+    {
+      "source_id": "deploy.diff",
+      "line_start": 11,
+      "line_end": 11,
+      "quote": "+    size 50G",
+      "note": "the rotation threshold goes from 500 MB to 50 GB"
+    }
+  ],
+  "supporting_evidence": [
+    {
+      "source_id": "logs/media-api.log",
+      "line_start": 3352,
+      "line_end": 3352,
+      "quote": "2026-07-15T04:41:03.500Z ERROR media-api[media-2] storage: write failed path=/data/log/media-api/app.log errno=ENOSPC",
+      "note": "the volume is full: the first failed write"
+    },
+    {
+      "source_id": "metrics.csv",
+      "line_start": 282,
+      "line_end": 286,
+      "quote": "2026-07-15T04:41Z,100.0,9836,0.0,8.5",
+      "note": "/data reaches 100% at 04:41 and uploads fail"
+    }
+  ],
+  "decoys": [
+    {
+      "source_id": "logs/media-api.log",
+      "line_start": 1597,
+      "line_end": 1597,
+      "quote": "2026-07-15T02:14:50.500Z ERROR media-api[media-1] transcoder: unsupported codec upload=u-58213 codec=xvid-sim",
+      "note": "one user uploaded a file in an unsupported codec"
+    },
+    {
+      "source_id": "logs/upload-worker.jsonl",
+      "line_start": 1203,
+      "line_end": 1203,
+      "quote": "{\"ts\":\"2026-07-15T03:37:11.100Z\",\"level\":\"error\",\"service\":\"upload-worker\",\"host\":\"upload-2\",\"component\":\"scan\",\"msg\":\"virus scan service unavailable, will retry\",\"scanner\":\"scan.example.org\"}",
+      "note": "a short scanner outage; scans retry and pass"
+    },
+    {
+      "source_id": "logs/upload-worker.jsonl",
+      "line_start": 1426,
+      "line_end": 1426,
+      "quote": "{\"ts\":\"2026-07-15T04:20:33.330Z\",\"level\":\"fatal\",\"service\":\"upload-worker\",\"host\":\"upload-1\",\"component\":\"thumbs\",\"msg\":\"thumbnail cache corrupted, rebuilding\",\"cache\":\"thumbs-l1\"}",
+      "note": "the thumbnail cache rebuilds before the disk fills"
+    }
+  ],
+  "acceptable_remediations": [
+    "Restore the logrotate rule to size 500M and rotate app.log now",
+    "Free space on /data (compress or move the current app.log)",
+    "Alert on /data usage above 80%"
+  ],
+  "keyword_free_evidence": true,
+  "cause_in_deploy_diff": true,
+  "misleading_first_hypothesis": null,
+  "sources": {
+    "deploy.diff": {
+      "lines": 15,
+      "committed": true
+    },
+    "logs/media-api.log": {
+      "lines": 4310,
+      "committed": false
+    },
+    "logs/upload-worker.jsonl": {
+      "lines": 1947,
+      "committed": false
+    },
+    "metrics.csv": {
+      "lines": 362,
+      "committed": true
+    },
+    "runbook.md": {
+      "lines": 8,
+      "committed": true
+    },
+    "ticket.md": {
+      "lines": 9,
+      "committed": true
+    }
+  },
+  "log_lines": 6257,
+  "seed": 20261017
+}

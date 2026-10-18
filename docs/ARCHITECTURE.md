@@ -272,7 +272,34 @@ Metrics, per run and aggregated per configuration:
 | Wall time | Seconds from the first reservation to the last charge |
 | Outcome labels | Per task: `first_pass_ok`, `ok_after_retry`, `ok_after_escalation`, `failed` |
 
-The thesis to test is that the hierarchy (a) reaches the accuracy of the single large model (b) at a lower cost. The pitch does not depend on that thesis. If (a) costs as much as (b), or (c) is as accurate as (a), Rookwise reports it: a budget the agent cannot pass, claims checked by code, an independent audit and a human gate are worth having whichever configuration wins, and the benchmark tells the team which configuration to run. A cost estimate for the 36 runs needs the corpus size; it comes with the corpus.
+The thesis to test is that the hierarchy (a) reaches the accuracy of the single large model (b) at a lower cost. The pitch does not depend on that thesis. If (a) costs as much as (b), or (c) is as accurate as (a), Rookwise reports it: a budget the agent cannot pass, claims checked by code, an independent audit and a human gate are worth having whichever configuration wins, and the benchmark tells the team which configuration to run.
+
+### The incident corpus
+
+Six fictional incidents, generated with a fixed seed by `scripts/gen_incidents.py` into `benchmarks/incidents/<id>/`. Every file says SYNTHETIC; hosts use reserved example domains and addresses come from RFC 5737. Each incident has logs from 2 or 3 services (plain text and JSON lines, 6,257 to 9,226 lines), `metrics.csv` (one row a minute over six hours), `deploy.diff`, `runbook.md`, `ticket.md` (the alert that starts the investigation) and `ground_truth.json`: the root cause and its category, essential and supporting evidence refs (source, 1-based lines, exact quote), acceptable remediations, at least 2 decoys (alarming errors unrelated to the cause), the split, the difficulty and `keyword_free_evidence` (true when no essential evidence line contains ERROR, WARN or FATAL). The ids are neutral, so an id says nothing about the cause.
+
+| Id | Category | Split | Difficulty | Keyword-free evidence | Cause in the deploy diff | Misleading first hypothesis |
+|---|---|---|---|---|---|---|
+| inc-01 | certificate_expiry | dev | easy | no | no | none |
+| inc-02 | resource_leak | test | easy | no | yes | none |
+| inc-03 | bad_config | dev | medium | yes | yes | none |
+| inc-04 | dependency_latency | test | hard | yes | no | the app deploy 25 minutes earlier |
+| inc-05 | capacity_exhaustion | dev | hard | no | no | the database |
+| inc-06 | disk_exhaustion | test | medium | yes | yes | none |
+
+The category enum has 8 values (the 6 above plus `code_regression` and `network_failure`), so the enum is not just the list of answers. The logs (about 6.5 MB) are gitignored and rebuilt by the generator; the small files and `manifest.json` (the sha256 of every file) are committed, and `python scripts/gen_incidents.py --check` compares a fresh build with them.
+
+### Cost estimate for the 36 runs (arithmetic on the corpus size, not measured)
+
+At the harness's input estimate (characters / 3), the six incidents' sources (everything but the ground truth) hold 2,202,652 tokens, 294,298 to 428,074 per incident (367,109 on average). Reading every source once, input tokens only, costs per configuration over its 12 runs (2 repeats of the 6 incidents):
+
+| Configuration | Model that reads the sources | Arithmetic | USD |
+|---|---|---|---|
+| (a) hierarchy | Lightning operators | 2 x 2,202,652 x 0.06 / 1M | 0.2643 |
+| (b) single large model | Ultra | 2 x 2,202,652 x 1.00 / 1M | 4.4053 |
+| (c) single small model | Lightning | 2 x 2,202,652 x 0.06 / 1M | 0.2643 |
+
+These are lower bounds: they leave out output tokens, system prompts and skills, the director, managers and auditor of (a), retries, repairs and any second read. So the 36 runs cost at least USD 4.93. Reading an average incident once on Ultra also takes at least 367,109 / 200,000 = 1.8 minutes at its token limit. The context windows are UNVERIFIED, and 367,109 tokens are likely more than one prompt holds, so every configuration reads the sources in slices.
 
 ## Proof domains
 
@@ -347,6 +374,7 @@ Everything here runs offline in the tests (stubs and cassettes). No product run 
 - API contract v1 (`core/api/models.py`, docs/api.md): generated JSON Schemas, synthetic fixtures, a standard-library mock server, money as six-decimal strings.
 - Skills (`skills/`, `core/skills/`): nine adapted skills with attribution and measured token costs.
 - Tavily search tool (`core/tools/tavily.py`), verified with one live query (2026-10-16).
+- Incident corpus (`scripts/gen_incidents.py`, `benchmarks/incidents/`, 2026-10-17): the six incidents in "The incident corpus", with their ground truth and the manifest.
 - Stage-0 log filter experiment (`benchmarks/log_filter/`, 2026-10-17): a keyword filter and Laya on a separate synthetic corpus; report in `benchmarks/log_filter/REPORT.md`. Whether to use Laya is still open.
 
 Not built yet: the incident roles and skills, slicing the evidence across operators (each operator gets every source today), the director's diagnosis with a category and a remediation plan, the approval of the remediation plan, the single-model baselines (b) and (c), the benchmark runner, the auditor's correction cycle, parallel managers and operators, per-call `tool_called` events, cancellation of a team run, reading `x-ratelimit-*` headers, the server and `web/`.
@@ -360,7 +388,7 @@ Not built yet: the incident roles and skills, slicing the evidence across operat
 - Public datasets in the proof domains may be in the models' training data (unknown).
 - Reasoning-token billing, cached-token billing and Tavily's per-query cost are UNVERIFIED.
 - Listed model speeds are not reproduced, and the duration of a real run is NOT MEASURED, so the executor host is open.
-- Credits: USD 26 in total (25 event credit plus 1 account credit), minus what the probes spent (each probe's spend is in `docs/HARNESS_RESEARCH.md`). The benchmark's cost is not estimated yet.
+- Credits: USD 26 in total (25 event credit plus 1 account credit), minus what the probes spent (each probe's spend is in `docs/HARNESS_RESEARCH.md`). The benchmark costs at least USD 4.93 (see "Cost estimate for the 36 runs"); the real figure is unknown until the first measured runs.
 - The auditor is a model and may favor outputs like its own. Mitigation: the deterministic check first, a fixed rubric, a separate context, human review of a sample.
 
 ## Timeline, October 17 to 29 (a plan, not a commitment)

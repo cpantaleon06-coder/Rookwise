@@ -1,0 +1,283 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC corpus written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.",
+  "seed": 20261017,
+  "files": {
+    "inc-01/deploy.diff": {
+      "sha256": "5144a9ccf941f3fc427ddc328de99b0627f937f6ac6e369875a50558cabf00b8",
+      "bytes": 566,
+      "lines": 12,
+      "committed": true
+    },
+    "inc-01/ground_truth.json": {
+      "sha256": "393b378eb5906909d1ed340804793521dc131d581c2ed64dd2a80c7b5d46e9f2",
+      "bytes": 4864,
+      "lines": 128,
+      "committed": true
+    },
+    "inc-01/logs/billing-api.log": {
+      "sha256": "7f7eb0401e9da9599f4e239038c7190f40e1eb89e64b74cf79d5b83a7ef0ffc0",
+      "bytes": 449806,
+      "lines": 3713,
+      "committed": false
+    },
+    "inc-01/logs/edge-proxy.log": {
+      "sha256": "7b6322630739ab1ee087eaf515ba4b89afcc0139c83bfb1431f2c070fbc02f58",
+      "bytes": 533712,
+      "lines": 3819,
+      "committed": false
+    },
+    "inc-01/logs/invoice-worker.jsonl": {
+      "sha256": "13d422c131222eaa794da2ae0a28c1439499d13efed5959605bef3131d3155be",
+      "bytes": 286639,
+      "lines": 1587,
+      "committed": false
+    },
+    "inc-01/metrics.csv": {
+      "sha256": "35225d17cad748b81345857d17b47efbb37e39773ae55df4c4aa2be3d432293b",
+      "bytes": 12350,
+      "lines": 362,
+      "committed": true
+    },
+    "inc-01/runbook.md": {
+      "sha256": "9071c6c427114adb908c52274680dc90e878f842e33f42ff1457501136d75c90",
+      "bytes": 557,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-01/ticket.md": {
+      "sha256": "b9de3decdf1f7fff7a0a440a2c392defafd01dc653b1300858722509536ec552",
+      "bytes": 590,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-02/deploy.diff": {
+      "sha256": "499f24a616fbae7da03946cc3fac54e03c36a6b55aa5a6b34d46fce536068200",
+      "bytes": 537,
+      "lines": 12,
+      "committed": true
+    },
+    "inc-02/ground_truth.json": {
+      "sha256": "b6a12f21f56d5d54bc9240df0aadab7259b50c87386ca513e2082362dad8d008",
+      "bytes": 3840,
+      "lines": 114,
+      "committed": true
+    },
+    "inc-02/logs/catalog-api.log": {
+      "sha256": "a867b748eb58afed478b21c93310afc1f96623d66af7252932ec6fd6da1d2de6",
+      "bytes": 475764,
+      "lines": 3719,
+      "committed": false
+    },
+    "inc-02/logs/edge-proxy.log": {
+      "sha256": "ee078318df17794de0a4c1ce3e0a414070670202aa769505fc0a769b8f6d7e96",
+      "bytes": 443550,
+      "lines": 3098,
+      "committed": false
+    },
+    "inc-02/logs/search-indexer.jsonl": {
+      "sha256": "a82517301b6acc9d18f08ef88358111c0367b0d69a351770c68f3e3563a9112a",
+      "bytes": 207944,
+      "lines": 1154,
+      "committed": false
+    },
+    "inc-02/metrics.csv": {
+      "sha256": "a1c72709226a9ec3f7d0096ac76bf0053c3d6441f32f415fcbc8933902073850",
+      "bytes": 11817,
+      "lines": 362,
+      "committed": true
+    },
+    "inc-02/runbook.md": {
+      "sha256": "c6d41d03d192a055f553563b084346dcff53b333f7d6f31e5eb823b945578412",
+      "bytes": 563,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-02/ticket.md": {
+      "sha256": "875b100ac7c241ae4a2c88c954ed3edc7d598ebb16fb65903c2b31db00bc525b",
+      "bytes": 505,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-03/deploy.diff": {
+      "sha256": "a2882b212c38666a0a0bfacf33335da22ceddfe43ed252bd83a11beffccf0125",
+      "bytes": 629,
+      "lines": 15,
+      "committed": true
+    },
+    "inc-03/ground_truth.json": {
+      "sha256": "f0dd40346faa8ab6188b1c0768a7e141176ea815b8739a714da18e692f13c6da",
+      "bytes": 4213,
+      "lines": 117,
+      "committed": true
+    },
+    "inc-03/logs/cart-svc.jsonl": {
+      "sha256": "a4c807b6c76af699f8a6d6d0ce98f4867d46aa73cfd5f148c74afbc755ed07bc",
+      "bytes": 407545,
+      "lines": 2307,
+      "committed": false
+    },
+    "inc-03/logs/storefront-api.log": {
+      "sha256": "20b00add5b55c2f5e139fbb88de7e2dab252db5441769a1b558c856ac73b5ca1",
+      "bytes": 605951,
+      "lines": 4793,
+      "committed": false
+    },
+    "inc-03/metrics.csv": {
+      "sha256": "41420307836658c64b587c6e75293c31df097ce819eb2472993c083cce427428",
+      "bytes": 12009,
+      "lines": 362,
+      "committed": true
+    },
+    "inc-03/runbook.md": {
+      "sha256": "1f5c4ef4370a4e99f3155420c9aa0c5714de15abadb61a00c75a9176b6d6e6cd",
+      "bytes": 510,
+      "lines": 8,
+      "committed": true
+    },
+    "inc-03/ticket.md": {
+      "sha256": "3ba1641b3cf32bb29b48c1479e62ad45a919c9f66fe53d32ecbbde231e2ae6b5",
+      "bytes": 482,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-04/deploy.diff": {
+      "sha256": "80f8997fba3f2bca03a652909ef5a5af2f4dbb486f1d33ab06309279d36a0a32",
+      "bytes": 898,
+      "lines": 15,
+      "committed": true
+    },
+    "inc-04/ground_truth.json": {
+      "sha256": "b8a7631b6b62cc23aa1480915939018fb8021f789fb253422b8e1fbde24214fc",
+      "bytes": 4702,
+      "lines": 128,
+      "committed": true
+    },
+    "inc-04/logs/checkout-api.log": {
+      "sha256": "f91d622b2fe3ffe79d5ee4fc33e07e0d72ca1dc1c407d1d94af622f3a4ab9bc9",
+      "bytes": 578574,
+      "lines": 4613,
+      "committed": false
+    },
+    "inc-04/logs/edge-proxy.log": {
+      "sha256": "7e24e36ede32ad7d02949e07dc33f4b7a3948806b814c09501a5b0cc31433a03",
+      "bytes": 482635,
+      "lines": 3459,
+      "committed": false
+    },
+    "inc-04/logs/fraud-worker.jsonl": {
+      "sha256": "924a65dd422d9ac6917af5472eaf68a17b57d5a348a446c15e8dd4dd3cbc1fa0",
+      "bytes": 201721,
+      "lines": 1154,
+      "committed": false
+    },
+    "inc-04/metrics.csv": {
+      "sha256": "c895498b51dbf820455ccad5f2895aa30133986fffe8f425ed2523f45dc4addd",
+      "bytes": 13217,
+      "lines": 362,
+      "committed": true
+    },
+    "inc-04/runbook.md": {
+      "sha256": "90d3c31c1c477b9db26f0867ba72f388f90bd313fdcc71cf480aa5772aeb63bb",
+      "bytes": 527,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-04/ticket.md": {
+      "sha256": "1cb701dfe21122ddf5f68afaa6d96f55b32a70f38b11b4dc6a9ad00daa4c1705",
+      "bytes": 531,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-05/deploy.diff": {
+      "sha256": "c14078e5eeabeddfae05083609593d4a14cbee952041f8d45abd6a1f26b51446",
+      "bytes": 631,
+      "lines": 10,
+      "committed": true
+    },
+    "inc-05/ground_truth.json": {
+      "sha256": "b53a855bdba3ace21975448f2899d5a9d828845a034cb92d583cb88e7101eb63",
+      "bytes": 4230,
+      "lines": 114,
+      "committed": true
+    },
+    "inc-05/logs/notify-worker.jsonl": {
+      "sha256": "2b0bc07d0b3a9de4bcf88aed46236f2407028ae4a93079b47ff5a6bbf7ec1a5c",
+      "bytes": 274644,
+      "lines": 1514,
+      "committed": false
+    },
+    "inc-05/logs/orders-api.log": {
+      "sha256": "efd1cd62eb62c3826f93bad2e55f2855c8468e26e50beb2e444a0b499c299081",
+      "bytes": 634861,
+      "lines": 5825,
+      "committed": false
+    },
+    "inc-05/logs/pg-proxy.log": {
+      "sha256": "183947509afc3fd755b9bc676f2b79ec1946b2dcb93f89d6f3893af0c4ea7de5",
+      "bytes": 69882,
+      "lines": 687,
+      "committed": false
+    },
+    "inc-05/metrics.csv": {
+      "sha256": "74b618b8b3b2f7b559cd54885ef5f8a89da4a63a37d45ed5dbb745b691900b23",
+      "bytes": 13854,
+      "lines": 362,
+      "committed": true
+    },
+    "inc-05/runbook.md": {
+      "sha256": "919f4fd99edcd22c2bd710bba28205644fc0033da46ed4d1614e7036da355f2a",
+      "bytes": 523,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-05/ticket.md": {
+      "sha256": "92e26aa1824479ec7aa8cd90f9f25f620c744e165e8f50174c3cbf03ec5f3581",
+      "bytes": 530,
+      "lines": 9,
+      "committed": true
+    },
+    "inc-06/deploy.diff": {
+      "sha256": "2e8ea31aff8719d2acabb8ec23cd291dad38dcd1ea1bc1bf8f2f09f793f3387f",
+      "bytes": 570,
+      "lines": 15,
+      "committed": true
+    },
+    "inc-06/ground_truth.json": {
+      "sha256": "19bbca817ae7c023cc27111ea83d65d0116693614b69021c70cd8fc66b04a3f0",
+      "bytes": 4163,
+      "lines": 117,
+      "committed": true
+    },
+    "inc-06/logs/media-api.log": {
+      "sha256": "cafe36037119469701c759da53a07b5ed4d5c8386e4fbf58050843877c10f072",
+      "bytes": 524794,
+      "lines": 4310,
+      "committed": false
+    },
+    "inc-06/logs/upload-worker.jsonl": {
+      "sha256": "dc6bb2517eaf1bf5dbd0bc20391fc764f1db6ee98a6528dcd6ad15e984a0f70f",
+      "bytes": 343012,
+      "lines": 1947,
+      "committed": false
+    },
+    "inc-06/metrics.csv": {
+      "sha256": "ca1a17f5b1c4af7ec2f784dca63c87fd2c613e7e2c8f0d3b5d6ff136beada1f1",
+      "bytes": 13540,
+      "lines": 362,
+      "committed": true
+    },
+    "inc-06/runbook.md": {
+      "sha256": "648c6694b3e2d2fe70760bd234447d41c5d77c87c27b5d56b2023c3384ae4cc4",
+      "bytes": 468,
+      "lines": 8,
+      "committed": true
+    },
+    "inc-06/ticket.md": {
+      "sha256": "52181590e6c586d7dc97508b29fcf7e1d4ab1eeee0c92b1224f445b6c42e04b4",
+      "bytes": 509,
+      "lines": 9,
+      "committed": true
+    }
+  }
+}

@@ -1,0 +1,15 @@
+# SYNTHETIC deploy diff for Rookwise benchmark incident inc-04, written by scripts/gen_incidents.py (seed 20261017). Fictional: every host, address, key, person and event is made up.
+# Fictional repository; the code and the configuration below are made up.
+commit 6ac9f203 (deploy checkout-api 2026.07.02-1, 02:40 UTC)
+diff --git a/app/handlers/checkout.py b/app/handlers/checkout.py
+--- a/app/handlers/checkout.py
++++ b/app/handlers/checkout.py
+@@ -41,5 +41,6 @@ from app.clients import addr_client, payments
+-def submit_order(req):
+-    log.info("checkout submit", order=req.order_id)
++def submit_checkout(req):
++    log.info("checkout submit order=%s items=%d", req.order_id, len(req.items))
++    span = tracing.start_span("checkout.submit")
+     address = addr_client.verify(req.address)
+     charge = payments.charge(req.total, req.card_token_ref)
+     return save_order(req, address, charge)
