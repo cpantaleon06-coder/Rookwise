@@ -3,7 +3,9 @@
 For every attempt of a call:
 1. The rate limiter admits it (one request, worst-case tokens, a concurrency slot).
 2. The ledger reserves the worst case (input estimate plus `max_tokens` at the model's
-   price). A reservation that does not fit raises `CapReached` and nothing is sent.
+   price) and records the call's predicted cost (the request's `usd_predicted`, or the
+   expected usage of `BuiltRequest` at the ledger's prices). A reservation that does not
+   fit raises `CapReached` and nothing is sent.
 3. The request streams. The reservation is then settled exactly once:
    - final usage received: charge it (the ledger releases the rest of the hold);
    - the server answered with an error status, or the connection failed before the
@@ -347,6 +349,7 @@ class Harness:
             usd_predicted=request.usd_predicted,
             skills=request.skills,
             budget_id=request.budget_id,
+            predicted_usage=Usage(built.predicted_input_tokens, built.predicted_output_tokens),
         )
 
     async def _run_attempt(

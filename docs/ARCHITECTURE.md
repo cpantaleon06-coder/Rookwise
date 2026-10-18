@@ -111,7 +111,7 @@ cost = (input_tokens - cached_tokens) x price_in
 
 ### What a run reports
 
-Every run reports predicted versus real cost: per call, per level and for the run, with the prediction error (real minus predicted, over predicted) and the number of charges whose usage was estimated. The API sends money as six-decimal strings (docs/api.md, "Conventions"). The run's predicted cost is the sum of the predictions made before each call; how the director predicts a run's cost before it starts is not built yet.
+Every run reports predicted versus real cost: per call, per level and for the run, with the prediction error (real minus predicted, over predicted) and the number of charges whose usage was estimated. The API sends money as six-decimal strings (docs/api.md, "Conventions"). The run's predicted cost is the sum of the predictions made before each call. The harness makes each call's prediction when the caller gives none: the input estimate without its headroom plus `prediction.output_fraction` of the call's `max_tokens` (0.5, a placeholder until runs calibrate it; config/harness.json), priced by the ledger. The ledger keeps it on every entry, and `RunReport` sums it for the run (`predicted_usd`) and per model (`by_model`), next to the real cost; `scripts/team_smoke.py` writes both into its run summary. How the director predicts a run's cost before it starts is not built yet.
 
 ## Harness (`core/harness/`)
 

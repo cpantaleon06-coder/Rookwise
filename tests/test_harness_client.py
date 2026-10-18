@@ -3,9 +3,10 @@ retries and caps. No network, no real key, no real sleeping."""
 
 import asyncio
 import dataclasses
+import math
 import random
 from contextlib import aclosing
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Decimal
 
 import pytest
 from harness_support import (
@@ -465,5 +466,26 @@ def test_native_tool_calls_stream_and_assemble():
         ]
         assert result.text == "I need the add tool."
         _assert_no_hold(book)
+
+    run(main())
+
+
+def test_every_call_records_the_harness_prediction_next_to_its_real_cost():
+    async def main():
+        book = ledger()
+        handler = Handler([respond(ok_stream("1 2 3", prompt=35, completion=21))])
+        req = request(max_tokens=64)
+        async with _harness(handler, book) as harness:
+            await harness.complete(req)
+        built = build_request(req, config())
+        cfg = config()
+        assert built.predicted_input_tokens < built.input_tokens_estimate  # no headroom
+        assert built.predicted_output_tokens == math.ceil(64 * cfg.prediction_output_fraction)
+        expected = Usage(built.predicted_input_tokens, built.predicted_output_tokens)
+        exact = call_cost(PRICES["nemotron-3.5-lightning"], expected).usd_exact
+        (entry,) = _assert_no_hold(book).entries
+        assert entry.usd_predicted == exact.quantize(Decimal("0.000001"), ROUND_HALF_EVEN)
+        assert entry.usd_predicted > 0
+        assert book.report("r-1").predicted_usd == entry.usd_predicted
 
     run(main())

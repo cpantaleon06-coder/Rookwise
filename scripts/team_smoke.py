@@ -1,5 +1,6 @@
 """One smoke run of the team hierarchy (core/team) on the SYNTHETIC scenario in
-examples/team_smoke/, under the ledger's run cap (scenario.json, USD 0.25).
+examples/team_smoke/, under the ledger's run cap (scenario.json, USD 0.25, or
+`--run-usd`).
 
 Modes:
 - estimate: no network. The team runs against a scripted stub transport so every real
@@ -7,16 +8,21 @@ Modes:
   per call and an expected cost under the output assumptions in STUB_OUTPUT_TOKENS.
 - record: ONE LIVE run on Token Factory (needs NEBIUS_API_KEY in .env; costs credits).
   The cassette goes to runs/cassettes/team_smoke.json (gitignored).
+- live: ONE LIVE run like record, with HARNESS_MODE=live: nothing is recorded, so it
+  cannot be replayed.
 - replay: replays that cassette with a transport that fails on any request, and checks
   that the events match the recorded ones.
 
 Each mode writes runs/team_smoke/<mode>/: events.json (the contract events), calls.json
 (one record per model call: level, model, seconds, usage, finish reason, retries, the
-raw usage object the API sent) and report.json. Nothing from .env is printed or written.
+reserved and the predicted USD, the raw usage object the API sent) and report.json (the
+run summary: real and predicted cost per role and per model, outcomes per role, the
+number of `length` finishes). Nothing from .env is printed or written.
 
 Usage:
     python scripts/team_smoke.py estimate
     HARNESS_MODE=record python scripts/team_smoke.py record
+    HARNESS_MODE=live python scripts/team_smoke.py live --run-usd 0.05
     HARNESS_MODE=replay python scripts/team_smoke.py replay
 """
 
@@ -145,10 +151,12 @@ def _no_network(request: httpx.Request) -> httpx.Response:
 # -- the run ------------------------------------------------------------------------------
 
 
-async def run(mode: str, scenario: dict[str, Any]) -> tuple[dict[str, Any], list, list]:
+async def run(
+    mode: str, scenario: dict[str, Any], run_usd: str | None = None
+) -> tuple[dict[str, Any], list, list]:
     run_id = scenario["run_id"]
     ledger = InMemoryLedger()
-    ledger.open_run(run_id, Caps(run_usd=Decimal(scenario["run_usd"])))
+    ledger.open_run(run_id, Caps(run_usd=Decimal(run_usd or scenario["run_usd"])))
     config = load_config(env={"HARNESS_MODE": "live"} if mode == "estimate" else os.environ)
     if mode == "estimate":
         harness = Harness(
@@ -157,6 +165,8 @@ async def run(mode: str, scenario: dict[str, Any]) -> tuple[dict[str, Any], list
     elif mode == "record":
         CASSETTE.parent.mkdir(parents=True, exist_ok=True)
         harness = Harness(ledger, config=config, cassette=Cassette(CASSETTE, "record"))
+    elif mode == "live":
+        harness = Harness(ledger, config=config)
     else:
         harness = Harness(
             ledger,
@@ -215,6 +225,7 @@ async def run(mode: str, scenario: dict[str, Any]) -> tuple[dict[str, Any], list
             "usage_estimated": result.usage_estimated,
             "usd": format_usd(result.usd),
             "reserved_usd": format_usd(held[0].usd) if held else None,
+            "usd_predicted": format_usd(held[-1].usd_predicted) if held else None,
             "attempts": result.attempts,
             "errors": [
                 {"kind": e.kind, "status_code": e.status_code, "message": e.message[:200]}
@@ -241,7 +252,7 @@ async def run(mode: str, scenario: dict[str, Any]) -> tuple[dict[str, Any], list
                 store=InMemoryStore(),
                 catalog=catalog,
                 evidence=EvidenceBundle(sources=scenario["texts"]),
-                mode="live" if mode != "replay" else "recorded",
+                mode="recorded" if mode == "replay" else "live",
             )
     finally:
         sse_module.parse_usage = parse_usage
@@ -293,6 +304,7 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
             "output_tokens": 0,
             "reasoning_tokens": 0,
             "usd": ZERO_USD,
+            "usd_predicted": ZERO_USD,
         }
     )
     for entry in report.entries:
@@ -307,6 +319,7 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         model["output_tokens"] += entry.output_tokens
         model["reasoning_tokens"] += entry.reasoning_tokens
         model["usd"] += entry.usd_real
+        model["usd_predicted"] += entry.usd_predicted
     catalog_pred: dict[str, Decimal] = defaultdict(lambda: ZERO_USD)
     for payload in assigned.values():
         catalog_pred[payload.task.role] += price[payload.operator_id]
@@ -332,6 +345,17 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         }
         for (agent_id, task_id), items in attempts.items()
     ]
+    outcomes_by_role: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for item in labels:
+        level = next(
+            (
+                lv
+                for lv in ("director", "manager", "auditor")
+                if item["agent_id"].startswith(f"a-{lv}")
+            ),
+            "operator",
+        )
+        outcomes_by_role[role(level, item["task_id"])][item["label"]] += 1
 
     rc = scenario["root_cause"]
     supported = (
@@ -371,12 +395,19 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         "notes": team.notes,
         "wall_clock_s": {"total": round(total_s, 2)} | {k: round(v, 2) for k, v in seconds.items()},
         "spent_usd": format_usd(report.spent_usd),
+        "predicted_usd": format_usd(report.predicted_usd),
+        "prediction_error": _ratio(report.spent_usd, report.predicted_usd),
         "cap_usd": format_usd(report.caps.run_usd),
         "under_cap": report.spent_usd <= report.caps.run_usd,
         "stops": [f"{s.scope}:{s.key}" for s in report.stops],
         "by_role": money(by_role),
         "catalog_prediction_by_operator_role": {k: format_usd(v) for k, v in catalog_pred.items()},
         "by_model": money(by_model),
+        "prediction_error_by_model": {
+            k: _ratio(v["usd"], v["usd_predicted"]) for k, v in by_model.items()
+        },
+        "outcomes_by_role": {k: dict(v) for k, v in outcomes_by_role.items()},
+        "length_finishes": sum(c.get("finish_reason") == "length" for c in calls),
         "labels": labels,
         "plan": team.plan.model_dump() if team.plan else None,
         "blocks": [
@@ -411,7 +442,7 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         "root_cause_found": any(h["supported"] for h in hits),
         "calls": len(calls),
         "_ratio_note": "prediction error = (real - predicted) / predicted",
-        "_prediction_errors": {
+        "_catalog_prediction_errors": {
             k: _ratio(v["usd_real"], catalog_pred[k])
             for k, v in by_role.items()
             if k in catalog_pred
@@ -434,16 +465,20 @@ def _normalized(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("mode", choices=("estimate", "record", "replay"))
+    parser.add_argument("mode", choices=("estimate", "record", "live", "replay"))
+    parser.add_argument("--run-usd", help="the run cap in USD, instead of scenario.json's")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")  # model text is not always cp1252 (Windows)
-    if args.mode == "record":
+    if args.run_usd is not None and not Decimal(args.run_usd) > 0:
+        print("--run-usd must be a positive amount; nothing was run.")
+        return 2
+    if args.mode in ("record", "live"):
         load_dotenv(REPO_ROOT / ".env")
         if not os.environ.get("NEBIUS_API_KEY"):
             print("NEBIUS_API_KEY is not set in .env; nothing was run.")
             return 2
-        if os.environ.get("HARNESS_MODE") != "record":
-            print("Set HARNESS_MODE=record for the live run; nothing was run.")
+        if os.environ.get("HARNESS_MODE") != args.mode:
+            print(f"Set HARNESS_MODE={args.mode} for the live run; nothing was run.")
             return 2
     if args.mode == "replay" and not CASSETTE.exists():
         print(f"No cassette at {CASSETTE.relative_to(REPO_ROOT)}; record first.")
@@ -451,7 +486,7 @@ def main() -> int:
     scenario = load_scenario()
     out = OUT_DIR / args.mode
     out.mkdir(parents=True, exist_ok=True)
-    report, events, calls = asyncio.run(run(args.mode, scenario))
+    report, events, calls = asyncio.run(run(args.mode, scenario, args.run_usd))
     if args.mode == "replay":
         recorded = json.loads((OUT_DIR / "record" / "events.json").read_text("utf-8"))
         report["replay_matches_record"] = _normalized(events) == _normalized(recorded)

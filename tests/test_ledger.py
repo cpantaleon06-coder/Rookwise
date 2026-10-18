@@ -356,3 +356,46 @@ def test_rounding_never_lets_spend_pass_a_cap_over_random_runs():
         report = ledger.report("r")
         assert report.held_usd == 0, trial
         assert exact_spent <= report.spent_usd <= cap, trial
+
+
+def test_a_prediction_from_expected_usage_and_the_run_totals_per_model():
+    ledger = _ledger()
+    expected = Usage(1_000, 500)
+    common = {"level": "operator", "input_tokens": 10_000, "max_output_tokens": 2_000}
+    priced = ledger.reserve(
+        "r-1",
+        task_id="t-1",
+        model=LIGHTNING,
+        usd_predicted=ZERO_USD,
+        predicted_usage=expected,
+        **common,
+    )
+    # 1,000 x 0.06 + 500 x 0.24 per 1M = USD 0.00018, rounded half-even to micro-USD.
+    assert priced.usd_predicted == D("0.000180")
+    given = ledger.reserve(
+        "r-1",
+        task_id="t-2",
+        model=ULTRA,
+        usd_predicted=D("0.002"),
+        predicted_usage=expected,  # a caller's own prediction wins
+        **common,
+    )
+    assert given.usd_predicted == D("0.002000")
+    ledger.charge(priced, Usage(1_200, 400), TS)
+    ledger.charge(given, Usage(900, 300), TS)
+    report = ledger.report("r-1")
+    assert report.predicted_usd == D("0.002180")
+    assert [e.usd_predicted for e in report.entries] == [D("0.000180"), D("0.002000")]
+    light, ultra = report.by_model[LIGHTNING], report.by_model[ULTRA]
+    assert (light.calls, light.input_tokens, light.output_tokens) == (1, 1_200, 400)
+    assert light.usd_predicted == D("0.000180")
+    assert light.usd_real == call_cost(PRICES[LIGHTNING], Usage(1_200, 400)).usd
+    assert ultra.usd_predicted == D("0.002000")
+    assert sum(m.usd_real for m in report.by_model.values()) == report.spent_usd
+    assert all(type(m.usd_predicted) is Decimal for m in report.by_model.values())
+
+
+def test_no_expected_usage_and_no_prediction_records_zero():
+    ledger = _ledger()
+    reservation = _reserve(ledger, usd_predicted=ZERO_USD)
+    assert reservation.usd_predicted == ZERO_USD

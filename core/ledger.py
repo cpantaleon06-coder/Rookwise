@@ -24,6 +24,10 @@ whole micro-USD, rounded once when it enters the ledger, so all sums are exact:
 - caps and allocations round down (ROUND_FLOOR), so a limit never allows more than was
   asked;
 - predictions round to the nearest micro-USD (ROUND_HALF_EVEN); they gate nothing.
+A call's prediction is the caller's `usd_predicted`, or, when that is zero and the caller
+passes `predicted_usage` (the tokens it expects), the cost formula on that usage at the
+ledger's prices. Every entry keeps its prediction next to its real cost, and `report()`
+sums both per run and per model.
 Rounding therefore never lets spend pass a cap. A float passed for any amount raises
 TypeError. Prices are read from config/prices.json as Decimal, from the JSON text.
 
@@ -199,6 +203,18 @@ class CapReached(Exception):
 
 
 @dataclass(frozen=True)
+class ModelCost:
+    """Predicted versus real for the charged calls of one model in a run."""
+
+    model: str
+    calls: int
+    input_tokens: int
+    output_tokens: int
+    usd_real: Decimal
+    usd_predicted: Decimal
+
+
+@dataclass(frozen=True)
 class RunReport:
     """What a run spent so far. After a stop, this is the partial result's cost record.
     `held_usd` counts call reservations only; allocations are in `allocations`."""
@@ -211,6 +227,8 @@ class RunReport:
     stops: tuple[CapReached, ...]
     caps: Caps
     allocations: tuple[AllocationReport, ...] = ()
+    predicted_usd: Decimal = ZERO_USD
+    by_model: Mapping[str, ModelCost] = field(default_factory=dict)
 
 
 class Ledger(Protocol):
@@ -238,6 +256,7 @@ class Ledger(Protocol):
         usd_predicted: Decimal,
         skills: Iterable[str] = (),
         budget_id: str | None = None,
+        predicted_usage: Usage | None = None,
     ) -> Reservation: ...
 
     def charge(
@@ -355,15 +374,21 @@ class InMemoryLedger:
         usd_predicted: Decimal,
         skills: Iterable[str] = (),
         budget_id: str | None = None,
+        predicted_usage: Usage | None = None,
     ) -> Reservation:
         """Hold the worst case: every input token at full price plus `max_output_tokens`.
-        With `budget_id`, the hold is drawn from that open allocation."""
+        With `budget_id`, the hold is drawn from that open allocation. The prediction is
+        `usd_predicted`, or the cost of `predicted_usage` when `usd_predicted` is zero."""
         predicted = to_micro_usd(require_decimal(usd_predicted, "usd_predicted"), ROUND_HALF_EVEN)
         with self._lock:
             run = self._run(run_id)
             if budget_id is not None:
                 self._open(run, budget_id)
-            usd = call_cost(self._price(model), Usage(input_tokens, max_output_tokens)).usd
+            price = self._price(model)
+            usd = call_cost(price, Usage(input_tokens, max_output_tokens)).usd
+            if predicted == 0 and predicted_usage is not None:
+                exact = call_cost(price, predicted_usage).usd_exact
+                predicted = to_micro_usd(exact, ROUND_HALF_EVEN)
             self._raise_if_stopped(run, run_id, budget_id)
             scope, key, cap = self._scope_of(run, run_id, budget_id)
             checks = [
@@ -452,8 +477,20 @@ class InMemoryLedger:
         with self._lock:
             run = self._run(run_id)
             by_level: dict[str, Decimal] = {}
+            by_model: dict[str, ModelCost] = {}
             for entry in run.entries:
                 by_level[entry.level] = by_level.get(entry.level, ZERO_USD) + entry.usd_real
+                row = by_model.get(entry.model)
+                if row is None:
+                    row = ModelCost(entry.model, 0, 0, 0, ZERO_USD, ZERO_USD)
+                by_model[entry.model] = ModelCost(
+                    entry.model,
+                    row.calls + 1,
+                    row.input_tokens + entry.input_tokens,
+                    row.output_tokens + entry.output_tokens,
+                    row.usd_real + entry.usd_real,
+                    row.usd_predicted + entry.usd_predicted,
+                )
             allocations = []
             for node in run.allocations.values():
                 ids = self._subtree(run, node.allocation.id)
@@ -479,6 +516,8 @@ class InMemoryLedger:
                 stops=tuple(run.stops.values()),
                 caps=run.caps,
                 allocations=tuple(allocations),
+                predicted_usd=sum((e.usd_predicted for e in run.entries), ZERO_USD),
+                by_model=by_model,
             )
 
     # -- helpers (called with the lock held) ---------------------------------------------

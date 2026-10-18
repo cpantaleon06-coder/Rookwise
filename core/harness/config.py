@@ -81,6 +81,7 @@ class HarnessConfig:
     chars_per_token: float
     input_headroom: float
     margin_tokens: int
+    prediction_output_fraction: float
     connect_timeout_s: float
     read_timeout_s: float
     retry: RetryConfig
@@ -155,6 +156,9 @@ def load_config(
     concurrency = data["max_concurrent_requests"]
     if concurrency < 1:
         raise ConfigError("max_concurrent_requests must be at least 1")
+    fraction = data["prediction"]["output_fraction"]
+    if not 0 < fraction <= 1:
+        raise ConfigError("prediction.output_fraction must be in (0, 1]")
     if estimate["chars_per_token"] <= 0 or estimate["headroom"] < 0:
         raise ConfigError("input_estimate: chars_per_token > 0 and headroom >= 0")
     if retry["max_attempts"] < 1:
@@ -175,6 +179,7 @@ def load_config(
         chars_per_token=float(estimate["chars_per_token"]),
         input_headroom=float(estimate["headroom"]),
         margin_tokens=int(estimate["margin_tokens"]),
+        prediction_output_fraction=float(fraction),
         connect_timeout_s=float(data["timeout_s"]["connect"]),
         read_timeout_s=float(data["timeout_s"]["read"]),
         retry=RetryConfig(

@@ -54,8 +54,9 @@ class ChatRequest:
 
     `run_id`, `level`, `task_id`, `skills`, `usd_predicted` and `budget_id` (the ledger
     allocation the call is drawn from, None for the run) go to the ledger, not to
-    the API. `usd_predicted` is the caller's cost prediction, a Decimal; zero means none
-    was made.
+    the API. `usd_predicted` is the caller's cost prediction, a Decimal; zero means the
+    harness predicts the call itself (`BuiltRequest.predicted_input_tokens` and
+    `predicted_output_tokens`, priced by the ledger).
     Fields left None take the model's defaults from config/harness.json.
     `input_tokens_estimate` overrides the characters-based estimate used to reserve.
     """
@@ -86,6 +87,10 @@ class BuiltRequest:
     body: dict[str, Any] = field(repr=False)
     max_tokens: int
     input_tokens_estimate: int
+    # The expected usage the ledger prices as the prediction: the input estimate without
+    # its headroom, and `prediction.output_fraction` of max_tokens (config/harness.json).
+    predicted_input_tokens: int = 0
+    predicted_output_tokens: int = 0
 
     @property
     def worst_case_tokens(self) -> int:
@@ -154,13 +159,18 @@ def build_request(request: ChatRequest, config: HarnessConfig) -> BuiltRequest:
                 f"{name}={body[name]!r} is disallowed for {model.alias} (config/harness.json)"
             )
 
-    estimate = request.input_tokens_estimate
+    estimate = expected = request.input_tokens_estimate
     if estimate is None:
+        shape = body.get("response_format") or body.get("tools")
         estimate = estimate_input_tokens(
             body["messages"],
-            body.get("response_format") or body.get("tools"),
+            shape,
             config.chars_per_token,
             config.margin_tokens,
             config.input_headroom,
         )
-    return BuiltRequest(request, model, body, max_tokens, estimate)
+        expected = estimate_input_tokens(
+            body["messages"], shape, config.chars_per_token, config.margin_tokens
+        )
+    output = math.ceil(max_tokens * config.prediction_output_fraction)
+    return BuiltRequest(request, model, body, max_tokens, estimate, expected, output)
