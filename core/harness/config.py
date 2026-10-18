@@ -79,6 +79,7 @@ class HarnessConfig:
     limits: Mapping[str, ModelLimit]
     on_missing_usage: MissingUsagePolicy
     chars_per_token: float
+    input_headroom: float
     margin_tokens: int
     connect_timeout_s: float
     read_timeout_s: float
@@ -154,6 +155,8 @@ def load_config(
     concurrency = data["max_concurrent_requests"]
     if concurrency < 1:
         raise ConfigError("max_concurrent_requests must be at least 1")
+    if estimate["chars_per_token"] <= 0 or estimate["headroom"] < 0:
+        raise ConfigError("input_estimate: chars_per_token > 0 and headroom >= 0")
     if retry["max_attempts"] < 1:
         raise ConfigError("retry.max_attempts must be at least 1")
     loop, escalation = data["loop"], data["escalation"]
@@ -170,6 +173,7 @@ def load_config(
             data["on_missing_usage"], get_args(MissingUsagePolicy), "on_missing_usage"
         ),
         chars_per_token=float(estimate["chars_per_token"]),
+        input_headroom=float(estimate["headroom"]),
         margin_tokens=int(estimate["margin_tokens"]),
         connect_timeout_s=float(data["timeout_s"]["connect"]),
         read_timeout_s=float(data["timeout_s"]["read"]),

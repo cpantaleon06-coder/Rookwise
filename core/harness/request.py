@@ -94,13 +94,17 @@ class BuiltRequest:
 
 def estimate_input_tokens(
     messages: Sequence[Mapping[str, Any]],
-    response_format: Mapping[str, Any] | None,
+    response_format: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None,
     chars_per_token: float,
     margin_tokens: int,
+    headroom: float = 0.0,
 ) -> int:
-    """A deliberately high estimate: JSON characters / chars_per_token, plus a margin."""
+    """JSON characters / chars_per_token (calibrated, config/harness.json `input_estimate`),
+    times 1 + headroom, plus a margin for the chat template. The reservation uses the
+    configured headroom; with headroom 0 it is the expected count, not a worst case."""
     payload = json.dumps({"messages": list(messages), "response_format": response_format})
-    return math.ceil(len(payload) / chars_per_token) + margin_tokens
+    tokens = len(payload) * (1 + headroom) / chars_per_token
+    return math.ceil(round(tokens, 6)) + margin_tokens  # round: no float noise in ceil
 
 
 def build_request(request: ChatRequest, config: HarnessConfig) -> BuiltRequest:
@@ -157,5 +161,6 @@ def build_request(request: ChatRequest, config: HarnessConfig) -> BuiltRequest:
             body.get("response_format") or body.get("tools"),
             config.chars_per_token,
             config.margin_tokens,
+            config.input_headroom,
         )
     return BuiltRequest(request, model, body, max_tokens, estimate)

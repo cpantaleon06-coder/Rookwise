@@ -294,15 +294,15 @@ The category enum has 8 values (the 6 above plus `code_regression` and `network_
 
 ### Cost estimate for the 36 runs (arithmetic on the corpus size, not measured)
 
-At the harness's input estimate (characters / 3), the six incidents' sources (everything but the ground truth) hold 2,202,652 tokens, 294,298 to 428,074 per incident (367,109 on average). Reading every source once, input tokens only, costs per configuration over its 12 runs (2 repeats of the 6 incidents):
+At the harness's calibrated ratio (characters / 2.7 per file, rounded up, without the reservation's 10 percent headroom; see "Built so far"), the six incidents' sources (everything but the ground truth) hold 2,447,407 tokens, 327,001 to 475,641 per incident (407,901 on average). At the earlier ratio of characters / 3 they held 2,202,652. Reading every source once, input tokens only, costs per configuration over its 12 runs (2 repeats of the 6 incidents):
 
 | Configuration | Model that reads the sources | Arithmetic | USD |
 |---|---|---|---|
-| (a) hierarchy | Lightning operators | 2 x 2,202,652 x 0.06 / 1M | 0.2643 |
-| (b) single large model | Ultra | 2 x 2,202,652 x 1.00 / 1M | 4.4053 |
-| (c) single small model | Lightning | 2 x 2,202,652 x 0.06 / 1M | 0.2643 |
+| (a) hierarchy | Lightning operators | 2 x 2,447,407 x 0.06 / 1M | 0.2937 |
+| (b) single large model | Ultra | 2 x 2,447,407 x 1.00 / 1M | 4.8948 |
+| (c) single small model | Lightning | 2 x 2,447,407 x 0.06 / 1M | 0.2937 |
 
-These are lower bounds: they leave out output tokens, system prompts and skills, the director, managers and auditor of (a), retries, repairs and any second read. So the 36 runs cost at least USD 4.93. Reading an average incident once on Ultra also takes at least 367,109 / 200,000 = 1.8 minutes at its token limit. The context windows are UNVERIFIED, and 367,109 tokens are likely more than one prompt holds, so every configuration reads the sources in slices.
+These are lower bounds: they leave out output tokens, system prompts and skills, the director, managers and auditor of (a), retries, repairs and any second read. So the 36 runs cost at least USD 5.48. Reading an average incident once on Ultra also takes at least 407,901 / 200,000 = 2.0 minutes at its token limit. The context windows are UNVERIFIED, and 407,901 tokens are likely more than one prompt holds, so every configuration reads the sources in slices.
 
 ## Proof domains
 
@@ -392,7 +392,7 @@ Not built yet: the incident roles and skills, slicing the evidence across operat
 - Public datasets in the proof domains may be in the models' training data (unknown).
 - Reasoning-token billing, cached-token billing and Tavily's per-query cost are UNVERIFIED.
 - Listed model speeds are not reproduced, and the duration of a real run is NOT MEASURED, so the executor host is open.
-- Credits: USD 26 in total (25 event credit plus 1 account credit), minus what the probes spent (each probe's spend is in `docs/HARNESS_RESEARCH.md`). The benchmark costs at least USD 4.93 (see "Cost estimate for the 36 runs"); the real figure is unknown until the first measured runs.
+- Credits: USD 26 in total (25 event credit plus 1 account credit), minus what the probes spent (each probe's spend is in `docs/HARNESS_RESEARCH.md`). The benchmark costs at least USD 5.48 (see "Cost estimate for the 36 runs"); the real figure is unknown until the first measured runs.
 - The auditor is a model and may favor outputs like its own. Mitigation: the deterministic check first, a fixed rubric, a separate context, human review of a sample.
 
 ## Timeline, October 17 to 29 (a plan, not a commitment)

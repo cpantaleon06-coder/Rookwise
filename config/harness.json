@@ -3,8 +3,9 @@
   "base_url": "https://api.tokenfactory.nebius.com/v1/",
   "on_missing_usage": "charge_full_reservation",
   "input_estimate": {
-    "_note": "Worst-case input tokens before a call: characters of the messages and response_format JSON divided by chars_per_token, plus margin_tokens for the chat template. Measured skill prompts ran about 4 characters per token, so 3 overestimates on purpose.",
-    "chars_per_token": 3,
+    "_note": "Worst-case input tokens before a call: characters of the messages and response_format (or tools) JSON divided by chars_per_token, times 1 + headroom, plus margin_tokens for the chat template. chars_per_token 2.7 is calibrated on the first live smoke run (2026-10-17), where prompts with logs ran 2.58 to 2.85 characters per token (the old value 3 undercounted them by about 10 percent) and the director and manager prompts 3.6 to 4.1. headroom 0.10 is a proposal: with it every one of the 14 recorded calls was covered (the closest by 6.8 percent), without it 5 were under. The prediction uses the same estimate without headroom.",
+    "chars_per_token": 2.7,
+    "headroom": 0.1,
     "margin_tokens": 64
   },
   "timeout_s": {
