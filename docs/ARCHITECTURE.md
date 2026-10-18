@@ -242,8 +242,9 @@ What the token limit counts (input plus output, or something else) and whether t
 |---|---|
 | Output does not match schema | Same operator retries, max 2 |
 | Operator keeps failing | Manager reassigns to another operator |
+| Task hits its own ceiling (`length` at its output ceiling, or `token_ceiling`) | At most one reassignment: the next catalog operator for the role, or the same operator one rung up the model ladder; then escalate to director |
 | Manager fails | Escalate to director |
-| Level budget exhausted | Administrator stops it, manager returns partial result |
+| Level budget exhausted (any ledger stop) | Administrator stops that scope and emits `budget_exhausted`; the task is not reassigned, manager returns partial result |
 | Loop (repeated messages, no progress) | Automatic stop, escalate one level up |
 | HTTP 429 | Wait for `Retry-After`, then retry with growing backoff |
 | `finish_reason: "length"` | Treat as a failure, charge the call, end the attempt with the typed outcome `length`; no retry with the same ceiling |

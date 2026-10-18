@@ -15,9 +15,17 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
 3. A manager keeps its own share free and gives each task an operator allocation; the
    operator's calls are drawn from it, and the task's USD cap is the same amount. When
    the operator is done its allocation is closed, so the unspent part goes back to the
-   manager. A failed operator is replaced by the next catalog operator for the role; one
-   that stopped on its budget is not. With no operator left, the task is escalated to
-   the director.
+   manager. How a failed task goes on depends on why it stopped:
+   - a task ceiling (`length` or `token_ceiling`: this one task hit its own output
+     ceiling or token budget) gets at most one reassignment: to the next catalog
+     operator for the role, or, when none is left, to the same operator one rung up the
+     model ladder (`escalation.next`, config/harness.json);
+   - a ledger stop (`budget_exhausted`: the ledger refused a reservation, so a budget
+     scope is spent) ends that scope: the task is not reassigned, and `budget_exhausted`
+     is emitted as before;
+   - any other failure is reassigned to the next catalog operator, up to
+     `max_reassignments` times.
+   With no reassignment left, the task is escalated to the director.
 4. The manager makes one consolidation call inside its allocation, then closes it; the
    unspent part goes back to the run.
 5. The auditor gets the deliverable and the evidence bundle (`rookwise.team.auditor`).
@@ -95,7 +103,10 @@ OPERATOR_PROMPT = (
     f"{DEFAULT_BASE_PROMPT} Back every claim with citations: the source id, the first and "
     "last line numbers, and a quote copied exactly from those lines."
 )
-_BUDGET_STOPS = ("budget_exhausted", "token_ceiling")
+# Why an operator stopped. A task ceiling is this one task hitting its own cap (its
+# output ceiling or its token budget); a ledger stop is the ledger refusing a reservation.
+TASK_CEILING_STOPS = ("length", "token_ceiling")
+LEDGER_STOPS = ("budget_exhausted",)
 
 TaskStatus = Literal["ok", "failed", "not_run"]
 BlockStatus = Literal["ok", "partial", "failed"]
@@ -425,13 +436,19 @@ class _Team:
         candidates = sorted(
             (spec for spec in self.catalog if spec.role == task.role),
             key=lambda spec: (spec.price_per_task_est_usd, -spec.reputation, spec.operator_id),
-        )[: self.policy.max_reassignments + 1]
+        )
         if not candidates:
             outcome.reason = f"{task_id}: no operator in the catalog for role {task.role}."
             self.notes.append(outcome.reason)
             return outcome
         self.store.put(brief_ref(self.run_id, task_id), task.instruction)
-        for number, spec in enumerate(candidates, 1):
+        spec: OperatorSpec | None = candidates[0]
+        tried: list[OperatorSpec] = []
+        reassignments, ceiling_reassignments = 0, 0
+        number = 0
+        while spec is not None:
+            number += 1
+            tried.append(spec)
             assignment = task_id if number == 1 else f"{task_id}.{number}"
             amount = min(per_task, max(self.ledger.free(self.run_id, budget.id) - own, ZERO_USD))
             if amount <= 0:
@@ -499,19 +516,49 @@ class _Team:
             outcome.reason = (
                 f"{assignment}: operator {spec.operator_id} failed ({record.stop_reason})"
             )
-            if record.stop_reason in _BUDGET_STOPS:
+            if record.stop_reason in LEDGER_STOPS:
                 self.notes.append(f"{outcome.reason}: it ran out of its budget.")
                 return outcome
-            last = number == len(candidates)
+            ceiling = record.stop_reason in TASK_CEILING_STOPS
+            if ceiling:
+                outcome.reason += ": it hit its task ceiling"
+            allowed = reassignments < self.policy.max_reassignments and not (
+                ceiling and ceiling_reassignments
+            )
+            following = self._reassignment(spec, candidates, tried, ceiling) if allowed else None
             note = outcome.reason + (
-                "; escalated to the director." if last else "; the manager reassigns the task."
+                "; the manager reassigns the task."
+                if following is not None
+                else "; escalated to the director."
             )
             self.notes.append(note)
-            if last:
+            if following is None:
                 self._escalate(manager, director, assignment, note)
             else:
                 failed = (agent, assignment, note)
+                reassignments += 1
+                ceiling_reassignments += ceiling
+            spec = following
         return outcome
+
+    def _reassignment(
+        self,
+        spec: OperatorSpec,
+        candidates: list[OperatorSpec],
+        tried: list[OperatorSpec],
+        ceiling: bool,
+    ) -> OperatorSpec | None:
+        """Who gets a failed task next: the next catalog operator for the role; after a
+        task ceiling with no catalog operator left, the same operator one rung up the
+        model ladder."""
+        following = next((c for c in candidates if c not in tried), None)
+        if following is not None or not ceiling:
+            return following
+        higher = self.harness.config.escalation.next.get(spec.model)
+        if higher is None:
+            return None
+        rung = spec.model_copy(update={"model": higher})
+        return None if rung in tried else rung
 
     # -- helpers -------------------------------------------------------------------------
 

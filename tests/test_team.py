@@ -10,16 +10,19 @@ import dataclasses
 from decimal import Decimal
 
 import pytest
+from harness_support import text_reply
 from team_stub import (
     BUNDLE,
     FABRICATED_CLAIM,
     GOOD_CLAIM,
+    LIGHTNING,
     RUN_ID,
     ULTRA,
     TeamHandler,
     assert_budget_tree,
     assert_contract_order,
     block,
+    findings_payload,
     findings_reply,
     judgment_reply,
     operator,
@@ -365,6 +368,98 @@ def test_an_operator_failure_with_no_other_operator_escalates_to_the_director():
     assert [p.reason for p in _payloads(team, "escalation")] == team.notes
     assert_contract_order(team, book)
     assert_budget_tree(book)
+
+
+def _cut_reply() -> bytes:
+    """An operator reply cut at its output ceiling (finish_reason length)."""
+    return text_reply(
+        '{"status": "ok", "output": {"summary": "[stub] cut', completion=256, reason="length"
+    )
+
+
+def test_a_length_finish_is_a_task_ceiling_with_one_reassignment():
+    handler = TeamHandler(
+        director=[plan_reply(block(1))],
+        operator=[_cut_reply(), findings_reply(GOOD_CLAIM)],
+        manager=[summary_reply()],
+        auditor=[judgment_reply()],
+    )
+    team, book = run_stub_team(handler, run_usd="0.5")
+    (task,) = team.blocks[0].tasks
+    assert task.status == "ok" and task.assignments == ["t-1", "t-1.2"]
+    assert task.operator_ids == ["stub-op-a", "stub-op-b"]
+    assert team.notes == [
+        "t-1: operator stub-op-a failed (length): it hit its task ceiling; the manager "
+        "reassigns the task."
+    ]
+    first = next(
+        p.attempt for p in _payloads(team, "attempt_recorded") if p.attempt.task_id == "t-1"
+    )
+    assert (first.loop_status, first.model, first.length_retries) == ("length", LIGHTNING, 0)
+    assert handler.calls["operator"] == 2  # the cut reply was not retried
+    assert _escalations(team) == [("a-op-t-1", "a-op-t-1.2", "t-1")]
+    assert _stops(team) == []  # a task ceiling is not a ledger stop
+    assert team.partial is False
+    assert_contract_order(team, book)
+    assert_budget_tree(book)
+
+
+def test_a_task_ceiling_gets_at_most_one_reassignment():
+    catalog = [operator(f"stub-op-{c}", f"0.00{n}") for n, c in enumerate("abc", 1)]
+    handler = TeamHandler(
+        director=[plan_reply(block(1))],
+        operator=[_cut_reply(), _cut_reply()],
+        auditor=[judgment_reply()],
+    )
+    policy = BudgetPolicy(max_reassignments=2)
+    team, book = run_stub_team(handler, run_usd="0.5", catalog=catalog, policy=policy)
+    (task,) = team.blocks[0].tasks
+    assert task.status == "failed" and task.assignments == ["t-1", "t-1.2"]
+    assert handler.calls["operator"] == 2  # stub-op-c is never tried
+    assert team.notes[1] == (
+        "t-1.2: operator stub-op-b failed (length): it hit its task ceiling; escalated to "
+        "the director."
+    )
+    assert _escalations(team)[1] == ("a-manager-b-1", "a-director", "t-1.2")
+    assert _stops(team) == []
+    assert_contract_order(team, book)
+    assert_budget_tree(book)
+
+
+def test_a_task_ceiling_with_no_other_operator_moves_one_rung_up_the_ladder():
+    handler = TeamHandler(
+        director=[plan_reply(block(1))],
+        operator=[_cut_reply(), findings_reply(GOOD_CLAIM)],
+        manager=[summary_reply()],
+        auditor=[judgment_reply()],
+    )
+    team, book = run_stub_team(handler, run_usd="0.5", catalog=[operator("stub-op-a", "0.001")])
+    (task,) = team.blocks[0].tasks
+    assert task.status == "ok" and task.operator_ids == ["stub-op-a", "stub-op-a"]
+    hired = {p.agent.agent_id: p.agent.model for p in _payloads(team, "agent_hired")}
+    assert (hired["a-op-t-1"], hired["a-op-t-1.2"]) == (LIGHTNING, "nemotron-3-super")
+    models = [e.model for e in book.report(RUN_ID).entries if e.level == "operator"]
+    assert models == [LIGHTNING, "nemotron-3-super"]
+    assert_contract_order(team, book)
+
+
+def test_a_token_ceiling_is_a_task_ceiling_too():
+    # The first reply fails validation and spends the task's whole output budget, so the
+    # repair is not sent (token_ceiling); the next operator gets a fresh budget.
+    bad = text_reply('{"status": "ok", "output": {}}', completion=10)
+    handler = TeamHandler(
+        director=[plan_reply(block(1))],
+        operator=[bad, text_reply(findings_payload(GOOD_CLAIM), completion=10)],
+        manager=[summary_reply()],
+        auditor=[judgment_reply()],
+    )
+    policy = BudgetPolicy(operator_max_output_tokens=10)
+    team, book = run_stub_team(handler, run_usd="0.5", policy=policy)
+    (task,) = team.blocks[0].tasks
+    assert task.status == "ok" and task.assignments == ["t-1", "t-1.2"]
+    assert "failed (token_ceiling): it hit its task ceiling" in team.notes[0]
+    assert _stops(team) == []
+    assert_contract_order(team, book)
 
 
 def test_the_auditor_rejects_an_unsupported_claim_without_a_model_call():

@@ -137,9 +137,13 @@ def plan_reply(*blocks: dict[str, Any], prompt: int = 100) -> bytes:
     return text_reply(_payload(plan), prompt=prompt)
 
 
-def findings_reply(*claims: dict[str, Any], status: str = "ok") -> bytes:
+def findings_payload(*claims: dict[str, Any], status: str = "ok") -> str:
     output = {"summary": "[stub] Findings.", "claims": list(claims)}
-    return text_reply(_payload(output, status=status, notes="" if status == "ok" else "[stub]"))
+    return _payload(output, status=status, notes="" if status == "ok" else "[stub]")
+
+
+def findings_reply(*claims: dict[str, Any], status: str = "ok") -> bytes:
+    return text_reply(findings_payload(*claims, status=status))
 
 
 def summary_reply(status: str = "ok") -> bytes:

@@ -63,7 +63,8 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 
 | Decision | Where |
 |---|---|
-| Every role has an explicit output ceiling, `max_output_tokens` in config/skills.json; each call of the role is sent with it and the ledger reserves it. A `length` finish is a typed outcome (`loop_status` `length`, `LengthStop` with the ceiling that cut it) that ends the attempt at once; it is never retried with the same ceiling. Values chosen for now: 4096 for operator roles (what one length retry used to reach), 2048 for the director, manager and auditor (the model default they ran with). | config/skills.json; core/harness/loop.py; core/harness/escalate.py |
+| Every role has an explicit output ceiling, `max_output_tokens` in config/skills.json; each call of the role is sent with it and the ledger reserves it. A `length` finish is a typed outcome (`loop_status` `length`, `LengthStop` with the ceiling that cut it) that ends the attempt at once; it is never retried with the same ceiling. Values (an implementation choice, pending the user's review): 4096 for operator roles (what one length retry used to reach), 2048 for the director, manager and auditor (the model default they ran with). | config/skills.json; core/harness/loop.py; core/harness/escalate.py |
+| A task ceiling (`length` or `token_ceiling`: the task hit its own output ceiling or token budget) is separate from a ledger stop (`budget_exhausted`: the ledger refused a reservation). A task ceiling gets at most one reassignment, to the next catalog operator for the role or, with none left, to the same operator one rung up `escalation.next`. A ledger stop ends its scope, is not reassigned and emits `budget_exhausted` as in contract v1. Only operators are reassigned; a director, manager or auditor call that hits its ceiling fails as before. | core/team/flow.py |
 
 ## Still open
 
