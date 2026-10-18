@@ -1,0 +1,50 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC incident; the service and every event are made up.",
+  "incident_id": "test-2",
+  "split": "test",
+  "format": "text",
+  "file": "test-2.synthetic.txt",
+  "n_lines": 7000,
+  "seed": 20261017,
+  "root_cause": "Release 4.2.0 refactored the orders serializer and introduced an N+1 query: each orders page ran over 200 queries, requests stayed successful but took about 4 seconds, database load rose and the autoscaler doubled the web pool.",
+  "evidence": [
+    {
+      "line": 2100,
+      "text": "2026-06-09T16:49:32.762Z INFO  harborline-web[web-2] deploy: deploy finished version=4.2.0 commit=e7a01c3 note=orders serializer refactor",
+      "note": "the release (no keyword)"
+    },
+    {
+      "line": 2520,
+      "text": "2026-06-09T17:11:16.325Z INFO  harborline-web[web-1] http: GET /api/v2/orders?page=1 status=200 latency_ms=3920 db_queries=214 req_id=0rd30001",
+      "note": "slow but successful request with many queries (no keyword)"
+    },
+    {
+      "line": 2730,
+      "text": "2026-06-09T17:20:37.470Z INFO  harborline-web[web-4] http: GET /api/v2/orders?page=2 status=200 latency_ms=4410 db_queries=231 req_id=0rd30002",
+      "note": "slow but successful request with many queries (no keyword)"
+    },
+    {
+      "line": 2940,
+      "text": "2026-06-09T17:31:43.649Z INFO  harborline-web[web-1] db: db.stats db_host=pg-primary cpu_pct=91 active_queries=160 queries_per_s=9800",
+      "note": "database load (no keyword)"
+    },
+    {
+      "line": 3150,
+      "text": "2026-06-09T17:42:28.506Z INFO  harborline-web[web-1] autoscaler: scaled pool pool=web replicas=4 desired=8 reason=p95_ms=4100",
+      "note": "autoscaler reacts (no keyword)"
+    }
+  ],
+  "decoys": [
+    {
+      "line": 2310,
+      "text": "2026-06-09T17:00:49.111Z FATAL harborline-web[web-3] sidecar: thumbnailer exited, restarting exit_code=139 signal=SIGSEGV",
+      "note": "thumbnailer sidecar, unrelated"
+    },
+    {
+      "line": 2870,
+      "text": "2026-06-09T17:28:24.944Z ERROR harborline-web[web-2] payments: card declined burst declines=37 window_s=60 issuer=fictional-bank",
+      "note": "issuer-side declines, unrelated to latency"
+    }
+  ]
+}

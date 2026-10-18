@@ -1,0 +1,50 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC incident; the service and every event are made up.",
+  "incident_id": "dev-1",
+  "split": "dev",
+  "format": "text",
+  "file": "dev-1.synthetic.txt",
+  "n_lines": 6000,
+  "seed": 20261017,
+  "root_cause": "The client certificate harborline-web uses for the payments gateway expired at 03:40; the nightly cert-rotation job had skipped it (vault policy denied), so checkout calls failed TLS handshakes, returned 502 and opened the circuit breaker.",
+  "evidence": [
+    {
+      "line": 720,
+      "text": "2026-05-04T00:43:30.836Z WARN  harborline-web[web-1] tls: client certificate close to expiry peer=payments-gw not_after=2026-05-04T03:40:00Z hours_left=3",
+      "note": "certificate about to expire"
+    },
+    {
+      "line": 1200,
+      "text": "2026-05-04T01:10:40.600Z INFO  harborline-web[web-1] scheduler: job finished name=cert-rotation rotated=0 skipped=1 skipped_ids=payments-gw-client reason=vault_policy_denied",
+      "note": "rotation job skipped the payments client certificate (no keyword)"
+    },
+    {
+      "line": 3780,
+      "text": "2026-05-04T03:44:18.993Z ERROR harborline-web[web-2] tls: handshake failed peer=payments-gw error=certificate has expired",
+      "note": "first handshake failure"
+    },
+    {
+      "line": 3810,
+      "text": "2026-05-04T03:46:01.493Z ERROR harborline-web[web-3] http: POST /api/v2/checkout status=502 upstream=payments-gw error=tls_handshake_failed req_id=c0ffee01",
+      "note": "user-facing checkout failure"
+    },
+    {
+      "line": 3960,
+      "text": "2026-05-04T03:54:41.288Z WARN  harborline-web[web-2] circuit: circuit breaker opened upstream=payments-gw failures=50 window_s=60",
+      "note": "breaker opens"
+    }
+  ],
+  "decoys": [
+    {
+      "line": 3480,
+      "text": "2026-05-04T03:27:52.602Z FATAL harborline-web[web-4] sidecar: thumbnailer exited, restarting exit_code=139 signal=SIGSEGV",
+      "note": "image thumbnailer sidecar crash; checkout does not use it"
+    },
+    {
+      "line": 4200,
+      "text": "2026-05-04T04:09:32.920Z ERROR harborline-web[web-1] db: replication lag high replica=pg-replica-2 lag_s=48 used_by=analytics",
+      "note": "analytics replica only; checkout reads pg-primary"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC incident; the service and every event are made up.",
+  "incident_id": "dev-3",
+  "split": "dev",
+  "format": "text",
+  "file": "dev-3.synthetic.txt",
+  "n_lines": 5200,
+  "seed": 20261017,
+  "root_cause": "Release 5.3.0 added a per-request session cache that never evicts; heap use grew until web-3 ran out of heap (OutOfMemoryError in SessionCache.put) and was OOM-killed.",
+  "evidence": [
+    {
+      "line": 416,
+      "text": "2026-05-19T09:29:00.994Z INFO  harborline-web[web-3] deploy: deploy finished version=5.3.0 commit=9b1d4e2 note=session cache for cart pages",
+      "note": "the release that introduced the leak (no keyword)"
+    },
+    {
+      "line": 2340,
+      "text": "2026-05-19T11:40:41.210Z INFO  harborline-web[web-3] jvm: memory heap_used_mb=2950 heap_max_mb=4096",
+      "note": "heap growing (no keyword)"
+    },
+    {
+      "line": 3224,
+      "text": "2026-05-19T12:41:07.935Z INFO  harborline-web[web-3] jvm: memory heap_used_mb=3780 heap_max_mb=4096",
+      "note": "heap near max (no keyword)"
+    },
+    {
+      "line": 3432,
+      "text": "2026-05-19T12:53:45.537Z WARN  harborline-web[web-3] jvm: gc overhead limit approaching gc_time_pct=93 heap_used_mb=3990",
+      "note": "GC thrashing"
+    },
+    {
+      "line": 3458,
+      "text": "2026-05-19T12:55:09.230Z FATAL harborline-web[web-3] jvm: java.lang.OutOfMemoryError: Java heap space at=SessionCache.put",
+      "note": "the out-of-memory error"
+    },
+    {
+      "line": 3484,
+      "text": "2026-05-19T12:57:22.705Z ERROR harborline-web[web-3] container: container killed reason=OOMKilled exit_code=137 restart_count=1",
+      "note": "the kill"
+    }
+  ],
+  "decoys": [
+    {
+      "line": 2080,
+      "text": "2026-05-19T11:22:35.954Z ERROR harborline-web[web-2] license: license check failed for optional module module=pdf-export action=feature disabled",
+      "note": "optional module, unrelated"
+    },
+    {
+      "line": 3588,
+      "text": "2026-05-19T13:03:59.394Z FATAL harborline-web[web-1] backup: cron backup job failed error=s3 bucket access denied next_try=tomorrow",
+      "note": "backup job, unrelated"
+    }
+  ]
+}

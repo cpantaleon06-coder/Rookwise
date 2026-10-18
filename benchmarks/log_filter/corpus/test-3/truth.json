@@ -1,0 +1,55 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC incident; the service and every event are made up.",
+  "incident_id": "test-3",
+  "split": "test",
+  "format": "jsonl",
+  "file": "test-3.synthetic.jsonl",
+  "n_lines": 6000,
+  "seed": 20261017,
+  "root_cause": "Config change CHG-2350 set log.level to debug in production; log volume jumped from about 120 to 4,800 lines per second, /var/log filled up, and writes failed with ENOSPC, so checkout returned 500.",
+  "evidence": [
+    {
+      "line": 1500,
+      "text": "{\"ts\": \"2026-06-16T04:33:28.386Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"config\", \"msg\": \"config.diff log.level: info -> debug\", \"change\": \"CHG-2350\"}",
+      "note": "the change (no keyword)"
+    },
+    {
+      "line": 1800,
+      "text": "{\"ts\": \"2026-06-16T04:49:56.368Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"logging\", \"msg\": \"log volume\", \"lines_per_s\": 4800}",
+      "note": "log volume jump (no keyword)"
+    },
+    {
+      "line": 3300,
+      "text": "{\"ts\": \"2026-06-16T06:22:54.559Z\", \"level\": \"WARN\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"disk\", \"msg\": \"disk usage high\", \"mount\": \"/var/log\", \"used_pct\": 91}",
+      "note": "disk filling"
+    },
+    {
+      "line": 4200,
+      "text": "{\"ts\": \"2026-06-16T07:15:43.783Z\", \"level\": \"WARN\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"disk\", \"msg\": \"disk usage high\", \"mount\": \"/var/log\", \"used_pct\": 99}",
+      "note": "disk almost full"
+    },
+    {
+      "line": 4320,
+      "text": "{\"ts\": \"2026-06-16T07:22:48.319Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"logging\", \"msg\": \"failed to write access log\", \"error\": \"No space left on device\", \"errno\": \"ENOSPC\"}",
+      "note": "write failure"
+    },
+    {
+      "line": 4380,
+      "text": "{\"ts\": \"2026-06-16T07:25:46.349Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"http\", \"msg\": \"POST /api/v2/checkout\", \"status\": 500, \"error\": \"ENOSPC writing session file\", \"req_id\": \"d15k0001\"}",
+      "note": "user-facing failure"
+    }
+  ],
+  "decoys": [
+    {
+      "line": 2400,
+      "text": "{\"ts\": \"2026-06-16T05:27:54.755Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"mail\", \"msg\": \"smtp relay rejected batch\", \"code\": 451, \"queued\": 288}",
+      "note": "outbound mail only"
+    },
+    {
+      "line": 4260,
+      "text": "{\"ts\": \"2026-06-16T07:19:25.832Z\", \"level\": \"FATAL\", \"service\": \"harborline-web\", \"host\": \"web-4\", \"logger\": \"jobs\", \"msg\": \"nightly export crashed: OutOfMemoryError\", \"job\": \"nightly-export\", \"retried\": true}",
+      "note": "exporter worker on web-4, unrelated"
+    }
+  ]
+}

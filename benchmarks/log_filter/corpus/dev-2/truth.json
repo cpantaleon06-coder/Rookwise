@@ -1,0 +1,60 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC incident; the service and every event are made up.",
+  "incident_id": "dev-2",
+  "split": "dev",
+  "format": "jsonl",
+  "file": "dev-2.synthetic.jsonl",
+  "n_lines": 8000,
+  "seed": 20261017,
+  "root_cause": "Config version change CHG-2231 set the product cache TTL to 0, so every catalog read went to pg-primary; database CPU saturated and catalog requests stayed successful but took 5 to 7 seconds.",
+  "evidence": [
+    {
+      "line": 4400,
+      "text": "{\"ts\": \"2026-05-11T09:22:36.651Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"deploy.agent\", \"msg\": \"config bundle applied\", \"config_version\": 91, \"author\": \"ops-fictional-user\", \"change\": \"CHG-2231\"}",
+      "note": "config bundle with the bad value"
+    },
+    {
+      "line": 4408,
+      "text": "{\"ts\": \"2026-05-11T09:23:09.676Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"config\", \"msg\": \"config.diff cache.product_ttl_s: 300 -> 0\"}",
+      "note": "the bad value (no keyword)"
+    },
+    {
+      "line": 4560,
+      "text": "{\"ts\": \"2026-05-11T09:28:56.393Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"cache\", \"msg\": \"cache.stats\", \"cache\": \"product\", \"hit_ratio\": 0.0, \"entries\": 0}",
+      "note": "cache empty (no keyword)"
+    },
+    {
+      "line": 4800,
+      "text": "{\"ts\": \"2026-05-11T09:39:14.187Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"db\", \"msg\": \"db.stats\", \"db_host\": \"pg-primary\", \"cpu_pct\": 97, \"active_queries\": 188, \"queries_per_s\": 11400}",
+      "note": "database saturated (no keyword)"
+    },
+    {
+      "line": 4960,
+      "text": "{\"ts\": \"2026-05-11T09:46:13.181Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-3\", \"logger\": \"http\", \"msg\": \"GET /api/v2/catalog/items/48213\", \"status\": 200, \"latency_ms\": 5120, \"db_queries\": 6, \"req_id\": \"5a1e0001\"}",
+      "note": "slow but successful request (no keyword)"
+    },
+    {
+      "line": 5120,
+      "text": "{\"ts\": \"2026-05-11T09:53:16.145Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"http\", \"msg\": \"GET /api/v2/catalog/search?q=lamp\", \"status\": 200, \"latency_ms\": 6830, \"db_queries\": 9, \"req_id\": \"5a1e0002\"}",
+      "note": "slow but successful request (no keyword)"
+    }
+  ],
+  "decoys": [
+    {
+      "line": 4000,
+      "text": "{\"ts\": \"2026-05-11T09:02:37.749Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-4\", \"logger\": \"jobs\", \"msg\": \"OutOfMemoryError in report-exporter worker, job retried\", \"job\": \"weekly-sales-export\", \"attempt\": 2}",
+      "note": "batch exporter, separate worker pool"
+    },
+    {
+      "line": 5280,
+      "text": "{\"ts\": \"2026-05-11T10:00:57.644Z\", \"level\": \"FATAL\", \"service\": \"harborline-web\", \"host\": \"web-4\", \"logger\": \"backup\", \"msg\": \"disk almost full\", \"host_name\": \"backup-1\", \"mount\": \"/var/lib/backups\", \"used_pct\": 96}",
+      "note": "backup host, not on the request path"
+    },
+    {
+      "line": 6400,
+      "text": "{\"ts\": \"2026-05-11T10:51:13.319Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"mail\", \"msg\": \"smtp relay rejected batch\", \"code\": 451, \"queued\": 312}",
+      "note": "outbound mail only"
+    }
+  ]
+}

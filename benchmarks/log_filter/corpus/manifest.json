@@ -1,0 +1,36 @@
+{
+  "synthetic": true,
+  "seed": 20261017,
+  "files": {
+    "dev-1/dev-1.synthetic.txt": {
+      "sha256": "0563cdc315edb3bc1ff940003190f56407d3a85cd43957d2b53a7d4bc4b102cf",
+      "bytes": 803641,
+      "lines": 6000
+    },
+    "dev-2/dev-2.synthetic.jsonl": {
+      "sha256": "933c3b9668941af32dc811f025b429ce36565cfe82b2c68a1c8effd3abf9b414",
+      "bytes": 1738014,
+      "lines": 8000
+    },
+    "dev-3/dev-3.synthetic.txt": {
+      "sha256": "3bebc1bfcd75babb182e6d9be177d6ebf5daed01c855b7fd9c27d6d052605a8f",
+      "bytes": 696418,
+      "lines": 5200
+    },
+    "test-1/test-1.synthetic.jsonl": {
+      "sha256": "d70a125df333c2ccad6a299381ca0d23cc57d629a8161a5ee52f7f8d9a96e9e9",
+      "bytes": 2062330,
+      "lines": 9500
+    },
+    "test-2/test-2.synthetic.txt": {
+      "sha256": "ada2108873df8a2904d75f59cc46f8ebb74e78eed74ddfb4eb63bcd3f31618fc",
+      "bytes": 935990,
+      "lines": 7000
+    },
+    "test-3/test-3.synthetic.jsonl": {
+      "sha256": "b1590244851732703c595f3d5a0b5c1b3cd31934c2cf69dec802d899a060dd42",
+      "bytes": 1244606,
+      "lines": 6000
+    }
+  }
+}

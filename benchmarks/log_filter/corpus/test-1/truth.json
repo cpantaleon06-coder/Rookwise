@@ -1,0 +1,55 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC incident; the service and every event are made up.",
+  "incident_id": "test-1",
+  "split": "test",
+  "format": "jsonl",
+  "file": "test-1.synthetic.jsonl",
+  "n_lines": 9500,
+  "seed": 20261017,
+  "root_cause": "Config change CHG-2304 pointed the resolver at 10.0.9.53, which answers slowly; DNS lookups for inventory-svc took about 5 seconds, the HTTP client timed out at 5000 ms and cart requests returned 504.",
+  "evidence": [
+    {
+      "line": 3800,
+      "text": "{\"ts\": \"2026-06-02T14:24:09.883Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"config\", \"msg\": \"config.diff net.resolver: 10.0.0.2 -> 10.0.9.53\", \"change\": \"CHG-2304\"}",
+      "note": "the resolver change (no keyword)"
+    },
+    {
+      "line": 4085,
+      "text": "{\"ts\": \"2026-06-02T14:34:59.505Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"dns\", \"msg\": \"dns lookup\", \"name\": \"inventory-svc.internal\", \"took_ms\": 5004}",
+      "note": "slow but successful lookup (no keyword)"
+    },
+    {
+      "line": 4275,
+      "text": "{\"ts\": \"2026-06-02T14:41:26.362Z\", \"level\": \"WARN\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"httpclient\", \"msg\": \"call timed out\", \"upstream\": \"inventory-svc\", \"timeout_ms\": 5000, \"attempt\": \"1/3\"}",
+      "note": "timeout"
+    },
+    {
+      "line": 4370,
+      "text": "{\"ts\": \"2026-06-02T14:45:59.819Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-3\", \"logger\": \"http\", \"msg\": \"GET /api/v2/cart\", \"status\": 504, \"upstream\": \"inventory-svc\", \"error\": \"timeout\", \"req_id\": \"d15c0001\"}",
+      "note": "user-facing failure"
+    },
+    {
+      "line": 4560,
+      "text": "{\"ts\": \"2026-06-02T14:53:52.791Z\", \"level\": \"INFO\", \"service\": \"harborline-web\", \"host\": \"web-4\", \"logger\": \"dns\", \"msg\": \"dns lookup\", \"name\": \"inventory-svc.internal\", \"took_ms\": 5009}",
+      "note": "slow but successful lookup (no keyword)"
+    }
+  ],
+  "decoys": [
+    {
+      "line": 2850,
+      "text": "{\"ts\": \"2026-06-02T13:47:07.221Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"webhook\", \"msg\": \"outbound webhook delivery failed, will retry\", \"target\": \"partner-hooks\", \"status\": 500}",
+      "note": "partner webhook, unrelated"
+    },
+    {
+      "line": 4180,
+      "text": "{\"ts\": \"2026-06-02T14:38:10.153Z\", \"level\": \"FATAL\", \"service\": \"harborline-web\", \"host\": \"web-2\", \"logger\": \"sidecar\", \"msg\": \"metrics-agent panicked, restarting\", \"error\": \"runtime error: index out of range\"}",
+      "note": "metrics sidecar, unrelated"
+    },
+    {
+      "line": 6650,
+      "text": "{\"ts\": \"2026-06-02T16:11:57.564Z\", \"level\": \"ERROR\", \"service\": \"harborline-web\", \"host\": \"web-1\", \"logger\": \"db\", \"msg\": \"replication lag high\", \"replica\": \"pg-replica-2\", \"lag_s\": 51, \"used_by\": \"analytics\"}",
+      "note": "analytics replica, unrelated"
+    }
+  ]
+}

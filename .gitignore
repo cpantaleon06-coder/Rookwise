@@ -278,3 +278,6 @@ tmp/
 Thumbs.db
 
 design-refs/
+
+# Generated SYNTHETIC logs for benchmarks/log_filter (several MB; rebuild with gen_corpus.py, hashes in manifest.json)
+benchmarks/log_filter/corpus/*/*.synthetic.*
