@@ -116,7 +116,7 @@ def test_a_multi_line_quote_counts_toward_the_repair_limit():
     (task,) = team.blocks[0].tasks
     assert task.status == "failed" and task.findings is None
     assert handler.calls["operator"] == 2  # no repair; each operator got one attempt
-    assert team.evidence.citations_total == 0  # nothing failed late in the evidence check
+    assert team.operator_evidence.citations_total == 0  # nothing failed late in the check
 
 
 def test_the_evidence_check_itself_is_unchanged_for_multi_line_quotes():

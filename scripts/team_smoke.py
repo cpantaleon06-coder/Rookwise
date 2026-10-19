@@ -319,17 +319,27 @@ async def run(
 REPLY_TEXT = "_reply_text"  # a call's full reply text, kept until the report is built
 
 
+def _checked(report: Any) -> dict[tuple[str, int], Any]:
+    checked = {}
+    if report is not None:
+        for claim in report.claims:
+            for result in claim.citations:
+                checked[(claim.claim_id, result.index)] = result
+    return checked
+
+
+def _status(reason: str | None) -> str:
+    return "not_checked" if reason is None else ("verified" if reason == "ok" else "failed")
+
+
 def citation_details(team: Any, events: list[Any]) -> list[dict[str, Any]]:
-    """Every audited citation as the model wrote it, with the evidence check's reason.
-    Only completed tasks' claims reach the audit, so only they are listed."""
+    """Every checked citation as the model wrote it, with the evidence check's reason:
+    the completed operator tasks' claims (`agent` operator), then the director's diagnosis
+    claims (`agent` director, with `withdrawn` true for a claim withdrawn under D3)."""
     model_of = {
         e.payload.agent.agent_id: e.payload.agent.model for e in events if e.type == "agent_hired"
     }
-    checked = {}
-    if team.evidence is not None:
-        for claim in team.evidence.claims:
-            for result in claim.citations:
-                checked[(claim.claim_id, result.index)] = result
+    checked = _checked(team.operator_evidence)
     details = []
     for block in team.blocks:
         for task in block.tasks:
@@ -343,6 +353,7 @@ def citation_details(team: Any, events: list[Any]) -> list[dict[str, Any]]:
                     reason = result.reason if result is not None else None
                     details.append(
                         {
+                            "agent": "operator",
                             "claim_id": claim_id,
                             "task_id": task.task_id,
                             "operator_id": task.operator_ids[-1],
@@ -353,11 +364,32 @@ def citation_details(team: Any, events: list[Any]) -> list[dict[str, Any]]:
                             "line_end": citation.line_end,
                             "quote": citation.quote,
                             "reason": reason,
-                            "status": "not_checked"
-                            if reason is None
-                            else ("verified" if reason == "ok" else "failed"),
+                            "status": _status(reason),
                         }
                     )
+    if team.diagnosis is not None:
+        checked = _checked(team.evidence)
+        withdrawn = {w.claim.claim_id for w in team.withdrawn_claims}
+        for claim in team.diagnosis.claims:
+            for index, citation in enumerate(claim.citations):
+                result = checked.get((claim.claim_id, index))
+                reason = result.reason if result is not None else None
+                details.append(
+                    {
+                        "agent": "director",
+                        "claim_id": claim.claim_id,
+                        "task_id": "diagnosis",
+                        "model": model_of.get("a-director"),
+                        "index": index,
+                        "source_id": citation.source_id,
+                        "line_start": citation.line_start,
+                        "line_end": citation.line_end,
+                        "quote": citation.quote,
+                        "reason": reason,
+                        "status": _status(reason),
+                        "withdrawn": claim.claim_id in withdrawn,
+                    }
+                )
     return details
 
 
@@ -488,7 +520,9 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
 
     rc = scenario["root_cause"]
     supported = (
-        {c.claim_id for c in team.evidence.claims if c.supported} if team.evidence else set()
+        {c.claim_id for c in team.operator_evidence.claims if c.supported}
+        if team.operator_evidence
+        else set()
     )
     claims, hits = [], []
     for block in team.blocks:
@@ -565,8 +599,24 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         ],
         "audit": team.audit.model_dump() if team.audit else None,
         "auditor_model_review_ran": any(e.level == "auditor" for e in report.entries),
-        "citation_verified_rate": team.evidence.citation_verified_rate if team.evidence else None,
-        "unsupported_claims": team.evidence.unsupported_claims if team.evidence else None,
+        "citation_verified_rate": team.operator_evidence.citation_verified_rate
+        if team.operator_evidence
+        else None,
+        "unsupported_claims": team.operator_evidence.unsupported_claims
+        if team.operator_evidence
+        else None,
+        "diagnosis_status": team.diagnosis_status,
+        "inconclusive_reason": team.inconclusive_reason,
+        "claim_counts": dataclasses.asdict(team.claim_counts) if team.claim_counts else None,
+        "withdrawn_claims": [
+            {
+                "claim_id": w.claim.claim_id,
+                "text": w.claim.text,
+                "reason": w.reason,
+                "citation_reasons": list(w.citation_reasons),
+            }
+            for w in team.withdrawn_claims
+        ],
         "claims": claims,
         "citations": citation_details(team, events),
         "error_replies": error_replies(

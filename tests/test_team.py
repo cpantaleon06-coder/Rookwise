@@ -23,6 +23,7 @@ from team_stub import (
     assert_budget_tree,
     assert_contract_order,
     block,
+    diagnosis_reply,
     findings_payload,
     findings_reply,
     judgment_reply,
@@ -81,7 +82,9 @@ def test_a_normal_run_goes_through_every_level():
         t.status == "ok" and t.operator_ids == ["stub-op-a"] for b in team.blocks for t in b.tasks
     )
     assert team.audit.verdict == "accepted" and team.evidence.all_supported
-    assert team.evidence.citations_total == 3
+    assert team.operator_evidence.citations_total == 3  # the operators' claims
+    assert team.evidence.citations_total == 1  # the diagnosis's claims
+    assert team.diagnosis_status == "audited" and team.withdrawn_claims == []
     assert handler.calls == {
         "director": 1,
         "diagnosis": 1,
@@ -488,23 +491,28 @@ def test_a_fabricated_quote_fails_the_operators_validation_and_is_repaired():
     assert team.audit.verdict == "accepted"
 
 
-def test_the_auditor_rejects_an_unsupported_claim_without_a_model_call():
-    # A claim with no citation passes the operator's schema; the evidence check rejects it.
+def test_an_inconclusive_diagnosis_gets_no_auditor_model_call():
+    # A claim with no citation passes the schema; the evidence check rejects it, and when
+    # it is the only root-cause claim the diagnosis is inconclusive (D3).
     handler = TeamHandler(
         director=[plan_reply(block(1))],
-        operator=[findings_reply(GOOD_CLAIM, UNCITED_CLAIM)],
+        diagnosis=[diagnosis_reply(GOOD_CLAIM, UNCITED_CLAIM, root=("c2",))],
+        operator=[findings_reply(GOOD_CLAIM)],
         manager=[summary_reply()],
     )
     team, book = run_stub_team(handler, run_usd="0.5")
-    assert team.audit.verdict == "rejected"
-    assert team.evidence.unsupported_claims == ["t-1:c2"]
-    assert team.evidence.citation_verified_rate == 1.0
-    (check,) = team.audit.checks
-    assert not check.passed and "t-1:c2 (no_citations)" in check.note
+    assert team.diagnosis_status == "inconclusive"
+    assert team.inconclusive_reason == "every root-cause claim was withdrawn"
+    assert [w.claim.claim_id for w in team.withdrawn_claims] == ["c2"]
+    assert team.audit.verdict == "rejected" and "Inconclusive" in team.audit.warning
+    check, conclusive = team.audit.checks
+    assert not check.passed and "c2 (no_citations)" in check.note
+    assert not conclusive.passed and conclusive.note == team.inconclusive_reason
     assert handler.calls["auditor"] == 0  # the deterministic check comes first
     assert [p.audit.verdict for p in _payloads(team, "audit_result")] == ["rejected"]
     assert not any(e.level == "auditor" for e in book.report(RUN_ID).entries)
-    assert "Audit: rejected." in [p.message.text for p in _payloads(team, "message")][-1]
+    closing = [p.message.text for p in _payloads(team, "message")][-1]
+    assert "Diagnosis: inconclusive" in closing and "Withdrawn: c2 (no_citations)." in closing
     assert_contract_order(team, book)
     assert_budget_tree(book)
 

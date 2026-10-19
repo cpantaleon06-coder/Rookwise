@@ -67,7 +67,11 @@ def test_each_audited_citation_is_kept_with_its_quote_and_reason(monkeypatch):
     module = _script()
     report, _, calls = asyncio.run(module.run("estimate", module.load_scenario()))
     citations = report["citations"]
-    assert len(citations) == 4  # four operator tasks, one citation each
+    # Four operator tasks with one citation each, then the director's one citation.
+    assert [c["agent"] for c in citations] == ["operator"] * 4 + ["director"]
+    assert citations[-1]["withdrawn"] is False and citations[-1]["status"] == "verified"
+    assert report["diagnosis_status"] == "audited" and report["withdrawn_claims"] == []
+    assert report["claim_counts"] == {"supported": 1, "withdrawn": 0, "by_reason": {}}
     first = citations[0]
     assert {k: first[k] for k in ("source_id", "line_start", "line_end", "quote")} == {
         "source_id": "app-log",

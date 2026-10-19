@@ -43,7 +43,12 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
    context sources in full (`context_sources`, for example the ticket and the runbook),
    the source inventory, and the managers' summaries and the operators' findings under
    their store references, and it may cite evidence lines directly.
-6. The auditor gets the deliverable and the evidence bundle (`rookwise.team.auditor`).
+6. Decision D3 (`rookwise.team.auditor`): the deterministic check runs on the diagnosis's
+   claims; unsupported claims are withdrawn and listed with their reason codes. With no
+   supported root-cause claim the diagnosis is inconclusive and the auditor makes no model
+   call; otherwise the auditor model reviews the supported claims, the withdrawn list and
+   its rubric. The operators' own claims are checked too, for the report
+   (`TeamRun.operator_evidence`).
 
 A level that runs out of budget does not raise: it emits `budget_exhausted` with the
 ledger's stop, then the director: `run_failed` with code `budget_exhausted` and the stop
@@ -91,7 +96,7 @@ from rookwise.api.models import (
     TaskAssignedPayload,
     TaskResultPayload,
 )
-from rookwise.evidence import EvidenceBundle, EvidenceReport
+from rookwise.evidence import EvidenceBundle, EvidenceReport, verify
 from rookwise.harness import Harness, Tool
 from rookwise.ledger import Allocation, CapReached, RunReport
 from rookwise.money import ZERO_USD, format_usd, to_micro_usd
@@ -101,12 +106,19 @@ from rookwise.skills.loader import SKILLS_DIR
 from rookwise.slicing import Slice, SlicingConfig, coverage, load_slicing_config, slice_bundle
 from rookwise.store import Store
 from rookwise.team.agents import AgentCaller
-from rookwise.team.auditor import audit, render_source
+from rookwise.team.auditor import (
+    ClaimCounts,
+    DiagnosisStatus,
+    WithdrawnClaim,
+    audit,
+    render_source,
+)
 from rookwise.team.config import BudgetPolicy, RoleSpec, load_team_roles
 from rookwise.team.events import EventLog
 from rookwise.team.models import (
     BlockSummary,
     Diagnosis,
+    FindingClaim,
     Findings,
     Plan,
     PlanBlock,
@@ -205,6 +217,14 @@ class TeamRun:
     unread_slices: list[UnreadRange] = field(default_factory=list)
     empty_sources: list[str] = field(default_factory=list)
     diagnosis: Diagnosis | None = None
+    # D3: the diagnosis's status, its supported and withdrawn claims and their counts.
+    diagnosis_status: DiagnosisStatus | None = None
+    inconclusive_reason: str = ""
+    supported_claims: list[FindingClaim] = field(default_factory=list)
+    withdrawn_claims: list[WithdrawnClaim] = field(default_factory=list)
+    claim_counts: ClaimCounts | None = None
+    # The deterministic check of the operators' claims (`evidence` is the diagnosis's).
+    operator_evidence: EvidenceReport | None = None
 
 
 def summary_ref(run_id: str, block_id: str) -> str:
@@ -396,24 +416,25 @@ class _Team:
                     items.append((f"t-{number}", task, item))
             blocks.append(await self._manage(f"b-{index}", block, budget, items, manager, director))
 
-        diagnosis = await self._diagnose(goal, director, blocks)
+        diagnosis, missing = await self._diagnose(goal, director, blocks)
 
-        claims = [
+        operator_claims = [
             c.claim(f"{t.task_id}:{c.claim_id}")
             for b in blocks
             for t in b.tasks
             if t.findings is not None
             for c in t.findings.claims
         ]
+        operator_evidence = verify(self.evidence, operator_claims)
         outcome = await audit(
             self.caller,
             auditor,
             self.roles.auditor,
             goal=goal,
-            deliverable=self._deliverable(blocks),
-            claims=claims,
+            diagnosis=diagnosis,
             bundle=self.evidence,
             budget_id=auditor_budget.id,
+            missing_reason=missing,
         )
         if outcome.budget_exhausted:
             self._exhausted(auditor, self._stop_of("auditor", "audit", auditor_budget.id))
@@ -421,7 +442,7 @@ class _Team:
         self.log.emit("audit_result", AuditResultPayload(audit=outcome.verdict))
         self._close(auditor_budget, auditor, director)
         partial = outcome.budget_exhausted or any(b.status != "ok" for b in blocks)
-        self._say(self._closing_message(blocks, outcome.verdict))
+        self._say(self._closing_message(blocks, outcome))
         report = self.ledger.report(self.run_id)
         self.log.emit(
             "run_finished",
@@ -447,12 +468,18 @@ class _Team:
             unread_slices=self._unread(blocks),
             empty_sources=list(self.slices.empty_sources),
             diagnosis=diagnosis,
+            diagnosis_status=outcome.status,
+            inconclusive_reason=outcome.reason,
+            supported_claims=list(outcome.supported),
+            withdrawn_claims=list(outcome.withdrawn),
+            claim_counts=outcome.counts,
+            operator_evidence=operator_evidence,
         )
 
     async def _diagnose(
         self, goal: str, director: AgentNode, blocks: list[BlockOutcome]
-    ) -> Diagnosis | None:
-        """The director's diagnosis call, drawn from the run. None when it fails."""
+    ) -> tuple[Diagnosis | None, str]:
+        """The director's diagnosis call, drawn from the run, and why it is missing."""
         result = await self.caller.call(
             director,
             self.roles.director,
@@ -464,13 +491,14 @@ class _Team:
             budget_id=None,
         )
         if result.ok and result.validation is not None:
-            return result.validation.payload.output  # type: ignore[attr-defined]
+            return result.validation.payload.output, ""  # type: ignore[attr-defined]
         if result.stop_reason == "budget_exhausted":
             self._exhausted(director, self._stop_of("director", "diagnosis", None))
-            self.notes.append("The run budget does not cover the director's diagnosis call.")
+            reason = "the run budget does not cover the director's diagnosis call"
         else:
-            self.notes.append(f"The director produced no valid diagnosis ({result.stop_reason}).")
-        return None
+            reason = f"the director produced no valid diagnosis ({result.stop_reason})"
+        self.notes.append(reason[0].upper() + reason[1:] + ".")
+        return None, reason
 
     def _diagnosis_request(self, goal: str, blocks: list[BlockOutcome]) -> str:
         parts = [f"Goal: {goal}"]
@@ -928,25 +956,25 @@ class _Team:
                 )
         return "\n".join(lines)
 
-    @staticmethod
-    def _deliverable(blocks: list[BlockOutcome]) -> str:
-        parts = []
-        for block in blocks:
-            parts.append(f"Block {block.block_id}: {block.goal}")
-            parts.append(f"Manager summary: {block.summary or '(none)'}")
-            for task in block.tasks:
-                text = (
-                    task.findings.summary
-                    if task.findings is not None
-                    else f"not done. {task.reason}"
-                )
-                parts.append(f"- {task.task_id} ({task.role}, {task.slice.slice_id}): {text}")
-        return "\n".join(parts)
-
-    def _closing_message(self, blocks: list[BlockOutcome], verdict: AuditVerdict) -> str:
+    def _closing_message(self, blocks: list[BlockOutcome], outcome: Any) -> str:
+        verdict: AuditVerdict = outcome.verdict
         tasks = [t for b in blocks for t in b.tasks]
         done = sum(t.status == "ok" for t in tasks)
-        text = f"Done: {done} of {len(tasks)} tasks completed. Audit: {verdict.verdict}."
+        text = f"Done: {done} of {len(tasks)} tasks completed."
+        if outcome.status == "inconclusive":
+            text += f" Diagnosis: inconclusive ({outcome.reason})."
+        else:
+            counts = outcome.counts
+            text += (
+                f" Diagnosis: {counts.supported} claims supported, {counts.withdrawn} withdrawn."
+            )
+        if outcome.withdrawn:
+            text += (
+                " Withdrawn: "
+                + ", ".join(f"{w.claim.claim_id} ({w.reason})" for w in outcome.withdrawn)
+                + "."
+            )
+        text += f" Audit: {verdict.verdict}."
         unread = self._unread(blocks)
         if unread:
             ranges = ", ".join(f"{u.source_id} {u.line_start}-{u.line_end}" for u in unread)
