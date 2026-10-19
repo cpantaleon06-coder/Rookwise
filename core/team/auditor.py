@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from rookwise.api.models import AgentNode, AuditCheck, AuditVerdict
 from rookwise.evidence import Claim, EvidenceBundle, EvidenceReport, split_lines, verify
+from rookwise.slicing import numbered_line
 from rookwise.team.agents import AgentCaller
 from rookwise.team.config import RoleSpec
 from rookwise.team.models import AuditJudgment
@@ -45,7 +46,7 @@ class AuditOutcome:
 
 def render_source(source_id: str, text: str) -> str:
     """A source as agents read it: its id, then each line with its 1-based number."""
-    numbered = "\n".join(f"{n}: {line}" for n, line in enumerate(split_lines(text), 1))
+    numbered = "\n".join(numbered_line(n, line) for n, line in enumerate(split_lines(text), 1))
     return f"Source {source_id} (cite it by this id and these line numbers):\n{numbered}"
 
 

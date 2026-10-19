@@ -1,0 +1,5 @@
+{
+  "_note": "Source slicing (core/slicing.py), shared by the hierarchy and the single-model baselines (D1). max_slice_tokens is the most a slice may hold at the calibrated input estimate of config/harness.json (input_estimate: characters / chars_per_token, times 1 + headroom); 12000 is a placeholder taken from the task_v1 example (max_input_tokens), UNVERIFIED against the models' context windows. overlap_lines is how many lines consecutive slices share so evidence at a boundary is not cut; 10 is a placeholder.",
+  "max_slice_tokens": 12000,
+  "overlap_lines": 10
+}
