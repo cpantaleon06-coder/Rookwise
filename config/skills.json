@@ -1,5 +1,5 @@
 {
-  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final. A role that leads a level of the team hierarchy names it in `level` (director, manager or auditor; core/team); every other role is an operator role. max_output_tokens is the role's output ceiling: every call of the role is sent with that max_tokens and the ledger reserves it; a reply cut at the ceiling (finish_reason length) ends the call as a typed `length` outcome and is not retried.",
+  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final. A role that leads a level of the team hierarchy names it in `level` (director, manager or auditor; core/team); every other role is an operator role. max_output_tokens is the role's output ceiling: every call of the role is sent with that max_tokens and the ledger reserves it; a reply cut at the ceiling (finish_reason length) ends the call as a typed `length` outcome and is not retried. The incident operator roles (log-reader, metrics-reader, deploy-diff-reader) use original skills that are not measured yet: their counts are the loader's labeled ESTIMATE (characters / 4), and their ceilings are that estimate plus 20%, rounded up to a multiple of 50. The other operator roles stay as placeholders; the smoke scenario uses them.",
   "skills": {
     "prose-style": {
       "max_tokens": 800,
@@ -73,6 +73,15 @@
       },
       "measured_sha256": "1683755ff7ba6500877158ddfa8392a06ba2d7e279da48055681056f2721a5c2",
       "measured_on": "2026-10-15"
+    },
+    "log-reading": {
+      "max_tokens": 450
+    },
+    "metrics-reading": {
+      "max_tokens": 500
+    },
+    "deploy-diff-reading": {
+      "max_tokens": 550
     }
   },
   "roles": {
@@ -153,6 +162,30 @@
       "max_output_tokens": 4096,
       "skills": [
         "postmortem"
+      ],
+      "max_skill_tokens": 550
+    },
+    "log-reader": {
+      "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
+      "skills": [
+        "log-reading"
+      ],
+      "max_skill_tokens": 450
+    },
+    "metrics-reader": {
+      "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
+      "skills": [
+        "metrics-reading"
+      ],
+      "max_skill_tokens": 500
+    },
+    "deploy-diff-reader": {
+      "model": "nemotron-3.5-lightning",
+      "max_output_tokens": 4096,
+      "skills": [
+        "deploy-diff-reading"
       ],
       "max_skill_tokens": 550
     },
