@@ -41,7 +41,7 @@ def test_an_offline_run_of_the_scenario_stays_under_the_cap(monkeypatch):
     report, events, calls = asyncio.run(module.run("estimate", module.load_scenario()))
     assert report["status"] == "finished" and report["under_cap"]
     assert report["root_cause_found"] and report["citation_verified_rate"] == 1.0
-    assert len(calls) == 8 and events[-1]["type"] == "run_finished"
+    assert len(calls) == 9 and events[-1]["type"] == "run_finished"
     # The run summary puts the ledger's prediction next to the real cost, per model.
     assert Decimal(report["predicted_usd"]) > 0 and report["prediction_error"] is not None
     for row in report["by_model"].values():
@@ -52,7 +52,7 @@ def test_an_offline_run_of_the_scenario_stays_under_the_cap(monkeypatch):
     assert report["unread_slices"] == [] and report["empty_sources"] == []
     tasks = [t for block in report["blocks"] for t in block["tasks"]]
     assert {t["slice_id"] for t in tasks} == {"app-log:1-60", "runbook:1-20"}
-    assert sum(sum(v.values()) for v in report["outcomes_by_role"].values()) == 8
+    assert sum(sum(v.values()) for v in report["outcomes_by_role"].values()) == 9
     finished = events[-1]["payload"]
     assert finished["predicted_usd"] == report["predicted_usd"]
 

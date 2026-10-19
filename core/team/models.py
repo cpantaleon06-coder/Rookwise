@@ -16,6 +16,13 @@ output model for one run: same name and JSON Schema as `Plan`, plus the checks t
 task names a source of the run and that every non-empty source is read, so the plan
 covers every slice. A plan that fails them is repaired like any other validation error.
 
+The director ends the investigation with a `Diagnosis`: the root cause, its category
+(the benchmark's enum, `rookwise.incidents.Category`), claims with citations exactly like
+an operator's, the ids of the claims that support the root cause, and a remediation plan.
+v1 is read-only: the plan is a proposal and nothing in it is executed.
+`diagnosis_model(bundle)` is its run-bound twin, with the same citation check as
+`findings_model` and the same JSON Schema as `Diagnosis`.
+
 `findings_model(bundle)` makes the operators' output model for one run. It has the same
 name and JSON Schema as `Findings`, and it also checks every citation against the run's
 sources: the whitespace-normalized quote must be part of ONE source line inside
@@ -34,6 +41,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rookwise.evidence import Citation, Claim, EvidenceBundle, normalize_whitespace, split_lines
+from rookwise.incidents import Category
 
 
 class _Out(BaseModel):
@@ -110,7 +118,42 @@ class Findings(_Out):
     claims: list[FindingClaim] = Field(default_factory=list)
 
 
+class RemediationStep(_Out):
+    """One proposed step. v1 executes nothing; the human approves or rejects the plan."""
+
+    action: str = Field(min_length=1, description="What to do, as one concrete step.")
+    why: str = Field(min_length=1, description="How the step addresses the root cause.")
+    risk: str = Field(min_length=1, description="What could go wrong if the step is taken.")
+    reversible: bool = Field(description="Whether the step can be undone.")
+
+
+class Diagnosis(_Out):
+    """The director's diagnosis of the incident, backed by cited claims."""
+
+    root_cause: str = Field(min_length=1)
+    category: Category
+    claims: list[FindingClaim] = Field(default_factory=list)
+    root_cause_claim_ids: list[str] = Field(
+        min_length=1, description="The ids of the claims that support the root cause."
+    )
+    remediation_plan: list[RemediationStep] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _claim_ids(self) -> Diagnosis:
+        ids = [claim.claim_id for claim in self.claims]
+        duplicates = sorted({claim_id for claim_id in ids if ids.count(claim_id) > 1})
+        if duplicates:
+            raise ValueError(f"claim ids must be unique: {', '.join(duplicates)}")
+        unknown = [claim_id for claim_id in self.root_cause_claim_ids if claim_id not in ids]
+        if unknown:
+            raise ValueError(
+                f"root_cause_claim_ids {', '.join(unknown)} are not claim ids of this diagnosis"
+            )
+        return self
+
+
 _SourceCitation, _FindingClaim, _Findings = SourceCitation, FindingClaim, Findings
+_Diagnosis = Diagnosis
 _PlanTask, _PlanBlock, _Plan = PlanTask, PlanBlock, Plan
 
 
@@ -172,9 +215,9 @@ def quote_problem(lines: list[str] | None, citation: SourceCitation) -> str | No
     )
 
 
-def findings_model(bundle: EvidenceBundle) -> type[Findings]:
-    """`Findings` for one run: same name and JSON Schema, plus the check that each quote
-    sits inside a single line of `bundle` in the cited range."""
+def _bound_claim(bundle: EvidenceBundle) -> type[FindingClaim]:
+    """`FindingClaim` whose citations check that each quote sits inside a single line of
+    `bundle` in the cited range (same name and JSON Schema)."""
     lines = {source_id: split_lines(text) for source_id, text in bundle.sources.items()}
 
     class SourceCitation(_SourceCitation):
@@ -191,11 +234,31 @@ def findings_model(bundle: EvidenceBundle) -> type[Findings]:
         __doc__ = _FindingClaim.__doc__
         citations: list[SourceCitation] = Field(default_factory=list)
 
+    return FindingClaim
+
+
+def findings_model(bundle: EvidenceBundle) -> type[Findings]:
+    """`Findings` for one run: same name and JSON Schema, plus the check that each quote
+    sits inside a single line of `bundle` in the cited range."""
+    claim = _bound_claim(bundle)
+
     class Findings(_Findings):
         __doc__ = _Findings.__doc__
-        claims: list[FindingClaim] = Field(default_factory=list)
+        claims: list[claim] = Field(default_factory=list)  # type: ignore[valid-type]
 
     return Findings
+
+
+def diagnosis_model(bundle: EvidenceBundle) -> type[Diagnosis]:
+    """`Diagnosis` for one run: same name and JSON Schema, with the operators' citation
+    check on every claim (`findings_model`)."""
+    claim = _bound_claim(bundle)
+
+    class Diagnosis(_Diagnosis):
+        __doc__ = _Diagnosis.__doc__
+        claims: list[claim] = Field(default_factory=list)  # type: ignore[valid-type]
+
+    return Diagnosis
 
 
 class BlockSummary(_Out):

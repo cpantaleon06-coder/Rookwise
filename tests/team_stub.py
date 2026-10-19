@@ -25,13 +25,14 @@ from rookwise.runner import OperatorSpec
 from rookwise.store import InMemoryStore
 from rookwise.team import run_team
 from rookwise.team.auditor import AUDITOR_PROMPT
-from rookwise.team.flow import DIRECTOR_PROMPT, MANAGER_PROMPT, OPERATOR_PROMPT
+from rookwise.team.flow import DIAGNOSIS_PROMPT, DIRECTOR_PROMPT, MANAGER_PROMPT, OPERATOR_PROMPT
 
 ULTRA, LIGHTNING = "nemotron-3-ultra", "nemotron-3.5-lightning"
 RUN_ID = "run_team01"
 GOAL = "[stub] Describe the sample widget from the sources."
 ROUTES = (
     ("director", DIRECTOR_PROMPT),
+    ("diagnosis", DIAGNOSIS_PROMPT),
     ("manager", MANAGER_PROMPT),
     ("auditor", AUDITOR_PROMPT),
     ("operator", OPERATOR_PROMPT),
@@ -156,6 +157,33 @@ def summary_reply(status: str = "ok") -> bytes:
     return text_reply(_payload({"summary": "[stub] The block is done."}, status, notes))
 
 
+def diagnosis_payload(
+    *claims: dict[str, Any],
+    root: tuple[str, ...] | None = None,
+    category: str = "bad_config",
+) -> str:
+    claims = claims or (GOOD_CLAIM,)
+    output = {
+        "root_cause": "[stub] The widget weighs 12 units.",
+        "category": category,
+        "claims": list(claims),
+        "root_cause_claim_ids": list(root or (claims[0]["claim_id"],)),
+        "remediation_plan": [
+            {
+                "action": "[stub] Check the widget.",
+                "why": "[stub] It is the cause.",
+                "risk": "[stub] None known.",
+                "reversible": True,
+            }
+        ],
+    }
+    return _payload(output)
+
+
+def diagnosis_reply(*claims: dict[str, Any], **kwargs: Any) -> bytes:
+    return text_reply(diagnosis_payload(*claims, **kwargs))
+
+
 def judgment_reply(verdict: str = "accepted") -> bytes:
     check = {"criterion": "[stub] Meets the goal", "passed": verdict == "accepted", "note": ""}
     return text_reply(_payload({"verdict": verdict, "checks": [check]}))
@@ -165,6 +193,8 @@ class TeamHandler:
     """Answers each request with the next scripted reply for the agent that sent it."""
 
     def __init__(self, **replies: list[bytes]) -> None:
+        # The director's diagnosis defaults to one stub diagnosis on BUNDLE.
+        replies.setdefault("diagnosis", [diagnosis_reply()])
         self.replies = {kind: list(replies.get(kind, [])) for kind, _ in ROUTES}
         self.calls = {kind: 0 for kind, _ in ROUTES}
         self.bodies: list[dict[str, Any]] = []
@@ -202,6 +232,7 @@ def run_stub_team(
     cassette=None,
     bundle=None,
     slicing=None,
+    context_sources=(),
 ):
     book = InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
@@ -226,6 +257,7 @@ def run_stub_team(
                 catalog=catalog or CATALOG,
                 evidence=bundle or BUNDLE,
                 slicing=slicing,
+                context_sources=context_sources,
                 skills_config=config or skills_config(),
                 skills_dir=SKILLS_DIR,
                 policy=policy,

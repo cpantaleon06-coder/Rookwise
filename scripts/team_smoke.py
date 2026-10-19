@@ -61,13 +61,24 @@ from rookwise.store import InMemoryStore  # noqa: E402
 from rookwise.team import run_team  # noqa: E402
 from rookwise.team.auditor import AUDITOR_PROMPT  # noqa: E402
 from rookwise.team.config import load_team_roles  # noqa: E402
-from rookwise.team.flow import DIRECTOR_PROMPT, MANAGER_PROMPT, OPERATOR_PROMPT  # noqa: E402
+from rookwise.team.flow import (  # noqa: E402
+    DIAGNOSIS_PROMPT,
+    DIRECTOR_PROMPT,
+    MANAGER_PROMPT,
+    OPERATOR_PROMPT,
+)
 
 SCENARIO_DIR = REPO_ROOT / "examples" / "team_smoke"
 CASSETTE = REPO_ROOT / "runs" / "cassettes" / "team_smoke.json"
 OUT_DIR = REPO_ROOT / "runs" / "team_smoke"
 # Output tokens the estimate stub reports per call: assumptions, not measurements.
-STUB_OUTPUT_TOKENS = {"director": 800, "manager": 300, "operator": 900, "auditor": 600}
+STUB_OUTPUT_TOKENS = {
+    "director": 800,
+    "diagnosis": 800,
+    "manager": 300,
+    "operator": 900,
+    "auditor": 600,
+}
 STUB_PLAN = [
     [("incident-triager", "app-log"), ("debugger", "runbook")],
     [("incident-triager", "app-log"), ("debugger", "app-log")],
@@ -105,6 +116,7 @@ def _sse(text: str, prompt: int, completion: int) -> bytes:
 def _stub_transport() -> httpx.MockTransport:
     routes = (
         ("director", DIRECTOR_PROMPT),
+        ("diagnosis", DIAGNOSIS_PROMPT),
         ("manager", MANAGER_PROMPT),
         ("auditor", AUDITOR_PROMPT),
         ("operator", OPERATOR_PROMPT),
@@ -138,6 +150,20 @@ def _stub_transport() -> httpx.MockTransport:
         "manager": {"summary": "[stub] The block is done."},
         "operator": {"summary": "[stub] Findings.", "claims": [claim]},
         "auditor": {"verdict": "accepted", "checks": [{"criterion": "[stub]", "passed": True}]},
+        "diagnosis": {
+            "root_cause": "[stub] The pool size was cut from 50 to 5.",
+            "category": "bad_config",
+            "claims": [claim],
+            "root_cause_claim_ids": ["c1"],
+            "remediation_plan": [
+                {
+                    "action": "[stub] Restore the pool size.",
+                    "why": "[stub] The cut caused the timeouts.",
+                    "risk": "[stub] None known.",
+                    "reversible": True,
+                }
+            ],
+        },
     }
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -277,6 +303,7 @@ async def run(
                 catalog=catalog,
                 evidence=EvidenceBundle(sources=scenario["texts"]),
                 mode="recorded" if mode == "replay" else "live",
+                context_sources=tuple(scenario.get("context_sources", ())),
             )
     finally:
         sse_module.parse_usage = parse_usage
@@ -552,6 +579,7 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         ),
         "root_cause_claims": hits,
         "root_cause_found": any(h["supported"] for h in hits),
+        "diagnosis": team.diagnosis.model_dump() if team.diagnosis else None,
         "unread_slices": [dataclasses.asdict(u) for u in team.unread_slices],
         "empty_sources": team.empty_sources,
         "calls": len(calls),

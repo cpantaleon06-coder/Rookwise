@@ -1,5 +1,5 @@
 {
-  "_note": "SYNTHETIC smoke scenario for one live run of core/team (scripts/team_smoke.py). The service, log, runbook and incident are made up. Roles, models and skills come from config/skills.json and prices from config/prices.json; the operator catalog below is data for this scenario only (no catalog exists in config/ yet). The planted root cause is what the run should find; it is checked deterministically against the claims the operators cite.",
+  "_note": "SYNTHETIC smoke scenario for one live run of core/team (scripts/team_smoke.py). The service, log, runbook and incident are made up. Roles, models and skills come from config/skills.json and prices from config/prices.json; the operator catalog below is data for this scenario only (no catalog exists in config/ yet). The planted root cause is what the run should find; it is checked deterministically against the claims the operators cite. context_sources are the sources the director reads in full for its diagnosis.",
   "run_id": "run_smoke01",
   "run_usd": "0.250000",
   "goal": "Explain what went wrong with the parcelpost-api service between 02:12 and 02:22 UTC, citing the evidence by source and line.",
@@ -7,6 +7,7 @@
     "app-log": "app_log.txt",
     "runbook": "runbook.txt"
   },
+  "context_sources": ["runbook"],
   "catalog": [
     {
       "operator_id": "triage-lightning-01",

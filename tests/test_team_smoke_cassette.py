@@ -40,7 +40,7 @@ def test_record_replaces_the_chosen_file_and_replay_reads_it(tmp_path, monkeypat
     )
     data = json.loads(path.read_text(encoding="utf-8"))
     assert all("stale" not in item for item in data["interactions"])  # replaced, not appended
-    assert len(data["interactions"]) == len(calls) == 8
+    assert len(data["interactions"]) == len(calls) == 9
     assert FAKE_KEY not in path.read_text(encoding="utf-8")
     default = module.CASSETTE
     assert not default.exists() or default.stat().st_mtime < path.stat().st_mtime

@@ -82,7 +82,13 @@ def test_a_normal_run_goes_through_every_level():
     )
     assert team.audit.verdict == "accepted" and team.evidence.all_supported
     assert team.evidence.citations_total == 3
-    assert handler.calls == {"director": 1, "manager": 2, "auditor": 1, "operator": 3}
+    assert handler.calls == {
+        "director": 1,
+        "diagnosis": 1,
+        "manager": 2,
+        "auditor": 1,
+        "operator": 3,
+    }
     hired = [p.agent for p in _payloads(team, "agent_hired")]
     # The auditor and the managers are hired with their allocations, right after the plan.
     assert [(a.agent_id, a.level, a.parent_id) for a in hired] == [
@@ -117,6 +123,7 @@ def test_a_normal_run_goes_through_every_level():
         "operator",
         "operator",
         "manager",
+        "director",  # the diagnosis
         "auditor",
     ]
     messages = [p.message for p in _payloads(team, "message")]
@@ -530,7 +537,7 @@ def test_a_team_run_replays_from_a_cassette(tmp_path, monkeypatch):
     assert comparable(replayed) == comparable(recorded)
     charges = [(e.task_id, e.usd_real) for e in replayed_book.report(RUN_ID).entries]
     assert charges == [(e.task_id, e.usd_real) for e in recorded_book.report(RUN_ID).entries]
-    assert len(charges) == 5
+    assert len(charges) == 6
 
 
 def test_roles_are_data_in_the_skills_config():

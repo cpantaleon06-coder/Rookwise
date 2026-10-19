@@ -12,6 +12,7 @@ from team_stub import (
     GOOD_CLAIM,
     TeamHandler,
     block,
+    diagnosis_reply,
     findings_reply,
     judgment_reply,
     plan_reply,
@@ -222,10 +223,14 @@ def test_other_quotes_outside_one_line_fail(quote, line_start, line_end, source_
 
 def test_a_pipe_joined_quote_is_repaired_and_counts_toward_the_repair_limit():
     bundle = EvidenceBundle(sources={"log": LOG})
+    LOG_FINDING_CLAIM = _findings("db.pool resized max_connections=5 active=11 idle=2", 5, 5)[
+        "claims"
+    ][0]
     good = _findings("db.pool resized max_connections=5 active=11 idle=2", 5, 5)
     payload = json.dumps({"status": "ok", "output": _findings(PIPE_JOINED), "notes": ""})
     repaired = json.dumps({"status": "ok", "output": good, "notes": ""})
     handler = TeamHandler(
+        diagnosis=[diagnosis_reply(LOG_FINDING_CLAIM)],
         director=[plan_reply(block(1, source_id="log"))],
         operator=[text_reply(payload), text_reply(repaired)],
         manager=[summary_reply()],
@@ -240,6 +245,7 @@ def test_a_pipe_joined_quote_is_repaired_and_counts_toward_the_repair_limit():
 
     no_repairs = dataclasses.replace(load_config(env={}), escalation=EscalationConfig(0, {}))
     handler = TeamHandler(
+        diagnosis=[diagnosis_reply(LOG_FINDING_CLAIM)],
         director=[plan_reply(block(1, source_id="log"))],
         operator=[text_reply(payload), text_reply(payload)],
         auditor=[judgment_reply()],

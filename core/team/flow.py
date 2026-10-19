@@ -38,7 +38,12 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
    With no reassignment left, the task is escalated to the director.
 4. The manager makes one consolidation call inside its allocation, then closes it; the
    unspent part goes back to the run.
-5. The auditor gets the deliverable and the evidence bundle (`rookwise.team.auditor`).
+5. The director writes the diagnosis (`Diagnosis`, validated by `diagnosis_model`, so its
+   citations pass the same check as the operators'), drawn from the run. It receives the
+   context sources in full (`context_sources`, for example the ticket and the runbook),
+   the source inventory, and the managers' summaries and the operators' findings under
+   their store references, and it may cite evidence lines directly.
+6. The auditor gets the deliverable and the evidence bundle (`rookwise.team.auditor`).
 
 A level that runs out of budget does not raise: it emits `budget_exhausted` with the
 ledger's stop, then the director: `run_failed` with code `budget_exhausted` and the stop
@@ -96,15 +101,17 @@ from rookwise.skills.loader import SKILLS_DIR
 from rookwise.slicing import Slice, SlicingConfig, coverage, load_slicing_config, slice_bundle
 from rookwise.store import Store
 from rookwise.team.agents import AgentCaller
-from rookwise.team.auditor import audit
+from rookwise.team.auditor import audit, render_source
 from rookwise.team.config import BudgetPolicy, RoleSpec, load_team_roles
 from rookwise.team.events import EventLog
 from rookwise.team.models import (
     BlockSummary,
+    Diagnosis,
     Findings,
     Plan,
     PlanBlock,
     PlanTask,
+    diagnosis_model,
     findings_model,
     plan_model,
 )
@@ -115,6 +122,15 @@ DIRECTOR_PROMPT = (
     "and the one source it reads, and every source must be read by at least one task. Use "
     "only the operator roles and source ids you are given. Keep to the required final "
     "result format."
+)
+DIAGNOSIS_PROMPT = (
+    "You are the director of a team of AI agents, and the investigation is done. Write the "
+    "diagnosis from your managers' consolidated findings and the evidence: the root cause, "
+    "its category, the claims that support it, each backed by citations, and a remediation "
+    "plan. Each citation is one source_id, a line_start and a line_end, and a quote copied "
+    "verbatim from one single line of that range, including its timestamp; never join "
+    "lines. The remediation plan is a proposal for a human to approve: nothing in it is "
+    "executed. Keep to the required final result format."
 )
 MANAGER_PROMPT = (
     "You are a manager in a team of AI agents. Consolidate your operators' results into one "
@@ -188,6 +204,11 @@ class TeamRun:
     report: RunReport
     unread_slices: list[UnreadRange] = field(default_factory=list)
     empty_sources: list[str] = field(default_factory=list)
+    diagnosis: Diagnosis | None = None
+
+
+def summary_ref(run_id: str, block_id: str) -> str:
+    return f"store://{run_id}/summaries/{block_id}"
 
 
 def slice_ref(run_id: str, item: Slice) -> str:
@@ -222,10 +243,15 @@ async def run_team(
     simulated_case: bool = True,
     clock: Callable[[], datetime] | None = None,
     slicing: SlicingConfig | None = None,
+    context_sources: Sequence[str] = (),
 ) -> TeamRun:
     """Run the hierarchy for one goal. The run must already be open in the harness's
     ledger (the administrator layer opens it with the run cap). `slicing` defaults to
-    config/slicing.json."""
+    config/slicing.json. `context_sources` are the source ids the director reads in full
+    for its diagnosis (for example the ticket and the runbook)."""
+    unknown = [s for s in context_sources if s not in evidence.sources]
+    if unknown:
+        raise ValueError(f"context sources not in the evidence bundle: {unknown}")
     team = _Team(
         run_id=run_id,
         harness=harness,
@@ -239,6 +265,7 @@ async def run_team(
         log=EventLog(run_id, mode=mode, clock=clock),
         simulated_case=simulated_case,
         slicing=slicing or load_slicing_config(),
+        context_sources=tuple(context_sources),
     )
     return await team.run(goal)
 
@@ -259,6 +286,7 @@ class _Team:
         log: EventLog,
         simulated_case: bool,
         slicing: SlicingConfig,
+        context_sources: tuple[str, ...] = (),
     ) -> None:
         self.run_id = run_id
         self.harness = harness
@@ -276,6 +304,8 @@ class _Team:
         self.caller = AgentCaller(harness, log, skills_config=skills_config, skills_dir=skills_dir)
         # The operators' output model checks every quote against this run's full sources.
         self.findings_model = findings_model(evidence)
+        self.diagnosis_model = diagnosis_model(evidence)
+        self.context_sources = context_sources
         self.slices = slice_bundle(evidence.sources, slicing)
         self.slices_of: dict[str, list[Slice]] = {source_id: [] for source_id in evidence.sources}
         for item in self.slices.slices:
@@ -366,6 +396,8 @@ class _Team:
                     items.append((f"t-{number}", task, item))
             blocks.append(await self._manage(f"b-{index}", block, budget, items, manager, director))
 
+        diagnosis = await self._diagnose(goal, director, blocks)
+
         claims = [
             c.claim(f"{t.task_id}:{c.claim_id}")
             for b in blocks
@@ -414,7 +446,71 @@ class _Team:
             report=report,
             unread_slices=self._unread(blocks),
             empty_sources=list(self.slices.empty_sources),
+            diagnosis=diagnosis,
         )
+
+    async def _diagnose(
+        self, goal: str, director: AgentNode, blocks: list[BlockOutcome]
+    ) -> Diagnosis | None:
+        """The director's diagnosis call, drawn from the run. None when it fails."""
+        result = await self.caller.call(
+            director,
+            self.roles.director,
+            level="director",
+            task_id="diagnosis",
+            base_prompt=DIAGNOSIS_PROMPT,
+            user=self._diagnosis_request(goal, blocks),
+            output_model=self.diagnosis_model,
+            budget_id=None,
+        )
+        if result.ok and result.validation is not None:
+            return result.validation.payload.output  # type: ignore[attr-defined]
+        if result.stop_reason == "budget_exhausted":
+            self._exhausted(director, self._stop_of("director", "diagnosis", None))
+            self.notes.append("The run budget does not cover the director's diagnosis call.")
+        else:
+            self.notes.append(f"The director produced no valid diagnosis ({result.stop_reason}).")
+        return None
+
+    def _diagnosis_request(self, goal: str, blocks: list[BlockOutcome]) -> str:
+        parts = [f"Goal: {goal}"]
+        if self.context_sources:
+            parts.append("Context, read in full:")
+            parts += [render_source(s, self.evidence.sources[s]) for s in self.context_sources]
+        inventory = [
+            f"- {source_id}: {self.slices.line_counts[source_id]} lines, {len(items)} slices"
+            for source_id, items in self.slices_of.items()
+        ]
+        parts.append("Sources and their slices:\n" + ("\n".join(inventory) or "none"))
+        findings = ["Managers' consolidated findings, by reference:"]
+        for block in blocks:
+            findings.append(
+                f"[{summary_ref(self.run_id, block.block_id)}]\nBlock {block.block_id}: "
+                f"{block.goal}\nSummary: {block.summary or '(none)'}"
+            )
+            for task in block.tasks:
+                if task.findings is None:
+                    findings.append(
+                        f"- {task.task_id} ({task.role}, {task.slice.slice_id}): not done. "
+                        f"{task.reason}"
+                    )
+                    continue
+                ref = f"store://{self.run_id}/results/{task.assignments[-1]}"
+                findings.append(
+                    f"[{ref}] {task.task_id} ({task.role}, {task.slice.slice_id}):\n"
+                    + task.findings.model_dump_json()
+                )
+        parts.append("\n".join(findings))
+        unread = self._unread(blocks)
+        if unread:
+            ranges = ", ".join(f"{u.source_id} {u.line_start}-{u.line_end}" for u in unread)
+            parts.append(f"Lines no operator read: {ranges}.")
+        parts.append(
+            "Write the diagnosis. Back every claim with citations; you may cite evidence lines "
+            "directly, from the context above or from the operators' citations. "
+            "root_cause_claim_ids lists the claims the root cause rests on."
+        )
+        return "\n\n".join(parts)
 
     # -- manager -------------------------------------------------------------------------
 
@@ -452,6 +548,7 @@ class _Team:
             )
             if result.ok and result.validation is not None:
                 summary = result.validation.payload.output.summary  # type: ignore[attr-defined]
+                self.store.put(summary_ref(self.run_id, block_id), summary)
             elif result.stop_reason == "budget_exhausted":
                 reason = f"Manager {block_id} ran out of budget before its consolidation call."
                 self._exhausted(manager, self._stop_of("manager", summary_id, budget.id))

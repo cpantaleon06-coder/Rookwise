@@ -7,6 +7,7 @@ import json
 from harness_support import text_reply
 from team_stub import (
     TeamHandler,
+    diagnosis_reply,
     findings_payload,
     findings_reply,
     judgment_reply,
@@ -31,6 +32,26 @@ BUNDLE = EvidenceBundle(sources={"app.log": APP, "deploy.diff": DIFF})
 SLICING = SlicingConfig(max_slice_tokens=250, overlap_lines=2, chars_per_token=2.7, headroom=0.1)
 SLICES = slice_bundle(BUNDLE.sources, SLICING).slices
 APP_SLICES = [s for s in SLICES if s.source_id == "app.log"]
+
+
+LOG_CLAIM = {
+    "claim_id": "d1",
+    "text": "[stub] The first step ran.",
+    "citations": [
+        {
+            "source_id": "app.log",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "2026-03-04T02:00:01Z INFO worker step=1 value=v001",
+        }
+    ],
+}
+
+
+def _handler(**replies):
+    """A TeamHandler whose diagnosis cites this file's bundle."""
+    replies.setdefault("diagnosis", [diagnosis_reply(LOG_CLAIM)])
+    return TeamHandler(**replies)
 
 
 def _block(source_id, goal="[stub] Read a source."):
@@ -58,7 +79,7 @@ def _payloads(team, kind):
 
 def test_each_slice_goes_to_its_own_operator_with_only_that_slice():
     assert len(APP_SLICES) >= 3  # the small budget cuts the log into several slices
-    handler = TeamHandler(
+    handler = _handler(
         director=[_plan()],
         operator=[_empty_findings() for _ in SLICES],
         manager=[summary_reply(), summary_reply()],
@@ -84,7 +105,7 @@ def test_each_slice_goes_to_its_own_operator_with_only_that_slice():
 
 
 def test_the_plan_must_read_every_source_and_is_repaired_when_it_does_not():
-    handler = TeamHandler(
+    handler = _handler(
         director=[plan_reply(_block("app.log")), plan_reply(_block("nope.log")), _plan()],
         operator=[_empty_findings() for _ in SLICES],
         manager=[summary_reply(), summary_reply()],
@@ -108,7 +129,7 @@ def test_lines_no_completed_task_read_are_reported_as_unread():
     replies = [_empty_findings() for _ in SLICES]
     replies[1] = failed  # the second slice of the log
     no_ladder = dataclasses.replace(load_config(env={}), escalation=EscalationConfig(0, {}))
-    handler = TeamHandler(
+    handler = _handler(
         director=[_plan()],
         operator=replies,
         manager=[summary_reply(), summary_reply()],
@@ -131,7 +152,7 @@ def test_lines_no_completed_task_read_are_reported_as_unread():
 def test_an_empty_source_has_no_task_and_is_listed():
     bundle = EvidenceBundle(sources={"app.log": APP, "empty.txt": ""})
     slices = [s for s in SLICES if s.source_id == "app.log"]
-    handler = TeamHandler(
+    handler = _handler(
         director=[plan_reply(_block("app.log"))],
         operator=[_empty_findings() for _ in slices],
         manager=[summary_reply()],
@@ -159,7 +180,7 @@ def test_citations_are_validated_against_the_full_source_not_the_slice():
     assert APP_SLICES[0].line_end < 30
     replies = [_empty_findings() for _ in SLICES]
     replies[0] = text_reply(findings_payload(far))
-    handler = TeamHandler(
+    handler = _handler(
         director=[_plan()],
         operator=replies,
         manager=[summary_reply(), summary_reply()],
@@ -174,7 +195,7 @@ def test_citations_are_validated_against_the_full_source_not_the_slice():
 
 
 def test_the_task_carries_the_slice_reference_in_its_inputs_only():
-    handler = TeamHandler(
+    handler = _handler(
         director=[_plan()],
         operator=[_empty_findings() for _ in SLICES],
         manager=[summary_reply(), summary_reply()],
