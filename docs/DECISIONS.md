@@ -71,6 +71,15 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | Laya is rejected. `benchmarks/log_filter/` is a closed experiment, kept only as its record (`benchmarks/log_filter/REPORT.md`); the benchmark uses `benchmarks/incidents/` only. | docs/ARCHITECTURE.md "Built so far" |
 | Each quote must sit inside a single source line of its cited range (whitespace-normalized substring of one line), checked at validation as a repairable error through a run-bound output model in core/team (`findings_model`); the harness and runner are unchanged (the user chose this over a validation context or a check hook in the harness, 2026-10-18). The operator and auditor prompts say to copy one line verbatim with its timestamp, give several citations for several lines and never join lines. | core/team/models.py; core/team/flow.py; core/team/auditor.py |
 
+## Slicing, caps and unsupported claims (decided by the user, 2026-10-18)
+
+| # | Decision | Where |
+|---|---|---|
+| D1 | The single-model baselines (b) and (c) read the evidence in slices, with the same slicer as the hierarchy (a). | docs/ARCHITECTURE.md "Benchmark design"; `core/slicing.py` |
+| D2 | Caps per incident are config values per configuration: USD 0.10 for (a); (b) and (c) run with a safety cap of USD 1.00 and report their cost to reach an answer. The 0.10 is unmeasured and is revisited after the first approved run on a dev incident. | docs/ARCHITECTURE.md "Benchmark design" |
+| D3 | Unsupported claims are withdrawn from the deliverable (and listed, never hidden), and the auditor model reviews the supported rest. Recorded here; implemented in a later session. | docs/ARCHITECTURE.md "The evidence rule" |
+| D4 | The user approved the earlier live and record runs (2026-10-17 and 2026-10-18). | docs/ARCHITECTURE.md "Built so far" |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
