@@ -7,6 +7,16 @@ The ledger, rate limits, retries, repairs and the escalation ladder therefore ap
 every call. Roles, models and skills are data (`rookwise.team.config`); the tasks come
 from the director's plan, so nothing here depends on a domain.
 
+Slices: every source of the bundle is cut into slices (`rookwise.slicing`, config/
+slicing.json). The director's plan gives each task a role and the source it reads, and
+must read every non-empty source (`plan_model`, a repairable validation error otherwise),
+so the plan covers every slice. Each slice of a task's source then goes to its own
+operator task: the slice is stored at `slice_ref` and is the task's only input, so the
+operator reads that slice and nothing else. Citations are still validated against the
+full sources (`findings_model`). `TeamRun.unread_slices` lists the line ranges that no
+completed operator task read (for example because the budget ran out), computed with
+`rookwise.slicing.coverage`.
+
 Flow and budget, through the ledger's allocations (`rookwise.ledger`):
 1. The director reads the run budget from the ledger and makes the plan call, drawn from
    the run itself.
@@ -83,9 +93,10 @@ from rookwise.money import ZERO_USD, format_usd, to_micro_usd
 from rookwise.runner import DEFAULT_BASE_PROMPT, OperatorSpec, run_operator
 from rookwise.schemas import Level, TaskV1
 from rookwise.skills.loader import SKILLS_DIR
+from rookwise.slicing import Slice, SlicingConfig, coverage, load_slicing_config, slice_bundle
 from rookwise.store import Store
 from rookwise.team.agents import AgentCaller
-from rookwise.team.auditor import audit, render_source
+from rookwise.team.auditor import audit
 from rookwise.team.config import BudgetPolicy, RoleSpec, load_team_roles
 from rookwise.team.events import EventLog
 from rookwise.team.models import (
@@ -95,12 +106,15 @@ from rookwise.team.models import (
     PlanBlock,
     PlanTask,
     findings_model,
+    plan_model,
 )
 
 DIRECTOR_PROMPT = (
     "You are the director of a team of AI agents. Split the goal into blocks of work, one "
-    "per manager, and each block into tasks for operators. Use only the operator roles you "
-    "are given. Keep to the required final result format."
+    "per manager, and each block into tasks for operators. Each task names an operator role "
+    "and the one source it reads, and every source must be read by at least one task. Use "
+    "only the operator roles and source ids you are given. Keep to the required final "
+    "result format."
 )
 MANAGER_PROMPT = (
     "You are a manager in a team of AI agents. Consolidate your operators' results into one "
@@ -125,10 +139,12 @@ BlockStatus = Literal["ok", "partial", "failed"]
 
 @dataclass
 class TaskOutcome:
-    """One task of the plan. `assignments` holds the task_v1 ids, one per operator tried."""
+    """One operator task: one slice for one plan task's role. `assignments` holds the
+    task_v1 ids, one per operator tried."""
 
     task_id: str
     role: str
+    slice: Slice
     status: TaskStatus = "not_run"
     assignments: list[str] = field(default_factory=list)
     operator_ids: list[str] = field(default_factory=list)
@@ -149,6 +165,15 @@ class BlockOutcome:
     reason: str = ""
 
 
+@dataclass(frozen=True)
+class UnreadRange:
+    """Lines of a source that no completed operator task read."""
+
+    source_id: str
+    line_start: int
+    line_end: int
+
+
 @dataclass
 class TeamRun:
     run_id: str
@@ -161,6 +186,12 @@ class TeamRun:
     notes: list[str]
     events: list[SseEvent]
     report: RunReport
+    unread_slices: list[UnreadRange] = field(default_factory=list)
+    empty_sources: list[str] = field(default_factory=list)
+
+
+def slice_ref(run_id: str, item: Slice) -> str:
+    return f"store://{run_id}/slices/{item.slice_id}"
 
 
 def source_ref(run_id: str, source_id: str) -> str:
@@ -190,9 +221,11 @@ async def run_team(
     mode: Mode = "live",
     simulated_case: bool = True,
     clock: Callable[[], datetime] | None = None,
+    slicing: SlicingConfig | None = None,
 ) -> TeamRun:
     """Run the hierarchy for one goal. The run must already be open in the harness's
-    ledger (the administrator layer opens it with the run cap)."""
+    ledger (the administrator layer opens it with the run cap). `slicing` defaults to
+    config/slicing.json."""
     team = _Team(
         run_id=run_id,
         harness=harness,
@@ -205,6 +238,7 @@ async def run_team(
         tools=tools or {},
         log=EventLog(run_id, mode=mode, clock=clock),
         simulated_case=simulated_case,
+        slicing=slicing or load_slicing_config(),
     )
     return await team.run(goal)
 
@@ -224,6 +258,7 @@ class _Team:
         tools: Mapping[str, Tool],
         log: EventLog,
         simulated_case: bool,
+        slicing: SlicingConfig,
     ) -> None:
         self.run_id = run_id
         self.harness = harness
@@ -239,8 +274,15 @@ class _Team:
         self.simulated_case = simulated_case
         self.roles = load_team_roles(skills_config)
         self.caller = AgentCaller(harness, log, skills_config=skills_config, skills_dir=skills_dir)
-        # The operators' output model checks every quote against this run's sources.
+        # The operators' output model checks every quote against this run's full sources.
         self.findings_model = findings_model(evidence)
+        self.slices = slice_bundle(evidence.sources, slicing)
+        self.slices_of: dict[str, list[Slice]] = {source_id: [] for source_id in evidence.sources}
+        for item in self.slices.slices:
+            self.slices_of[item.source_id].append(item)
+        self.plan_model = plan_model(
+            list(evidence.sources), [s for s, items in self.slices_of.items() if items]
+        )
         self.notes: list[str] = []
         self.plan: Plan | None = None
 
@@ -261,8 +303,8 @@ class _Team:
             ),
         )
         director = self._hire("a-director", self.roles.director, None)
-        for source_id, text in self.evidence.sources.items():
-            self.store.put(source_ref(self.run_id, source_id), render_source(source_id, text))
+        for item in self.slices.slices:
+            self.store.put(slice_ref(self.run_id, item), item.text)
 
         result = await self.caller.call(
             director,
@@ -271,7 +313,7 @@ class _Team:
             task_id="plan",
             base_prompt=DIRECTOR_PROMPT,
             user=self._plan_request(goal),
-            output_model=Plan,
+            output_model=self.plan_model,
             budget_id=None,
         )
         if not result.ok or result.validation is None:
@@ -294,7 +336,8 @@ class _Team:
                 {"max_blocks": limits[0], "max_tasks_per_block": limits[1]},
             )
         tasks = sum(len(block.tasks) for block in plan.blocks)
-        self._say(f"{plan.summary} ({len(plan.blocks)} blocks, {tasks} tasks.)")
+        work = sum(len(self.slices_of[t.source_id]) for b in plan.blocks for t in b.tasks)
+        self._say(f"{plan.summary} ({len(plan.blocks)} blocks, {tasks} tasks over {work} slices.)")
 
         stops = self.ledger.report(self.run_id).stops
         run_stop = next((s for s in stops if s.scope == "run"), None)
@@ -313,12 +356,15 @@ class _Team:
             budget = self._allocate(manager, director, f"budget:b-{index}", per_block)
             managers.append((manager, budget))
         blocks: list[BlockOutcome] = []
-        first = 1
+        number = 0
         for index, block in enumerate(plan.blocks, 1):
             manager, budget = managers[index - 1]
-            ids = [f"t-{first + k}" for k in range(len(block.tasks))]
-            first += len(block.tasks)
-            blocks.append(await self._manage(f"b-{index}", block, budget, ids, manager, director))
+            items: list[tuple[str, PlanTask, Slice]] = []
+            for task in block.tasks:
+                for item in self.slices_of[task.source_id]:
+                    number += 1
+                    items.append((f"t-{number}", task, item))
+            blocks.append(await self._manage(f"b-{index}", block, budget, items, manager, director))
 
         claims = [
             c.claim(f"{t.task_id}:{c.claim_id}")
@@ -366,6 +412,8 @@ class _Team:
             notes=self.notes,
             events=self.log.events,
             report=report,
+            unread_slices=self._unread(blocks),
+            empty_sources=list(self.slices.empty_sources),
         )
 
     # -- manager -------------------------------------------------------------------------
@@ -375,15 +423,15 @@ class _Team:
         block_id: str,
         block: PlanBlock,
         budget: Allocation,
-        task_ids: list[str],
+        items: list[tuple[str, PlanTask, Slice]],
         manager: AgentNode,
         director: AgentNode,
     ) -> BlockOutcome:
         own = _floor(budget.usd * self.policy.manager_share)
-        per_task = _floor((budget.usd - own) / len(block.tasks))
+        per_task = _floor((budget.usd - own) / len(items)) if items else ZERO_USD
         outcomes = [
-            await self._staff(task_id, task, manager, director, budget, own, per_task)
-            for task_id, task in zip(task_ids, block.tasks, strict=True)
+            await self._staff(task_id, task, item, manager, director, budget, own, per_task)
+            for task_id, task, item in items
         ]
         done = [t for t in outcomes if t.status == "ok"]
         summary, reason = None, ""
@@ -438,13 +486,14 @@ class _Team:
         self,
         task_id: str,
         task: PlanTask,
+        item: Slice,
         manager: AgentNode,
         director: AgentNode,
         budget: Allocation,
         own: Decimal,
         per_task: Decimal,
     ) -> TaskOutcome:
-        outcome = TaskOutcome(task_id=task_id, role=task.role)
+        outcome = TaskOutcome(task_id=task_id, role=task.role, slice=item)
         failed: tuple[AgentNode, str, str] | None = None  # operator, task_v1 id, reason
         candidates = sorted(
             (spec for spec in self.catalog if spec.role == task.role),
@@ -454,7 +503,11 @@ class _Team:
             outcome.reason = f"{task_id}: no operator in the catalog for role {task.role}."
             self.notes.append(outcome.reason)
             return outcome
-        self.store.put(brief_ref(self.run_id, task_id), task.instruction)
+        brief = (
+            f"{task.instruction}\n\nRead only the slice you are given: {item.source_id}, "
+            f"lines {item.line_start}-{item.line_end} of {item.line_count}."
+        )
+        self.store.put(brief_ref(self.run_id, task_id), brief)
         spec: OperatorSpec | None = candidates[0]
         tried: list[OperatorSpec] = []
         reassignments, ceiling_reassignments = 0, 0
@@ -481,7 +534,7 @@ class _Team:
                 run_id=self.run_id,
                 role=task.role,
                 instruction_ref=brief_ref(self.run_id, task_id),
-                inputs=[source_ref(self.run_id, s) for s in self.evidence.sources],
+                inputs=[slice_ref(self.run_id, item)],
                 budget={
                     "max_input_tokens": self.policy.operator_max_input_tokens,
                     "max_output_tokens": self.policy.operator_max_output_tokens,
@@ -725,17 +778,40 @@ class _Team:
             notes=self.notes,
             events=self.log.events,
             report=report,
+            unread_slices=self._unread([]),
+            empty_sources=list(self.slices.empty_sources),
         )
+
+    def _unread(self, blocks: list[BlockOutcome]) -> list[UnreadRange]:
+        """The line ranges of every source that no completed operator task read."""
+        read: dict[str, list[Slice]] = {source_id: [] for source_id in self.slices_of}
+        for block in blocks:
+            for task in block.tasks:
+                if task.status == "ok":
+                    read[task.slice.source_id].append(task.slice)
+        return [
+            UnreadRange(source_id, first, last)
+            for source_id, items in read.items()
+            for first, last in coverage(items, self.slices.line_counts[source_id])
+        ]
 
     def _plan_request(self, goal: str) -> str:
         roles = sorted({spec.role for spec in self.catalog})
-        sources = ", ".join(self.evidence.sources) or "none"
+        sources = []
+        for source_id, items in self.slices_of.items():
+            lines = self.slices.line_counts[source_id]
+            if items:
+                sources.append(f"- {source_id}: {lines} lines, {len(items)} slices")
+            else:
+                sources.append(f"- {source_id}: empty, nothing to read")
         return (
             f"Goal: {goal}\n\nOperator roles you can use: {', '.join(roles)}\n"
-            f"Sources the operators can cite: {sources}\n"
+            "Sources (each task reads one source; every slice of it goes to its own "
+            "operator):\n" + ("\n".join(sources) or "none") + "\n"
             f"Plan at most {self.policy.max_blocks} blocks, each with at most "
             f"{self.policy.max_tasks_per_block} tasks. Each task needs one of the operator "
-            "roles and an instruction that stands on its own."
+            "roles, the source_id it reads and an instruction that stands on its own. Every "
+            "source that is not empty must be read by at least one task."
         )
 
     @staticmethod
@@ -745,11 +821,14 @@ class _Team:
             if outcome.findings is not None:
                 claims = len(outcome.findings.claims)
                 lines.append(
-                    f"- {outcome.task_id} ({outcome.role}): {outcome.findings.summary} "
-                    f"[{claims} claims]"
+                    f"- {outcome.task_id} ({outcome.role}, {outcome.slice.slice_id}): "
+                    f"{outcome.findings.summary} [{claims} claims]"
                 )
             else:
-                lines.append(f"- {outcome.task_id} ({outcome.role}): not done. {outcome.reason}")
+                lines.append(
+                    f"- {outcome.task_id} ({outcome.role}, {outcome.slice.slice_id}): not done. "
+                    f"{outcome.reason}"
+                )
         return "\n".join(lines)
 
     @staticmethod
@@ -764,13 +843,17 @@ class _Team:
                     if task.findings is not None
                     else f"not done. {task.reason}"
                 )
-                parts.append(f"- {task.task_id} ({task.role}): {text}")
+                parts.append(f"- {task.task_id} ({task.role}, {task.slice.slice_id}): {text}")
         return "\n".join(parts)
 
     def _closing_message(self, blocks: list[BlockOutcome], verdict: AuditVerdict) -> str:
         tasks = [t for b in blocks for t in b.tasks]
         done = sum(t.status == "ok" for t in tasks)
         text = f"Done: {done} of {len(tasks)} tasks completed. Audit: {verdict.verdict}."
+        unread = self._unread(blocks)
+        if unread:
+            ranges = ", ".join(f"{u.source_id} {u.line_start}-{u.line_end}" for u in unread)
+            text += f" Unread lines: {ranges}."
         if verdict.warning:
             text += f" {verdict.warning}"
         if self.notes:

@@ -128,8 +128,12 @@ def _payload(output: Any, status: str = "ok", notes: str = "") -> str:
     return json.dumps({"status": status, "output": output, "notes": notes})
 
 
-def block(tasks: int = 1) -> dict[str, Any]:
-    task = {"role": "stub-operator", "instruction": "[stub] Report what the sources say."}
+def block(tasks: int = 1, source_id: str = "src-a") -> dict[str, Any]:
+    task = {
+        "role": "stub-operator",
+        "source_id": source_id,
+        "instruction": "[stub] Report what the sources say.",
+    }
     return {"goal": "[stub] A block of work.", "tasks": [task] * tasks}
 
 
@@ -197,6 +201,7 @@ def run_stub_team(
     harness_config=None,
     cassette=None,
     bundle=None,
+    slicing=None,
 ):
     book = InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
@@ -220,6 +225,7 @@ def run_stub_team(
                 store=InMemoryStore(),
                 catalog=catalog or CATALOG,
                 evidence=bundle or BUNDLE,
+                slicing=slicing,
                 skills_config=config or skills_config(),
                 skills_dir=SKILLS_DIR,
                 policy=policy,

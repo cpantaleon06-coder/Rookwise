@@ -49,6 +49,9 @@ def test_an_offline_run_of_the_scenario_stays_under_the_cap(monkeypatch):
     assert set(report["prediction_error_by_model"]) == set(report["by_model"])
     assert all(Decimal(call["usd_predicted"]) > 0 for call in calls)
     assert report["length_finishes"] == 0
+    assert report["unread_slices"] == [] and report["empty_sources"] == []
+    tasks = [t for block in report["blocks"] for t in block["tasks"]]
+    assert {t["slice_id"] for t in tasks} == {"app-log:1-60", "runbook:1-20"}
     assert sum(sum(v.values()) for v in report["outcomes_by_role"].values()) == 8
     finished = events[-1]["payload"]
     assert finished["predicted_usd"] == report["predicted_usd"]

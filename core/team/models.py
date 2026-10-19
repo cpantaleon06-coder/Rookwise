@@ -10,6 +10,12 @@ the quote must be a single line: a quote with a line break fails validation here
 harness asks for a repair (it counts toward the repair limit) instead of the quote
 failing later in the evidence check.
 
+A plan task names the source it reads (`source_id`); the flow gives every slice of that
+source (`rookwise.slicing`) to its own operator. `plan_model(...)` makes the director's
+output model for one run: same name and JSON Schema as `Plan`, plus the checks that every
+task names a source of the run and that every non-empty source is read, so the plan
+covers every slice. A plan that fails them is repaired like any other validation error.
+
 `findings_model(bundle)` makes the operators' output model for one run. It has the same
 name and JSON Schema as `Findings`, and it also checks every citation against the run's
 sources: the whitespace-normalized quote must be part of ONE source line inside
@@ -22,6 +28,7 @@ joins the cited lines with a space.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -35,6 +42,13 @@ class _Out(BaseModel):
 
 class PlanTask(_Out):
     role: str
+    source_id: str = Field(
+        min_length=1,
+        description=(
+            "The source this task reads. Every slice of it goes to its own operator with "
+            "this task's role and instruction."
+        ),
+    )
     instruction: str = Field(min_length=1)
 
 
@@ -97,6 +111,45 @@ class Findings(_Out):
 
 
 _SourceCitation, _FindingClaim, _Findings = SourceCitation, FindingClaim, Findings
+_PlanTask, _PlanBlock, _Plan = PlanTask, PlanBlock, Plan
+
+
+def plan_model(source_ids: Sequence[str], to_read: Sequence[str]) -> type[Plan]:
+    """`Plan` for one run: same name and JSON Schema, plus the checks that every task
+    names a source of the run and that every source in `to_read` (the non-empty ones) is
+    read by at least one task, so the plan covers every slice of the bundle."""
+    known, required = list(source_ids), list(to_read)
+
+    class PlanTask(_PlanTask):
+        __doc__ = _PlanTask.__doc__
+
+        @model_validator(mode="after")
+        def _known_source(self) -> PlanTask:
+            if self.source_id not in known:
+                raise ValueError(
+                    f"there is no source {self.source_id!r}; use one of: {', '.join(known)}"
+                )
+            return self
+
+    class PlanBlock(_PlanBlock):
+        __doc__ = _PlanBlock.__doc__
+        tasks: list[PlanTask] = Field(min_length=1)
+
+    class Plan(_Plan):
+        __doc__ = _Plan.__doc__
+        blocks: list[PlanBlock] = Field(min_length=1)
+
+        @model_validator(mode="after")
+        def _every_source_read(self) -> Plan:
+            read = {task.source_id for block in self.blocks for task in block.tasks}
+            missing = [source_id for source_id in required if source_id not in read]
+            if missing:
+                raise ValueError(
+                    f"no task reads {', '.join(missing)}; give every source at least one task"
+                )
+            return self
+
+    return Plan
 
 
 def quote_problem(lines: list[str] | None, citation: SourceCitation) -> str | None:

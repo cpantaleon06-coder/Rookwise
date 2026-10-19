@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import math
 import os
@@ -67,7 +68,10 @@ CASSETTE = REPO_ROOT / "runs" / "cassettes" / "team_smoke.json"
 OUT_DIR = REPO_ROOT / "runs" / "team_smoke"
 # Output tokens the estimate stub reports per call: assumptions, not measurements.
 STUB_OUTPUT_TOKENS = {"director": 800, "manager": 300, "operator": 900, "auditor": 600}
-STUB_PLAN = [["incident-triager", "debugger"], ["incident-triager", "debugger"]]
+STUB_PLAN = [
+    [("incident-triager", "app-log"), ("debugger", "runbook")],
+    [("incident-triager", "app-log"), ("debugger", "app-log")],
+]
 
 
 def load_scenario() -> dict[str, Any]:
@@ -123,9 +127,12 @@ def _stub_transport() -> httpx.MockTransport:
             "blocks": [
                 {
                     "goal": "[stub] A block.",
-                    "tasks": [{"role": r, "instruction": "[stub] Do it."} for r in roles],
+                    "tasks": [
+                        {"role": r, "source_id": s, "instruction": "[stub] Do it."}
+                        for r, s in tasks
+                    ],
                 }
-                for roles in STUB_PLAN
+                for tasks in STUB_PLAN
             ],
         },
         "manager": {"summary": "[stub] The block is done."},
@@ -514,6 +521,7 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
                     {
                         "task_id": t.task_id,
                         "role": t.role,
+                        "slice_id": t.slice.slice_id,
                         "status": t.status,
                         "operators": t.operator_ids,
                         "summary": t.findings.summary if t.findings else None,
@@ -544,6 +552,8 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         ),
         "root_cause_claims": hits,
         "root_cause_found": any(h["supported"] for h in hits),
+        "unread_slices": [dataclasses.asdict(u) for u in team.unread_slices],
+        "empty_sources": team.empty_sources,
         "calls": len(calls),
         "_ratio_note": "prediction error = (real - predicted) / predicted",
         "_catalog_prediction_errors": {

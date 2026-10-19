@@ -226,7 +226,7 @@ def test_a_pipe_joined_quote_is_repaired_and_counts_toward_the_repair_limit():
     payload = json.dumps({"status": "ok", "output": _findings(PIPE_JOINED), "notes": ""})
     repaired = json.dumps({"status": "ok", "output": good, "notes": ""})
     handler = TeamHandler(
-        director=[plan_reply(block(1))],
+        director=[plan_reply(block(1, source_id="log"))],
         operator=[text_reply(payload), text_reply(repaired)],
         manager=[summary_reply()],
         auditor=[judgment_reply()],
@@ -240,7 +240,7 @@ def test_a_pipe_joined_quote_is_repaired_and_counts_toward_the_repair_limit():
 
     no_repairs = dataclasses.replace(load_config(env={}), escalation=EscalationConfig(0, {}))
     handler = TeamHandler(
-        director=[plan_reply(block(1))],
+        director=[plan_reply(block(1, source_id="log"))],
         operator=[text_reply(payload), text_reply(payload)],
         auditor=[judgment_reply()],
     )
