@@ -117,12 +117,14 @@ from rookwise.team.config import BudgetPolicy, RoleSpec, load_team_roles
 from rookwise.team.events import EventLog
 from rookwise.team.models import (
     BlockSummary,
+    CitationLog,
     Diagnosis,
     FindingClaim,
     Findings,
     Plan,
     PlanBlock,
     PlanTask,
+    ReplyCitations,
     diagnosis_model,
     findings_model,
     plan_model,
@@ -225,6 +227,8 @@ class TeamRun:
     claim_counts: ClaimCounts | None = None
     # The deterministic check of the operators' claims (`evidence` is the diagnosis's).
     operator_evidence: EvidenceReport | None = None
+    # Per-citation results of every validated reply, by task id (first reply: index 0).
+    citation_log: list[ReplyCitations] = field(default_factory=list)
 
 
 def summary_ref(run_id: str, block_id: str) -> str:
@@ -323,8 +327,10 @@ class _Team:
         self.roles = load_team_roles(skills_config)
         self.caller = AgentCaller(harness, log, skills_config=skills_config, skills_dir=skills_dir)
         # The operators' output model checks every quote against this run's full sources.
-        self.findings_model = findings_model(evidence)
-        self.diagnosis_model = diagnosis_model(evidence)
+        # Per-citation results of every reply, for the run report (`TeamRun.citation_log`).
+        self.citation_log = CitationLog()
+        self.findings_model = findings_model(evidence, self.citation_log)
+        self.diagnosis_model = diagnosis_model(evidence, self.citation_log)
         self.context_sources = context_sources
         self.slices = slice_bundle(evidence.sources, slicing)
         self.slices_of: dict[str, list[Slice]] = {source_id: [] for source_id in evidence.sources}
@@ -474,12 +480,14 @@ class _Team:
             withdrawn_claims=list(outcome.withdrawn),
             claim_counts=outcome.counts,
             operator_evidence=operator_evidence,
+            citation_log=list(self.citation_log.replies),
         )
 
     async def _diagnose(
         self, goal: str, director: AgentNode, blocks: list[BlockOutcome]
     ) -> tuple[Diagnosis | None, str]:
         """The director's diagnosis call, drawn from the run, and why it is missing."""
+        self.citation_log.task_id = "diagnosis"
         result = await self.caller.call(
             director,
             self.roles.director,
@@ -673,6 +681,7 @@ class _Team:
                     task=task_v1, agent_id=agent.agent_id, operator_id=spec.operator_id
                 ),
             )
+            self.citation_log.task_id = assignment
             record = await run_operator(
                 task_v1,
                 spec,

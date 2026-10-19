@@ -52,6 +52,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))  # noqa: E402 (lets `rookwise` resolve from a checkout)
 
 import rookwise.harness.sse as sse_module  # noqa: E402
+from rookwise.benchmark import citation_repairs, first_pass  # noqa: E402
 from rookwise.evidence import EvidenceBundle  # noqa: E402
 from rookwise.harness import Cassette, Harness, StreamInterrupted, load_config  # noqa: E402
 from rookwise.ledger import Caps, InMemoryLedger  # noqa: E402
@@ -605,6 +606,13 @@ def build_report(mode, scenario, team, report, calls, total_s, catalog) -> dict[
         "unsupported_claims": team.operator_evidence.unsupported_claims
         if team.operator_evidence
         else None,
+        "citation_checks": [dataclasses.asdict(r) for r in team.citation_log],
+        "citation_first_pass": dict(
+            zip(("valid", "total"), first_pass(team.citation_log), strict=True)
+        ),
+        "citation_repairs": citation_repairs(
+            [e.payload.attempt for e in events if e.type == "attempt_recorded"]
+        ),
         "diagnosis_status": team.diagnosis_status,
         "inconclusive_reason": team.inconclusive_reason,
         "claim_counts": dataclasses.asdict(team.claim_counts) if team.claim_counts else None,

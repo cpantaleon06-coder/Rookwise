@@ -23,6 +23,11 @@ v1 is read-only: the plan is a proposal and nothing in it is executed.
 `diagnosis_model(bundle)` is its run-bound twin, with the same citation check as
 `findings_model` and the same JSON Schema as `Diagnosis`.
 
+Both run-bound models take an optional `CitationLog`. With one, every reply they
+validate also records, per citation, whether it passed on its own and why not, under the
+task id the team sets before each call. Attempt records keep only the validation error
+text, so this log is what tells how many citations of a first reply were valid.
+
 `findings_model(bundle)` makes the operators' output model for one run. It has the same
 name and JSON Schema as `Findings`, and it also checks every citation against the run's
 sources: the whitespace-normalized quote must be part of ONE source line inside
@@ -36,9 +41,17 @@ joins the cited lines with a space.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from rookwise.evidence import Citation, Claim, EvidenceBundle, normalize_whitespace, split_lines
 from rookwise.incidents import Category
@@ -215,9 +228,57 @@ def quote_problem(lines: list[str] | None, citation: SourceCitation) -> str | No
     )
 
 
-def _bound_claim(bundle: EvidenceBundle) -> type[FindingClaim]:
-    """`FindingClaim` whose citations check that each quote sits inside a single line of
-    `bundle` in the cited range (same name and JSON Schema)."""
+@dataclass(frozen=True)
+class CitationCheck:
+    """One citation of one reply: valid on its own, or the problem the schema found."""
+
+    claim_index: int
+    citation_index: int
+    ok: bool
+    problem: str = ""
+
+
+@dataclass(frozen=True)
+class ReplyCitations:
+    """The citations of one validated reply. `index` counts the task's replies, so index
+    0 is its first reply, before any repair."""
+
+    task_id: str
+    index: int
+    citations: tuple[CitationCheck, ...]
+
+
+@dataclass
+class CitationLog:
+    """Per-citation results of every reply a run-bound model validates. The team sets
+    `task_id` before each call; calls run one after another."""
+
+    task_id: str = ""
+    replies: list[ReplyCitations] = field(default_factory=list)
+
+    def record(self, data: Any, citation_model: type[BaseModel]) -> None:
+        checks = []
+        claims = data.get("claims") if isinstance(data, dict) else None
+        for i, claim in enumerate(claims if isinstance(claims, list) else []):
+            citations = claim.get("citations") if isinstance(claim, dict) else None
+            for j, citation in enumerate(citations if isinstance(citations, list) else []):
+                try:
+                    citation_model.model_validate(citation)
+                except ValidationError as failure:
+                    problem = "; ".join(error["msg"] for error in failure.errors())
+                    checks.append(CitationCheck(i, j, False, problem))
+                else:
+                    checks.append(CitationCheck(i, j, True))
+        index = sum(reply.task_id == self.task_id for reply in self.replies)
+        self.replies.append(ReplyCitations(self.task_id, index, tuple(checks)))
+
+    def first_replies(self) -> list[ReplyCitations]:
+        return [reply for reply in self.replies if reply.index == 0]
+
+
+def _bound_claim(bundle: EvidenceBundle) -> tuple[type[SourceCitation], type[FindingClaim]]:
+    """`SourceCitation` and `FindingClaim` whose citations check that each quote sits
+    inside a single line of `bundle` in the cited range (same names and JSON Schema)."""
     lines = {source_id: split_lines(text) for source_id, text in bundle.sources.items()}
 
     class SourceCitation(_SourceCitation):
@@ -234,29 +295,43 @@ def _bound_claim(bundle: EvidenceBundle) -> type[FindingClaim]:
         __doc__ = _FindingClaim.__doc__
         citations: list[SourceCitation] = Field(default_factory=list)
 
-    return FindingClaim
+    return SourceCitation, FindingClaim
 
 
-def findings_model(bundle: EvidenceBundle) -> type[Findings]:
+def findings_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> type[Findings]:
     """`Findings` for one run: same name and JSON Schema, plus the check that each quote
     sits inside a single line of `bundle` in the cited range."""
-    claim = _bound_claim(bundle)
+    citation, claim = _bound_claim(bundle)
 
     class Findings(_Findings):
         __doc__ = _Findings.__doc__
         claims: list[claim] = Field(default_factory=list)  # type: ignore[valid-type]
 
+        @model_validator(mode="wrap")
+        @classmethod
+        def _log_citations(cls, data: Any, handler: Any) -> Any:
+            if log is not None:
+                log.record(data, citation)
+            return handler(data)
+
     return Findings
 
 
-def diagnosis_model(bundle: EvidenceBundle) -> type[Diagnosis]:
+def diagnosis_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> type[Diagnosis]:
     """`Diagnosis` for one run: same name and JSON Schema, with the operators' citation
     check on every claim (`findings_model`)."""
-    claim = _bound_claim(bundle)
+    citation, claim = _bound_claim(bundle)
 
     class Diagnosis(_Diagnosis):
         __doc__ = _Diagnosis.__doc__
         claims: list[claim] = Field(default_factory=list)  # type: ignore[valid-type]
+
+        @model_validator(mode="wrap")
+        @classmethod
+        def _log_citations(cls, data: Any, handler: Any) -> Any:
+            if log is not None:
+                log.record(data, citation)
+            return handler(data)
 
     return Diagnosis
 
