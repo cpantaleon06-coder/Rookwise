@@ -234,6 +234,7 @@ def run_stub_team(
     slicing=None,
     context_sources=(),
     ledger=None,
+    store=None,
 ):
     book = ledger if ledger is not None else InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
@@ -254,7 +255,7 @@ def run_stub_team(
                 GOAL,
                 run_id=RUN_ID,
                 harness=harness,
-                store=InMemoryStore(),
+                store=store if store is not None else InMemoryStore(),
                 catalog=catalog or CATALOG,
                 evidence=bundle or BUNDLE,
                 slicing=slicing,

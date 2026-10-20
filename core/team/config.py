@@ -103,6 +103,8 @@ class BudgetPolicy:
     operator_max_input_tokens: int = 50_000
     operator_max_output_tokens: int = 5_000
     operator_deadline_s: int = 120
+    # Above this estimated input a manager consolidates its findings in batches.
+    manager_max_input_tokens: int = 60_000
 
     def __post_init__(self) -> None:
         for name in ("auditor_share", "director_share", "manager_share"):
@@ -111,6 +113,8 @@ class BudgetPolicy:
                 raise ValueError(f"{name} must be between 0 and 1, not {share}")
         if self.auditor_share + self.director_share >= 1:
             raise ValueError("auditor_share + director_share must leave money for the blocks")
+        if self.manager_max_input_tokens < 1:
+            raise ValueError("manager_max_input_tokens must be at least 1")
         if self.operator_task_limit_reservations < 1:
             raise ValueError("operator_task_limit_reservations must be at least 1")
 

@@ -13,6 +13,9 @@ Modes:
   the director's plan and the managers' outputs too). A role the recording does not have
   gets 1,000 tokens, labeled as a placeholder in the report. The ledger, the slicing and
   every budget rule run for real, so the report shows which calls the ledger refuses.
+  `--empty-slices FRACTION` makes that share of the slices claim-free in the stub's
+  replies (chosen by a hash of the slice id, so the same slices every time); a claim-free
+  reply still reports the same output tokens, so its cost is not lowered.
 - record: ONE LIVE run on Token Factory (costs credits; needs NEBIUS_API_KEY in .env and
   HARNESS_MODE=record). It refuses to start unless --approve-cap equals --run-usd.
 - replay: replays a recorded cassette with a transport that fails on any request.
@@ -23,6 +26,7 @@ Nothing from .env and no request header is printed or written.
 Usage:
     python scripts/run_incident.py inc-01 estimate
     python scripts/run_incident.py inc-01 estimate --run-usd 0.50
+    python scripts/run_incident.py inc-01 estimate --empty-slices 0.8
     HARNESS_MODE=record python scripts/run_incident.py inc-01 record --approve-cap 0.10
     HARNESS_MODE=replay python scripts/run_incident.py inc-01 replay
 """
@@ -38,6 +42,7 @@ import re
 import statistics
 import sys
 import time
+import zlib
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -186,8 +191,18 @@ def _citation(bundle: EvidenceBundle, source_id: str, number: int) -> dict[str, 
     return {"source_id": source_id, "line_start": number, "line_end": number, "quote": line}
 
 
+def is_empty_slice(slice_id: str, fraction: float) -> bool:
+    """Whether the stub's reply for this slice has no claim: a stable hash of the slice
+    id, so about `fraction` of the slices, and the same ones on every run."""
+    return zlib.crc32(slice_id.encode("utf-8")) % 10_000 < round(fraction * 10_000)
+
+
 def stub_transport(
-    bundle: EvidenceBundle, context_sources: list[str], sizes: dict[str, int], config: Any
+    bundle: EvidenceBundle,
+    context_sources: list[str],
+    sizes: dict[str, int],
+    config: Any,
+    empty_fraction: float = 0.0,
 ) -> httpx.MockTransport:
     """Plays every agent with valid, neutral output. It never reads the ground truth."""
     cite_source = next(iter(context_sources), next(iter(bundle.sources)))
@@ -202,7 +217,8 @@ def stub_transport(
         elif kind == "operator":
             match = SLICE_HEADER.search(user)
             claims = []
-            if match:
+            slice_id = f"{match.group(1)}:{match.group(2)}-{match.group(3)}" if match else ""
+            if match and not is_empty_slice(slice_id, empty_fraction):
                 source_id, first, last = match.group(1), int(match.group(2)), int(match.group(3))
                 number = _first_line(bundle, source_id, first, last)
                 claims = [
@@ -290,8 +306,10 @@ async def run(
     cassette: Path,
     config: dict[str, Any] | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
+    empty_fraction: float = 0.0,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
-    """One run. `transport` replaces the network in record mode (tests only)."""
+    """One run. `transport` replaces the network in record mode (tests only);
+    `empty_fraction` is the estimate stub's share of claim-free slices."""
     config = config or load_benchmark_config()
     run_id = f"run_{incident_id.replace('-', '')}"
     ledger = InMemoryLedger()
@@ -305,7 +323,9 @@ async def run(
             ledger,
             config=harness_config,
             api_key="offline-stub",
-            transport=stub_transport(bundle, context, stub["tokens"], harness_config),
+            transport=stub_transport(
+                bundle, context, stub["tokens"], harness_config, empty_fraction
+            ),
         )
     elif mode == "record":
         cassette.parent.mkdir(parents=True, exist_ok=True)
@@ -378,6 +398,7 @@ async def run(
     report = build_report(mode, incident_id, team, ledger.report(run_id), calls, total_s, scored)
     if stub is not None:
         report["stub_output_tokens"] = stub
+        report["stub_empty_slices_fraction"] = empty_fraction
     return report, [e.model_dump(mode="json") for e in team.events], calls
 
 
@@ -477,6 +498,22 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
         },
         "outcomes_by_role": {k: dict(v) for k, v in outcomes.items()},
         "unread_slices": [dataclasses.asdict(u) for u in team.unread_slices],
+        "managers": [
+            {
+                "block_id": b.block_id,
+                "slices_read": b.slices_read,
+                "empty_slices": b.empty_slices,
+                "not_done": b.not_done,
+                "batches": b.batches,
+                "allocated_usd": format_usd(b.allocated_usd),
+                "input_tokens_estimate": [
+                    c["input_tokens_estimate"]
+                    for c in calls
+                    if c["level"] == "manager" and c["task_id"].startswith(f"{b.block_id}-summary")
+                ],
+            }
+            for b in team.blocks
+        ],
         "director_requests": director_requests,
         "diagnosis": {
             "status": team.diagnosis_status,
@@ -537,6 +574,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--approve-cap", help="record only: must equal --run-usd, or nothing is run"
     )
+    parser.add_argument(
+        "--empty-slices",
+        type=float,
+        default=0.0,
+        metavar="FRACTION",
+        help="estimate only: the share of slices whose stub reply has no claim",
+    )
     args = parser.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # model text is not always cp1252 (Windows)
     run_usd = _usd(args.run_usd)
@@ -562,6 +606,12 @@ def main(argv: list[str] | None = None) -> int:
     elif args.approve_cap is not None:
         print("--approve-cap is for record mode only; nothing was run.")
         return 2
+    if not 0.0 <= args.empty_slices <= 1.0:
+        print("--empty-slices must be between 0 and 1; nothing was run.")
+        return 2
+    if args.empty_slices and args.mode != "estimate":
+        print("--empty-slices is for estimate mode only; nothing was run.")
+        return 2
     if args.mode == "replay" and not cassette.exists():
         print(f"No cassette at {cassette}; record first.")
         return 2
@@ -576,6 +626,7 @@ def main(argv: list[str] | None = None) -> int:
             run_usd=str(run_usd),
             cassette=cassette,
             config=config,
+            empty_fraction=args.empty_slices,
         )
     )
     out = OUT_DIR / args.incident_id / args.mode

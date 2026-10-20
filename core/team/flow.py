@@ -43,8 +43,13 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
    - any other failure is reassigned to the next catalog operator, up to
      `max_reassignments` times.
    With no reassignment left, the task is escalated to the director.
-4. The manager makes one consolidation call inside its allocation, then closes it; the
-   unspent part goes back to the run.
+4. The manager consolidates inside its allocation, then closes it; the unspent part goes
+   back to the run. Managers and the director receive only the findings that carry
+   claims (the claims with their citations and the store ref of each finding), plus
+   counts of slices read, slices with no claims and tasks not done; a finding without
+   claims is stored but only counted. When a manager's estimated input passes
+   `manager_max_input_tokens`, it consolidates in batches, one call each
+   (`BlockOutcome.batches`).
 5. The director writes the diagnosis (`Diagnosis`, validated by `diagnosis_model` for
    shape only), drawn from the run. It receives the context sources in full
    (`context_sources`, for example the ticket and the runbook), the source inventory, and
@@ -79,6 +84,7 @@ event per tool call, cancellation and reputation updates.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -215,6 +221,10 @@ class BlockOutcome:
     allocated_usd: Decimal
     released_usd: Decimal
     reason: str = ""
+    batches: int = 0  # the manager's consolidation calls (0 when it made none)
+    slices_read: int = 0  # completed operator tasks
+    empty_slices: int = 0  # completed operator tasks whose finding has no claim
+    not_done: int = 0
 
 
 @dataclass(frozen=True)
@@ -285,6 +295,36 @@ def _split(total: Decimal, work: list[Decimal]) -> list[Decimal]:
     if whole <= 0:
         return [_floor(total / len(work)) for _ in work] if work else []
     return [_floor(total * part / whole) for part in work]
+
+
+def _finding_entry(run_id: str, task: TaskOutcome) -> str:
+    """A finding with claims as managers and the director read it: its store ref, the
+    task and its slice, then its claims with their citations."""
+    ref = f"store://{run_id}/results/{task.assignments[-1]}"
+    claims = json.dumps([c.model_dump() for c in task.findings.claims], ensure_ascii=False)
+    return f"[{ref}] {task.task_id} ({task.role}, {task.slice.slice_id}):\n{claims}"
+
+
+def _counts_header(goal: str, outcomes: list[TaskOutcome]) -> str:
+    done = [t for t in outcomes if t.status == "ok"]
+    empty = sum(not t.findings.claims for t in done)
+    lines = [
+        f"Block goal: {goal}",
+        f"Slices read: {len(done)}, of which {empty} with no claims; not done: "
+        f"{len(outcomes) - len(done)}.",
+    ]
+    lines += [
+        f"- not done: {t.task_id} ({t.role}, {t.slice.slice_id}). {t.reason}"
+        for t in outcomes
+        if t.status != "ok"
+    ]
+    return "\n".join(lines)
+
+
+def _consolidation_request(header: str, entries: list[str], number: int, total: int) -> str:
+    part = f"\n\nBatch {number} of {total} of this block's findings." if total > 1 else ""
+    findings = "\n".join(entries) or "(no finding with claims)"
+    return f"{header}{part}\n\nFindings with claims, by reference:\n{findings}"
 
 
 def _brief(task: PlanTask, item: Slice) -> str:
@@ -656,24 +696,19 @@ class _Team:
             for source_id, items in self.slices_of.items()
         ]
         parts.append("Sources and their slices:\n" + ("\n".join(inventory) or "none"))
-        findings = ["Managers' consolidated findings, by reference:"]
+        findings = ["Managers' consolidated findings, by reference (only findings with claims):"]
         for block in blocks:
             findings.append(
                 f"[{summary_ref(self.run_id, block.block_id)}]\nBlock {block.block_id}: "
-                f"{block.goal}\nSummary: {block.summary or '(none)'}"
+                f"{block.goal}\nSummary: {block.summary or '(none)'}\n"
+                f"Slices read: {block.slices_read}, of which {block.empty_slices} with no "
+                f"claims; not done: {block.not_done}."
             )
-            for task in block.tasks:
-                if task.findings is None:
-                    findings.append(
-                        f"- {task.task_id} ({task.role}, {task.slice.slice_id}): not done. "
-                        f"{task.reason}"
-                    )
-                    continue
-                ref = f"store://{self.run_id}/results/{task.assignments[-1]}"
-                findings.append(
-                    f"[{ref}] {task.task_id} ({task.role}, {task.slice.slice_id}):\n"
-                    + task.findings.model_dump_json()
-                )
+            findings += [
+                _finding_entry(self.run_id, t)
+                for t in block.tasks
+                if t.findings is not None and t.findings.claims
+            ]
         parts.append("\n".join(findings))
         unread = self._unread(blocks)
         if unread:
@@ -707,40 +742,52 @@ class _Team:
                 outcomes.append(await self._staff(task_id, task, item, manager, director, pool))
             self._close(pool, manager, manager)
         done = [t for t in outcomes if t.status == "ok"]
-        summary, reason = None, ""
-        summary_id = f"{block_id}-summary"
+        summary, reason, batches = None, "", []
         if not done:
             reason = f"Block {block_id} has no completed task; escalated to the director."
             self._escalate(manager, director, None, reason)
         else:
-            result = await self.caller.call(
-                manager,
-                self.roles.manager,
-                level="manager",
-                task_id=summary_id,
-                base_prompt=MANAGER_PROMPT,
-                user=self._consolidation_request(block, outcomes),
-                output_model=BlockSummary,
-                budget_id=budget.id,
+            header = _counts_header(block.goal, outcomes)
+            batches = self._batches(
+                header, [_finding_entry(self.run_id, t) for t in done if t.findings.claims]
             )
-            if result.ok and result.validation is not None:
-                summary = result.validation.payload.output.summary  # type: ignore[attr-defined]
-                self.store.put(summary_ref(self.run_id, block_id), summary)
-            elif result.stop_reason == "budget_exhausted":
-                reason = f"Manager {block_id} ran out of budget before its consolidation call."
-                self._exhausted(manager, self._stop_of("manager", summary_id, budget.id))
-            else:
-                reason = (
-                    f"Manager {block_id} could not consolidate ({result.stop_reason}); "
-                    "escalated to the director."
+            summaries = []
+            for number, batch in enumerate(batches, 1):
+                summary_id = (
+                    f"{block_id}-summary" if len(batches) == 1 else f"{block_id}-summary-{number}"
                 )
-                self._escalate(manager, director, summary_id, reason)
+                result = await self.caller.call(
+                    manager,
+                    self.roles.manager,
+                    level="manager",
+                    task_id=summary_id,
+                    base_prompt=MANAGER_PROMPT,
+                    user=_consolidation_request(header, batch, number, len(batches)),
+                    output_model=BlockSummary,
+                    budget_id=budget.id,
+                )
+                if result.ok and result.validation is not None:
+                    summaries.append(result.validation.payload.output.summary)  # type: ignore[attr-defined]
+                    continue
+                if result.stop_reason == "budget_exhausted":
+                    reason = f"Manager {block_id} ran out of budget before its consolidation call."
+                    self._exhausted(manager, self._stop_of("manager", summary_id, budget.id))
+                else:
+                    reason = (
+                        f"Manager {block_id} could not consolidate ({result.stop_reason}); "
+                        "escalated to the director."
+                    )
+                    self._escalate(manager, director, summary_id, reason)
+                break
+            if summaries:
+                summary = "\n".join(summaries)
+                self.store.put(summary_ref(self.run_id, block_id), summary)
         if reason:
             self.notes.append(reason)
         released = self._close(budget, manager, director)
         if not done:
             status: BlockStatus = "failed"
-        elif len(done) == len(outcomes) and summary is not None:
+        elif len(done) == len(outcomes) and summary is not None and not reason:
             status = "ok"
         else:
             status = "partial"
@@ -754,6 +801,10 @@ class _Team:
             allocated_usd=budget.usd,
             released_usd=released,
             reason=reason,
+            batches=len(batches) if done else 0,
+            slices_read=len(done),
+            empty_slices=sum(not t.findings.claims for t in done),
+            not_done=len(outcomes) - len(done),
         )
 
     async def _staff(
@@ -1132,22 +1183,49 @@ class _Team:
             "source that is not empty must be read by at least one task."
         )
 
-    @staticmethod
-    def _consolidation_request(block: PlanBlock, outcomes: list[TaskOutcome]) -> str:
-        lines = [f"Block goal: {block.goal}", "", "Operator results:"]
-        for outcome in outcomes:
-            if outcome.findings is not None:
-                claims = len(outcome.findings.claims)
-                lines.append(
-                    f"- {outcome.task_id} ({outcome.role}, {outcome.slice.slice_id}): "
-                    f"{outcome.findings.summary} [{claims} claims]"
-                )
+    def _batches(self, header: str, entries: list[str]) -> list[list[str]]:
+        """The findings in batches whose manager request stays under
+        `manager_max_input_tokens` (estimated). One batch when everything fits; a finding
+        larger than the limit on its own still gets a batch of its own."""
+        limit = self.policy.manager_max_input_tokens
+        batches: list[list[str]] = [[]]
+        for entry in entries:
+            trial = [*batches[-1], entry]
+            fits = self._manager_tokens(_consolidation_request(header, trial, 2, 2)) <= limit
+            if batches[-1] and not fits:
+                batches.append([entry])
             else:
-                lines.append(
-                    f"- {outcome.task_id} ({outcome.role}, {outcome.slice.slice_id}): not done. "
-                    f"{outcome.reason}"
-                )
-        return "\n".join(lines)
+                batches[-1] = trial
+        return batches
+
+    def _manager_tokens(self, user: str) -> int:
+        """The estimated input of a manager call with `user` as its request."""
+        role = self.roles.manager
+        if "manager" not in self.systems:
+            composed = compose_system_prompt(
+                role.role, MANAGER_PROMPT, config=self.skills_config, skills_dir=self.skills_dir
+            )
+            self.systems["manager"] = (
+                f"{composed.text}\n\n{final_result_instructions(BlockSummary)}"
+            )
+        config = self.harness.config
+        messages = prepare_messages(
+            [
+                {"role": "system", "content": self.systems["manager"]},
+                {"role": "user", "content": user},
+            ],
+            config.model(role.model).loop_protocol,
+            [],
+        )
+        request = ChatRequest(
+            model=role.model,
+            messages=messages,
+            run_id=self.run_id,
+            level="manager",
+            task_id="estimate",
+            max_tokens=role.max_output_tokens,
+        )
+        return build_request(request, config).input_tokens_estimate
 
     def _closing_message(self, blocks: list[BlockOutcome], outcome: Any) -> str:
         verdict: AuditVerdict = outcome.verdict
