@@ -20,12 +20,19 @@ completed operator task read (for example because the budget ran out), computed 
 Flow and budget, through the ledger's allocations (`rookwise.ledger`):
 1. The director reads the run budget from the ledger and makes the plan call, drawn from
    the run itself.
-2. It hires the auditor and allocates its share, then hires one manager per block and
-   splits what is free equally into one allocation each (`BudgetPolicy`).
-3. A manager keeps its own share free and gives each task an operator allocation; the
-   operator's calls are drawn from it, and the task's USD cap is the same amount. When
-   the operator is done its allocation is closed, so the unspent part goes back to the
-   manager. How a failed task goes on depends on why it stopped:
+2. It hires the auditor and allocates its share, keeps the director's share free in the
+   run for its diagnosis, then hires one manager per block and splits the rest among the
+   blocks in proportion to their estimated work: each slice's first operator reservation
+   (`BudgetPolicy`, config/budget.json).
+3. A manager keeps its own share of the block and puts the rest in the block's operator
+   pool, a ledger allocation every operator of the block reserves from. Money is held only
+   while a call is in flight, so operators running one after another hold one
+   reservation at a time; the ledger refuses a reservation the pool (or the run) cannot
+   cover. A task may spend at most `operator_task_limit_reservations` times its first
+   reservation, across its attempts and its reassignment, as the ledger's task cap
+   (money spent, nothing carved out of the pool). When the block's tasks are done the
+   pool is closed and what is left goes back to the manager. How a failed task goes on
+   depends on why it stopped:
    - a task ceiling (`length` or `token_ceiling`: this one task hit its own output
      ceiling or token budget) gets at most one reassignment: to the next catalog
      operator for the role, or, when none is left, to the same operator one rung up the
@@ -101,10 +108,14 @@ from rookwise.api.models import (
 )
 from rookwise.evidence import EvidenceBundle, EvidenceReport, split_lines, verify
 from rookwise.harness import Harness, Tool
+from rookwise.harness.loop import prepare_messages
+from rookwise.harness.request import ChatRequest, JsonObjectFormat, build_request
+from rookwise.harness.validate import final_result_instructions
 from rookwise.ledger import Allocation, CapReached, RunReport
 from rookwise.money import ZERO_USD, format_usd, to_micro_usd
 from rookwise.runner import DEFAULT_BASE_PROMPT, OperatorSpec, run_operator
 from rookwise.schemas import Level, TaskV1
+from rookwise.skills import compose_system_prompt, role_max_output_tokens
 from rookwise.skills.loader import SKILLS_DIR
 from rookwise.slicing import (
     Slice,
@@ -124,7 +135,7 @@ from rookwise.team.auditor import (
     render_source,
     split_claims,
 )
-from rookwise.team.config import BudgetPolicy, RoleSpec, load_team_roles
+from rookwise.team.config import BudgetPolicy, RoleSpec, load_budget_policy, load_team_roles
 from rookwise.team.events import EventLog
 from rookwise.team.models import (
     BlockSummary,
@@ -243,6 +254,8 @@ class TeamRun:
     # The director's first diagnosis and whether the one targeted repair was asked for.
     first_diagnosis: Diagnosis | None = None
     diagnosis_repairs: int = 0
+    # Each operator task's estimated first reservation (its limit is a multiple of it).
+    first_reservations: dict[str, Decimal] = field(default_factory=dict)
 
 
 def summary_ref(run_id: str, block_id: str) -> str:
@@ -263,6 +276,22 @@ def brief_ref(run_id: str, task_id: str) -> str:
 
 def _floor(value: Decimal) -> Decimal:
     return to_micro_usd(value, ROUND_FLOOR)
+
+
+def _split(total: Decimal, work: list[Decimal]) -> list[Decimal]:
+    """`total` split in proportion to `work` (equally when there is no work), rounded
+    down so the parts never pass the total."""
+    whole = sum(work, ZERO_USD)
+    if whole <= 0:
+        return [_floor(total / len(work)) for _ in work] if work else []
+    return [_floor(total * part / whole) for part in work]
+
+
+def _brief(task: PlanTask, item: Slice) -> str:
+    return (
+        f"{task.instruction}\n\nRead only the slice you are given: {item.source_id}, "
+        f"lines {item.line_start}-{item.line_end} of {item.line_count}."
+    )
 
 
 async def run_team(
@@ -298,7 +327,7 @@ async def run_team(
         evidence=evidence,
         skills_config=skills_config,
         skills_dir=skills_dir,
-        policy=policy or BudgetPolicy(),
+        policy=policy or load_budget_policy(),
         tools=tools or {},
         log=EventLog(run_id, mode=mode, clock=clock),
         simulated_case=simulated_case,
@@ -355,6 +384,8 @@ class _Team:
         )
         self.notes: list[str] = []
         self.plan: Plan | None = None
+        self.systems: dict[str, str] = {}  # operator system prompts by role, for estimates
+        self.first_reservation: dict[str, Decimal] = {}  # by operator task id
 
     # -- director ------------------------------------------------------------------------
 
@@ -417,23 +448,33 @@ class _Team:
         # Every agent is hired before its allocation, so its budget_allocation event can
         # name it. The amounts fit what is free, so no allocation here is refused.
         auditor = self._hire("a-auditor", self.roles.auditor, None)
-        auditor_share = _floor(self.ledger.free(self.run_id) * self.policy.auditor_share)
+        free = self.ledger.free(self.run_id)
+        auditor_share = _floor(free * self.policy.auditor_share)
         auditor_budget = self._allocate(auditor, director, "budget:auditor", auditor_share)
-        per_block = _floor(self.ledger.free(self.run_id) / len(plan.blocks))
-        managers: list[tuple[AgentNode, Allocation]] = []
-        for index in range(1, len(plan.blocks) + 1):
-            manager = self._hire(f"a-manager-b-{index}", self.roles.manager, director.agent_id)
-            budget = self._allocate(manager, director, f"budget:b-{index}", per_block)
-            managers.append((manager, budget))
-        blocks: list[BlockOutcome] = []
+        director_share = _floor(free * self.policy.director_share)  # stays in the run
+        work_items: list[list[tuple[str, PlanTask, Slice]]] = []
         number = 0
-        for index, block in enumerate(plan.blocks, 1):
-            manager, budget = managers[index - 1]
+        for block in plan.blocks:
             items: list[tuple[str, PlanTask, Slice]] = []
             for task in block.tasks:
                 for item in self.slices_of[task.source_id]:
                     number += 1
                     items.append((f"t-{number}", task, item))
+                    self.first_reservation[f"t-{number}"] = self._estimate(task, item)
+            work_items.append(items)
+        work = [
+            sum((self.first_reservation[i[0]] for i in items), ZERO_USD) for items in work_items
+        ]
+        amounts = _split(max(free - auditor_share - director_share, ZERO_USD), work)
+        managers: list[tuple[AgentNode, Allocation]] = []
+        for index, amount in enumerate(amounts, 1):
+            manager = self._hire(f"a-manager-b-{index}", self.roles.manager, director.agent_id)
+            budget = self._allocate(manager, director, f"budget:b-{index}", amount)
+            managers.append((manager, budget))
+        blocks: list[BlockOutcome] = []
+        for index, block in enumerate(plan.blocks, 1):
+            manager, budget = managers[index - 1]
+            items = work_items[index - 1]
             blocks.append(await self._manage(f"b-{index}", block, budget, items, manager, director))
 
         diagnosis, missing = await self._diagnose(goal, director, blocks)
@@ -501,6 +542,7 @@ class _Team:
             citation_log=list(self.citation_log.replies),
             first_diagnosis=first_diagnosis,
             diagnosis_repairs=repairs,
+            first_reservations=dict(self.first_reservation),
         )
 
     async def _diagnose(
@@ -656,11 +698,14 @@ class _Team:
         director: AgentNode,
     ) -> BlockOutcome:
         own = _floor(budget.usd * self.policy.manager_share)
-        per_task = _floor((budget.usd - own) / len(items)) if items else ZERO_USD
-        outcomes = [
-            await self._staff(task_id, task, item, manager, director, budget, own, per_task)
-            for task_id, task, item in items
-        ]
+        outcomes = []
+        if items:
+            pool = self._allocate(
+                manager, manager, f"pool:{block_id}", budget.usd - own, parent=budget.id
+            )
+            for task_id, task, item in items:
+                outcomes.append(await self._staff(task_id, task, item, manager, director, pool))
+            self._close(pool, manager, manager)
         done = [t for t in outcomes if t.status == "ok"]
         summary, reason = None, ""
         summary_id = f"{block_id}-summary"
@@ -718,9 +763,7 @@ class _Team:
         item: Slice,
         manager: AgentNode,
         director: AgentNode,
-        budget: Allocation,
-        own: Decimal,
-        per_task: Decimal,
+        pool: Allocation,
     ) -> TaskOutcome:
         outcome = TaskOutcome(task_id=task_id, role=task.role, slice=item)
         failed: tuple[AgentNode, str, str] | None = None  # operator, task_v1 id, reason
@@ -732,11 +775,11 @@ class _Team:
             outcome.reason = f"{task_id}: no operator in the catalog for role {task.role}."
             self.notes.append(outcome.reason)
             return outcome
-        brief = (
-            f"{task.instruction}\n\nRead only the slice you are given: {item.source_id}, "
-            f"lines {item.line_start}-{item.line_end} of {item.line_count}."
+        self.store.put(brief_ref(self.run_id, task_id), _brief(task, item))
+        limit = _floor(
+            self.first_reservation[task_id] * self.policy.operator_task_limit_reservations
         )
-        self.store.put(brief_ref(self.run_id, task_id), brief)
+        spent = ZERO_USD
         spec: OperatorSpec | None = candidates[0]
         tried: list[OperatorSpec] = []
         reassignments, ceiling_reassignments = 0, 0
@@ -745,9 +788,9 @@ class _Team:
             number += 1
             tried.append(spec)
             assignment = task_id if number == 1 else f"{task_id}.{number}"
-            amount = min(per_task, max(self.ledger.free(self.run_id, budget.id) - own, ZERO_USD))
-            if amount <= 0:
-                outcome.reason = f"{task_id}: manager {manager.agent_id} has no budget left for it."
+            left = limit - spent  # the task's limit, counted as money spent
+            if left <= 0:
+                outcome.reason = f"{task_id}: the task has spent its limit of USD {limit}."
                 self.notes.append(outcome.reason)
                 return outcome
             agent = self._hire(
@@ -755,9 +798,6 @@ class _Team:
             )
             if failed is not None:  # the manager reassigns the task to this operator
                 self._escalate(failed[0], agent, failed[1], failed[2])
-            operator_budget = self._allocate(
-                agent, manager, f"budget:{assignment}", amount, parent=budget.id
-            )
             task_v1 = TaskV1(
                 task_id=assignment,
                 run_id=self.run_id,
@@ -767,7 +807,7 @@ class _Team:
                 budget={
                     "max_input_tokens": self.policy.operator_max_input_tokens,
                     "max_output_tokens": self.policy.operator_max_output_tokens,
-                    "max_usd": amount,
+                    "max_usd": left,
                 },
                 deadline_s=self.policy.operator_deadline_s,
             )
@@ -788,20 +828,19 @@ class _Team:
                 base_prompt=OPERATOR_PROMPT,
                 skills_config=self.skills_config,
                 skills_dir=self.skills_dir,
-                budget_id=operator_budget.id,
+                budget_id=pool.id,
             )
-            self.caller.emit_attempts(
-                agent.agent_id, record.attempts, self.caller.entries(assignment)
-            )
+            entries = self.caller.entries(assignment)
+            spent += sum((e.usd_real for e in entries), ZERO_USD)
+            self.caller.emit_attempts(agent.agent_id, record.attempts, entries)
             if record.stop_reason == "budget_exhausted":
-                self._exhausted(agent, self._stop_of("operator", assignment, operator_budget.id))
+                self._exhausted(agent, self._stop_of("operator", assignment, pool.id))
             self.log.emit(
                 "task_result",
                 TaskResultPayload(
                     agent_id=agent.agent_id, result=record.result, label=record.label
                 ),
             )
-            self._close(operator_budget, agent, manager)
             outcome.assignments.append(assignment)
             outcome.operator_ids.append(spec.operator_id)
             if record.label != "failed":
@@ -836,6 +875,55 @@ class _Team:
                 ceiling_reassignments += ceiling
             spec = following
         return outcome
+
+    def _estimate(self, task: PlanTask, item: Slice) -> Decimal:
+        """The first reservation of the task's cheapest operator: its whole first request
+        through the harness's calibrated estimate plus the role's output ceiling, at the
+        ledger's prices. Zero when no operator serves the role."""
+        specs = [s for s in self.catalog if s.role == task.role]
+        if not specs:
+            return ZERO_USD
+        spec = min(specs, key=lambda s: (s.price_per_task_est_usd, -s.reputation, s.operator_id))
+        if spec.role not in self.systems:
+            composed = compose_system_prompt(
+                spec.role, OPERATOR_PROMPT, config=self.skills_config, skills_dir=self.skills_dir
+            )
+            self.systems[spec.role] = (
+                f"{composed.text}\n\n{final_result_instructions(self.findings_model)}"
+            )
+        user = (
+            f"Task t-0 ({spec.role}).\n\n{_brief(task, item)}\n\nInputs:\n\n"
+            f"[{slice_ref(self.run_id, item)}]\n{item.text}"
+        )
+        config = self.harness.config
+        protocol = config.model(spec.model).loop_protocol
+        messages = prepare_messages(
+            [
+                {"role": "system", "content": self.systems[spec.role]},
+                {"role": "user", "content": user},
+            ],
+            protocol,
+            [],
+        )
+        json_object = (
+            protocol == "json_protocol"
+            and config.loop.json_protocol_response_format == "json_object"
+        )
+        built = build_request(
+            ChatRequest(
+                model=spec.model,
+                messages=messages,
+                run_id=self.run_id,
+                level="operator",
+                task_id="t-0",
+                max_tokens=role_max_output_tokens(spec.role, self.skills_config),
+                response_format=JsonObjectFormat() if json_object else None,
+            ),
+            config,
+        )
+        return self.ledger.reservation_usd(
+            spec.model, built.input_tokens_estimate, built.max_tokens
+        )
 
     def _reassignment(
         self,

@@ -1,0 +1,13 @@
+{
+  "_note": "How a team run's budget is split (BudgetPolicy in core/team/config.py, which documents each field). All values are placeholders, not measured, to be tuned on the dev incidents. Shares are decimal strings. director_share stays free in the run for the director's diagnosis and its one repair; auditor_share is the auditor's allocation; the rest goes to the blocks in proportion to their estimated work; a manager keeps manager_share of its block and the rest is its operators' pool. operator_task_limit_reservations bounds what one task may spend: that many times its first reservation (an initial attempt, two repairs, one reassignment).",
+  "auditor_share": "0.25",
+  "director_share": "0.20",
+  "manager_share": "0.30",
+  "operator_task_limit_reservations": 4,
+  "max_reassignments": 1,
+  "max_blocks": 5,
+  "max_tasks_per_block": 5,
+  "operator_max_input_tokens": 50000,
+  "operator_max_output_tokens": 5000,
+  "operator_deadline_s": 120
+}

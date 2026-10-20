@@ -270,6 +270,8 @@ class Ledger(Protocol):
 
     def release(self, reservation: Reservation) -> None: ...
 
+    def reservation_usd(self, model: str, input_tokens: int, max_output_tokens: int) -> Decimal: ...
+
     def report(self, run_id: str) -> RunReport: ...
 
 
@@ -466,6 +468,11 @@ class InMemoryLedger:
                 if cap is not None and spent > cap and (scope, key) not in run.stops:
                     run.stops[(scope, key)] = CapReached(scope, key, cap, spent, ZERO_USD)
             return entry
+
+    def reservation_usd(self, model: str, input_tokens: int, max_output_tokens: int) -> Decimal:
+        """What `reserve` would hold for such a call, at this ledger's prices. A query:
+        nothing is held."""
+        return call_cost(self._price(model), Usage(input_tokens, max_output_tokens)).usd
 
     def release(self, reservation: Reservation) -> None:
         """Drop a hold without a charge, for a call that was never made."""

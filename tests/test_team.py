@@ -103,17 +103,16 @@ def test_a_normal_run_goes_through_every_level():
         ("a-op-t-2", "operator", "a-manager-b-2"),
         ("a-op-t-3", "operator", "a-manager-b-2"),
     ]
+    # Each block, then its operators' pool (held by the manager), closed in reverse.
     assert _allocations(team) == [
         ("allocated", "a-auditor", "a-director"),
         ("allocated", "a-manager-b-1", "a-director"),
         ("allocated", "a-manager-b-2", "a-director"),
-        ("allocated", "a-op-t-1", "a-manager-b-1"),
-        ("released", "a-op-t-1", "a-manager-b-1"),
+        ("allocated", "a-manager-b-1", "a-manager-b-1"),
+        ("released", "a-manager-b-1", "a-manager-b-1"),
         ("released", "a-manager-b-1", "a-director"),
-        ("allocated", "a-op-t-2", "a-manager-b-2"),
-        ("released", "a-op-t-2", "a-manager-b-2"),
-        ("allocated", "a-op-t-3", "a-manager-b-2"),
-        ("released", "a-op-t-3", "a-manager-b-2"),
+        ("allocated", "a-manager-b-2", "a-manager-b-2"),
+        ("released", "a-manager-b-2", "a-manager-b-2"),
         ("released", "a-manager-b-2", "a-director"),
         ("released", "a-auditor", "a-director"),
     ]
@@ -151,26 +150,28 @@ def test_sub_budgets_follow_the_policy_and_unspent_money_goes_back():
     plan_cost = report.entries[0].usd_real  # 100 in, 20 out on Ultra
     assert plan_cost == D("0.000160")
     free_after_plan = D("0.5") - plan_cost
-    assert nodes["budget:auditor"].usd == (free_after_plan * D("0.25")).quantize(
-        D("0.000001"), "ROUND_FLOOR"
-    )
-    manager = nodes["budget:b-1"]
-    assert manager.usd == free_after_plan - nodes["budget:auditor"].usd
-    own = (manager.usd * D("0.30")).quantize(D("0.000001"), "ROUND_FLOOR")
-    per_task = ((manager.usd - own) / 2).quantize(D("0.000001"), "ROUND_FLOOR")
-    assert nodes["budget:t-1"].usd == per_task == nodes["budget:t-2"].usd
-    assert nodes["budget:t-1"].parent == nodes["budget:t-2"].parent == "budget:b-1"
+
+    def floor(value):
+        return value.quantize(D("0.000001"), "ROUND_FLOOR")
+
+    auditor_usd = floor(free_after_plan * D("0.25"))
+    director_usd = floor(free_after_plan * D("0.20"))  # stays free in the run
+    assert nodes["budget:auditor"].usd == auditor_usd
+    manager = nodes["budget:b-1"]  # one block: all the work, so all the blocks' money
+    assert manager.usd == free_after_plan - auditor_usd - director_usd
+    own = floor(manager.usd * D("0.30"))
+    pool = nodes["pool:b-1"]
+    assert pool.parent == "budget:b-1" and pool.usd == manager.usd - own
+    assert set(nodes) == {"budget:auditor", "budget:b-1", "pool:b-1"}  # no per-task carve-out
+    assert pool.spent_usd == sum(e.usd_real for e in report.entries if e.level == "operator")
     assert team.blocks[0].released_usd == manager.usd - manager.spent_usd
-    events = {(p.action, p.agent_id): p for p in _payloads(team, "budget_allocation")}
-    auditor = events[("allocated", "a-auditor")]
-    assert auditor.usd == nodes["budget:auditor"].usd
+    events = {
+        (p.action, p.agent_id, p.parent_agent_id): p for p in _payloads(team, "budget_allocation")
+    }
+    auditor = events[("allocated", "a-auditor", "a-director")]
     assert auditor.parent_free_usd == free_after_plan - auditor.usd
-    assert events[("allocated", "a-manager-b-1")].parent_free_usd == ZERO_USD  # all split
-    first_operator = events[("allocated", "a-op-t-1")]
-    assert first_operator.usd == per_task
-    assert first_operator.parent_free_usd == manager.usd - per_task  # nothing spent in it yet
-    released = events[("released", "a-manager-b-1")]
-    assert released.usd == team.blocks[0].released_usd
+    block_event = events[("allocated", "a-manager-b-1", "a-director")]
+    assert block_event.parent_free_usd == director_usd  # only the director's share is left
     last = _payloads(team, "budget_allocation")[-1]  # the auditor's, once everything is closed
     assert (last.action, last.agent_id) == ("released", "a-auditor")
     assert last.parent_free_usd + report.spent_usd == D("0.5")
@@ -178,7 +179,8 @@ def test_sub_budgets_follow_the_policy_and_unspent_money_goes_back():
         task_v1 = next(
             p.task for p in _payloads(team, "task_assigned") if p.task.task_id == task_id
         )
-        assert task_v1.budget.max_usd == per_task
+        first = team.first_reservations[task_id]
+        assert first > 0 and task_v1.budget.max_usd == floor(first * 4)  # a limit, not a slice
     assert_budget_tree(book)
 
 
@@ -257,9 +259,9 @@ def test_a_manager_running_out_of_budget_leaves_a_partial_block():
 
 def test_an_operator_running_out_of_budget_fails_its_task_without_a_reassignment():
     handler = TeamHandler(director=[plan_reply(block(1))], auditor=[judgment_reply()])
-    # The operator's allocation is USD 0.020916; on Ultra its 8,192 output tokens alone
-    # cost USD 0.024576 (the task's output ceiling is raised so it does not cap them).
-    # Its manager makes no call: no task was completed.
+    # The block's operator pool is about USD 0.0154; on Ultra its 8,192 output tokens
+    # alone cost USD 0.024576 (the task's output ceiling is raised so it does not cap
+    # them). Its manager makes no call: no task was completed.
     expensive = [operator("stub-op-a", "0.001", model=ULTRA)]
     policy = BudgetPolicy(operator_max_output_tokens=8192)
     config = skills_config(operator_max_tokens=8192)
@@ -275,8 +277,8 @@ def test_an_operator_running_out_of_budget_fails_its_task_without_a_reassignment
     assert len(_payloads(team, "task_assigned")) == 1  # a budget stop is not reassigned
     assert handler.calls["operator"] == 0 and handler.calls["manager"] == 0
     assert team.blocks[0].status == "failed" and team.partial is True
-    assert ("budget", "budget:t-1") in [(s.scope, s.key) for s in book.report(RUN_ID).stops]
-    assert _stops(team) == [("a-op-t-1", "operator", "budget", "budget:t-1")]
+    assert ("budget", "pool:b-1") in [(s.scope, s.key) for s in book.report(RUN_ID).stops]
+    assert _stops(team) == [("a-op-t-1", "operator", "budget", "pool:b-1")]
     types = _types(team)
     assert types.index("budget_exhausted") == types.index("task_result") - 1
     # No reassignment; the block has no completed task, so the manager escalates it whole.
@@ -329,20 +331,19 @@ def test_a_failed_operator_is_reassigned_to_the_next_catalog_operator():
         "t-1: operator stub-op-a failed (top_of_ladder); the manager reassigns the task."
     ]
     assert team.blocks[0].status == "ok" and team.partial is False
-    nodes = {a.id: a for a in book.report(RUN_ID).allocations}
-    assert nodes["budget:t-1"].closed and nodes["budget:t-1.2"].closed
-    assert nodes["budget:t-1"].released_usd > 0  # the failed operator's unspent part
     assert _escalations(team) == [("a-op-t-1", "a-op-t-1.2", "t-1")]
+    # The reassignment may spend what the task's limit has left after the first attempt.
+    spent_first = sum(e.usd_real for e in book.report(RUN_ID).entries if e.task_id == "t-1")
+    limits = {p.task.task_id: p.task.budget.max_usd for p in _payloads(team, "task_assigned")}
+    assert limits["t-1.2"] == limits["t-1"] - spent_first
     assert _payloads(team, "escalation")[0].reason == team.notes[0]
-    # task_result and release of the first operator, hire of the next, the escalation
-    # between them, the next allocation, then the new assignment.
+    # task_result of the first operator, hire of the next, the escalation between them,
+    # then the new assignment (both draw from the same pool).
     start = next(i for i, e in enumerate(team.events) if e.type == "task_result")
-    assert [(e.type, getattr(e.payload, "agent_id", None)) for e in team.events[start:]][:6] == [
+    assert [(e.type, getattr(e.payload, "agent_id", None)) for e in team.events[start:]][:4] == [
         ("task_result", "a-op-t-1"),
-        ("budget_allocation", "a-op-t-1"),
         ("agent_hired", None),
         ("escalation", None),
-        ("budget_allocation", "a-op-t-1.2"),
         ("task_assigned", "a-op-t-1.2"),
     ]
     assert _stops(team) == []
@@ -444,7 +445,11 @@ def test_a_task_ceiling_with_no_other_operator_moves_one_rung_up_the_ladder():
         manager=[summary_reply()],
         auditor=[judgment_reply()],
     )
-    team, book = run_stub_team(handler, run_usd="0.5", catalog=[operator("stub-op-a", "0.001")])
+    # A rung up costs several Lightning reservations, so the task's limit is raised here.
+    policy = BudgetPolicy(operator_task_limit_reservations=12)
+    team, book = run_stub_team(
+        handler, run_usd="0.5", catalog=[operator("stub-op-a", "0.001")], policy=policy
+    )
     (task,) = team.blocks[0].tasks
     assert task.status == "ok" and task.operator_ids == ["stub-op-a", "stub-op-a"]
     hired = {p.agent.agent_id: p.agent.model for p in _payloads(team, "agent_hired")}
@@ -586,19 +591,16 @@ def test_the_budget_policy_takes_decimal_shares_only():
     assert BUNDLE.sources  # the stub bundle used above is not empty
 
 
-def test_a_manager_with_nothing_for_its_operators_runs_no_task():
+def test_an_empty_operator_pool_refuses_every_operator():
     handler = TeamHandler(director=[plan_reply(block(2))], auditor=[judgment_reply()])
     team, book = run_stub_team(handler, run_usd="0.5", policy=BudgetPolicy(manager_share=D("1")))
     (outcome,) = team.blocks
-    assert [t.status for t in outcome.tasks] == ["not_run", "not_run"]
-    assert team.notes[:2] == [
-        "t-1: manager a-manager-b-1 has no budget left for it.",
-        "t-2: manager a-manager-b-1 has no budget left for it.",
-    ]
+    assert [t.status for t in outcome.tasks] == ["failed", "failed"]
+    assert all("ran out of its budget" in note for note in team.notes[:2])
     assert outcome.status == "failed" and team.partial is True
     assert handler.calls["operator"] == 0 and handler.calls["manager"] == 0
-    assert _payloads(team, "task_assigned") == []
-    assert ("allocated", "a-op-t-1", "a-manager-b-1") not in _allocations(team)
+    # The ledger refuses both: the first one stops the empty pool, the second meets the stop.
+    assert [s[2:] for s in _stops(team)] == [("budget", "pool:b-1"), ("budget", "pool:b-1")]
     assert _escalations(team) == [("a-manager-b-1", "a-director", None)]
     assert_contract_order(team, book)
     assert_budget_tree(book)

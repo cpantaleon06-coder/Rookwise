@@ -233,8 +233,9 @@ def run_stub_team(
     bundle=None,
     slicing=None,
     context_sources=(),
+    ledger=None,
 ):
-    book = InMemoryLedger()
+    book = ledger if ledger is not None else InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
     replay = cassette is not None and cassette.mode == "replay"
 
@@ -315,34 +316,34 @@ def assert_contract_order(team, book) -> None:
 
 
 def _assert_allocation_events(events, book) -> None:
-    """One `allocated` and at most one `released` per agent, in that order, matching the
-    ledger's allocations; an operator's allocation brackets its task; every
-    `budget_exhausted` is a stop the ledger recorded."""
+    """Every `allocated` matches a ledger allocation, in order, and each `released` comes
+    after an `allocated` of the same agent (a manager has two: its block and its
+    operators' pool, which brackets the block's tasks); every `budget_exhausted` is a stop
+    the ledger recorded."""
     report = book.report(RUN_ID)
-    position: dict[tuple[str, str], int] = {}
-    for index, event in enumerate(events):
-        if event.type == "budget_allocation":
-            key = (event.payload.action, event.payload.agent_id)
-            assert key not in position, event.id
-            position[key] = index
-    for (action, agent_id), index in position.items():
-        if action == "released":
-            assert position[("allocated", agent_id)] < index, agent_id
     allocations = [e.payload for e in events if e.type == "budget_allocation"]
     allocated = [p.usd for p in allocations if p.action == "allocated"]
     assert allocated == [node.usd for node in report.allocations]
     released = sorted(p.usd for p in allocations if p.action == "released")
     assert released == sorted(node.released_usd for node in report.allocations if node.closed)
+    open_count: dict[str, int] = {}
+    for event in events:
+        if event.type == "budget_allocation":
+            agent_id = event.payload.agent_id
+            change = 1 if event.payload.action == "allocated" else -1
+            open_count[agent_id] = open_count.get(agent_id, 0) + change
+            assert open_count[agent_id] >= 0, event.id
+    hired = {e.payload.agent.agent_id: e.payload.agent for e in events if e.type == "agent_hired"}
     for index, event in enumerate(events):
         if event.type == "task_assigned":
-            agent_id = event.payload.agent_id
-            result = next(
-                i
-                for i, e in enumerate(events)
-                if e.type == "task_result" and e.payload.agent_id == agent_id
-            )
-            assert position[("allocated", agent_id)] < index < result
-            assert position[("released", agent_id)] > result
+            manager = hired[event.payload.agent_id].parent_id
+            before = [
+                e
+                for e in events[:index]
+                if e.type == "budget_allocation" and e.payload.agent_id == manager
+            ]
+            # The block and its pool are open while the task runs.
+            assert sum(1 if e.payload.action == "allocated" else -1 for e in before) == 2
     stops = {(stop.scope, stop.key) for stop in report.stops}
     for event in events:
         if event.type == "budget_exhausted":
@@ -357,8 +358,7 @@ def _assert_allocation_events(events, book) -> None:
 
 def assert_budget_tree(book) -> None:
     """Every allocation closed, its unspent part released, and what its children spent
-    within it. (Operator allocations are opened one after another, each closed before
-    the next, so only the top level is held all at once.)"""
+    within it."""
     report = book.report(RUN_ID)
     assert report.held_usd == 0
     for node in report.allocations:

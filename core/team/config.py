@@ -13,8 +13,10 @@ reserves for the output (`rookwise.skills.role_max_output_tokens`).
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Literal
 
 from rookwise.money import require_decimal
@@ -65,23 +67,36 @@ def load_team_roles(config: dict[str, Any] | None = None) -> TeamRoles:
     return TeamRoles(**found)
 
 
+BUDGET_PATH = Path(__file__).resolve().parents[2] / "config" / "budget.json"
+
+
 @dataclass(frozen=True)
 class BudgetPolicy:
-    """How the run budget is split. The defaults are placeholders, not measured; they
-    are to be tuned after the benchmark.
+    """How the run budget is split (config/budget.json; `load_budget_policy`). The
+    values are placeholders, not measured; they are to be tuned after the benchmark.
 
     - The director's plan call is drawn from the run itself.
-    - `auditor_share` of what is free after the plan goes to the auditor's allocation
-      first, so the managers cannot spend it.
-    - What is then free is split equally among the plan's blocks, one allocation each.
-    - A manager keeps `manager_share` of its allocation free for its own call and splits
-      the rest equally among its tasks; each operator assignment gets its own allocation.
+    - Of what is free after the plan, `auditor_share` goes to the auditor's allocation
+      and `director_share` stays free in the run for the director's diagnosis (and its one
+      repair); the managers cannot spend either.
+    - The rest is split among the plan's blocks in proportion to the estimated cost of
+      each block's work: every slice's first operator reservation (its prompt through the
+      calibrated input estimate plus the role's output ceiling).
+    - A manager keeps `manager_share` of its block for its own calls; the rest is the
+      block's operator pool, a ledger allocation all its operators reserve from. Money is
+      held only while a call is in flight, so operators that run one after another hold
+      one reservation at a time.
+    - One task may spend at most `operator_task_limit_reservations` times its first
+      reservation (an initial attempt, two repairs, one reassignment), counted as money
+      spent through the ledger's task cap; nothing is carved out of the pool for it.
     - A failed operator is replaced by the next catalog operator for the same role, up
       to `max_reassignments` times, unless it stopped on its budget.
     """
 
     auditor_share: Decimal = Decimal("0.25")
+    director_share: Decimal = Decimal("0.20")
     manager_share: Decimal = Decimal("0.30")
+    operator_task_limit_reservations: int = 4
     max_reassignments: int = 1
     max_blocks: int = 5
     max_tasks_per_block: int = 5
@@ -90,7 +105,20 @@ class BudgetPolicy:
     operator_deadline_s: int = 120
 
     def __post_init__(self) -> None:
-        for name in ("auditor_share", "manager_share"):
+        for name in ("auditor_share", "director_share", "manager_share"):
             share = require_decimal(getattr(self, name), name)
-            if share > 1:
+            if not 0 <= share <= 1:
                 raise ValueError(f"{name} must be between 0 and 1, not {share}")
+        if self.auditor_share + self.director_share >= 1:
+            raise ValueError("auditor_share + director_share must leave money for the blocks")
+        if self.operator_task_limit_reservations < 1:
+            raise ValueError("operator_task_limit_reservations must be at least 1")
+
+
+def load_budget_policy(path: Path = BUDGET_PATH) -> BudgetPolicy:
+    """The budget policy in config/budget.json (shares are decimal strings)."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    values = {k: v for k, v in data.items() if not k.startswith("_")}
+    for name in ("auditor_share", "director_share", "manager_share"):
+        values[name] = Decimal(values[name])
+    return BudgetPolicy(**values)
