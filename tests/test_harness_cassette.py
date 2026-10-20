@@ -9,6 +9,7 @@ import json
 import os
 import random
 from contextlib import aclosing
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -51,6 +52,7 @@ from rookwise.harness.cassette import (
     find_secrets,
     request_key,
 )
+from rookwise.ledger import CapReached
 
 CASSETTES = Path(__file__).resolve().parent / "cassettes"
 GOLDEN = CASSETTES / "harness_basic.json"
@@ -348,3 +350,92 @@ def test_tool_call_deltas_are_recorded_and_replayed(tmp_path, monkeypatch):
     replayed = run(replay())
     assert replayed.tool_calls == recorded.tool_calls and len(recorded.tool_calls) == 1
     assert replayed.events == recorded.events
+
+
+# The three calls share one request body (the task id is not sent), so they share a key
+# and replay by sequence index. The ledger refuses the second one through its task cap.
+REFUSAL_CALLS = [request(task_id="t-1"), request(task_id="t-2"), request(task_id="t-3")]
+
+
+def _refusing_ledger(refuse=True):
+    book = ledger()
+    if refuse:
+        book.set_task_cap("r-1", "t-2", Decimal("0.000001"))
+    return book
+
+
+async def _run_refusal_calls(harness):
+    """Every call's events, or the cap that refused it."""
+    outcomes = []
+    for call in REFUSAL_CALLS:
+        events = []
+        try:
+            async with aclosing(harness.stream(call)) as stream:
+                async for event in stream:
+                    events.append(event)
+        except CapReached as refused:
+            events.append(("refused", refused.scope, refused.key))
+        outcomes.append(events)
+    return outcomes
+
+
+def _stops(book):
+    return [(stop.scope, stop.key) for stop in book.report("r-1").stops]
+
+
+def _record_refusal(path):
+    async def main():
+        book = _refusing_ledger()
+        handler = Handler([respond(ok_stream("first")), respond(ok_stream("third"))])
+        async with _harness(book, Cassette(path, "record"), handler) as harness:
+            outcomes = await _run_refusal_calls(harness)
+        assert len(handler.requests) == 2  # the refused call never reached the API
+        return outcomes, _charges(book), _stops(book)
+
+    return run(main())
+
+
+def test_a_call_refused_by_the_ledger_when_recorded_is_refused_again_on_replay(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "refused.json"
+    recorded = _record_refusal(path)
+    interactions = json.loads(path.read_text(encoding="utf-8"))["interactions"]
+    assert [item["index"] for item in interactions] == [0, 2]
+    monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
+
+    async def replay():
+        book = _refusing_ledger()
+        async with _harness(book, Cassette(path, "replay")) as harness:
+            outcomes = await _run_refusal_calls(harness)
+        return outcomes, _charges(book), _stops(book)
+
+    replayed = run(replay())
+    assert replayed == recorded
+    outcomes, charges, stops = replayed
+    assert outcomes[1] == [("refused", "task", "t-2")]
+    assert ["".join(e.text for e in o if isinstance(e, TextDelta)) for o in outcomes] == [
+        "first",
+        "",
+        "third",
+    ]
+    assert [charge[0] for charge in charges] == ["t-1", "t-3"]
+    assert stops == [("task", "t-2")]
+
+
+def test_a_call_the_ledger_grants_but_that_was_never_recorded_is_a_miss(tmp_path, monkeypatch):
+    path = tmp_path / "refused.json"
+    _record_refusal(path)
+    monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
+
+    async def replay():
+        book = _refusing_ledger(refuse=False)  # no task cap: the second call is granted
+        async with _harness(book, Cassette(path, "replay")) as harness:
+            first = await harness.complete(REFUSAL_CALLS[0])
+            with pytest.raises(CassetteMiss) as caught:
+                await harness.complete(REFUSAL_CALLS[1])
+        assert first.text == "first"
+        assert caught.value.index == 1
+        assert [charge[0] for charge in _charges(book)] == ["t-1"]  # and no hold is left
+
+    run(replay())

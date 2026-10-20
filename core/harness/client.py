@@ -286,10 +286,10 @@ class Harness:
         cancel = cancel or CancelHandle()
         call = None
         if self._cassette is not None:
+            # The index is taken before the ledger is asked, in every mode, so a call the
+            # ledger refuses still uses up its slot and later keys line up on replay.
             key = request_key(built.body)
-            index = self._cassette.next_index(key)
-            recording = self._cassette.lookup(key, index) if self._mode == "replay" else None
-            call = _Call(key, index, recording)
+            call = _Call(key, self._cassette.next_index(key))
         attempt = 0
         while True:
             attempt += 1
@@ -306,6 +306,11 @@ class Harness:
                 reservation = self._reserve(built)
             except BaseException:
                 permit.release(used_tokens=0)
+                raise
+            try:
+                call = self._replay_lookup(call)
+            except BaseException:
+                self._ledger.release(reservation)
                 raise
             state = _Attempt(attempt, reservation)
             try:
@@ -334,6 +339,18 @@ class Harness:
             instant_replay = self._mode == "replay" and not self._cassette.realtime
             if delay > 0 and not instant_replay:
                 await self._clock.sleep(delay)
+
+    def _replay_lookup(self, call: _Call | None) -> _Call | None:
+        """In replay, find the call's recording once its first reservation is granted.
+
+        A call the ledger refused while recording never reached the API and has no
+        recording, so the lookup waits for the ledger: the refusal raises `CapReached`
+        as it did live, and only a granted call that was never recorded is a miss.
+        """
+        if self._mode != "replay" or call is None or call.recording is not None:
+            return call
+        assert self._cassette is not None
+        return dataclasses.replace(call, recording=self._cassette.lookup(call.key, call.index))
 
     # -- one attempt -------------------------------------------------------------------
 
