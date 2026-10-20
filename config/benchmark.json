@@ -1,0 +1,84 @@
+{
+  "_note": "Settings for running a corpus incident (scripts/run_incident.py). caps_usd are the per-configuration caps per incident (D2 in docs/DECISIONS.md): 0.10 for the hierarchy is unmeasured and revisited after the first approved run on a dev incident; the single-model baselines run with a safety cap of 1.00. context_sources are the sources the director reads in full for its diagnosis. The catalog is data for these runs only; prices and latencies are placeholders, not measured.",
+  "caps_usd": {
+    "hierarchy": "0.100000",
+    "single_large": "1.000000",
+    "single_small": "1.000000"
+  },
+  "goal": "Investigate the incident described in ticket.md: find its root cause and its category, cite the evidence line by line, and propose a remediation plan.",
+  "context_sources": ["ticket.md", "runbook.md"],
+  "catalog": [
+    {
+      "operator_id": "log-reader-lightning-01",
+      "role": "log-reader",
+      "model": "nemotron-3.5-lightning",
+      "price_per_task_est_usd": "0.001000",
+      "avg_latency_s": 10,
+      "reputation": 0.5,
+      "tools": [],
+      "skills": ["log-reading"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "log-reader-super-01",
+      "role": "log-reader",
+      "model": "nemotron-3-super",
+      "price_per_task_est_usd": "0.005000",
+      "avg_latency_s": 15,
+      "reputation": 0.5,
+      "tools": [],
+      "skills": ["log-reading"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "metrics-reader-lightning-01",
+      "role": "metrics-reader",
+      "model": "nemotron-3.5-lightning",
+      "price_per_task_est_usd": "0.001000",
+      "avg_latency_s": 10,
+      "reputation": 0.5,
+      "tools": [],
+      "skills": ["metrics-reading"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "metrics-reader-super-01",
+      "role": "metrics-reader",
+      "model": "nemotron-3-super",
+      "price_per_task_est_usd": "0.005000",
+      "avg_latency_s": 15,
+      "reputation": 0.5,
+      "tools": [],
+      "skills": ["metrics-reading"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "deploy-diff-reader-lightning-01",
+      "role": "deploy-diff-reader",
+      "model": "nemotron-3.5-lightning",
+      "price_per_task_est_usd": "0.001000",
+      "avg_latency_s": 10,
+      "reputation": 0.5,
+      "tools": [],
+      "skills": ["deploy-diff-reading"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    },
+    {
+      "operator_id": "deploy-diff-reader-super-01",
+      "role": "deploy-diff-reader",
+      "model": "nemotron-3-super",
+      "price_per_task_est_usd": "0.005000",
+      "avg_latency_s": 15,
+      "reputation": 0.5,
+      "tools": [],
+      "skills": ["deploy-diff-reading"],
+      "input_schema": "task_v1",
+      "output_schema": "result_v1"
+    }
+  ]
+}
