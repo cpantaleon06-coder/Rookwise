@@ -114,7 +114,8 @@ def test_a_rejecting_auditor_is_reported_as_audited_and_rejected():
 
 def test_no_supported_claim_left_is_inconclusive():
     bare = {"claim_id": "c3", "text": "[stub] More.", "citations": []}
-    team, handler = _run([diagnosis_reply(UNCITED_CLAIM, bare, root=("c2",))], auditor=[])
+    team, handler = _run([diagnosis_reply(UNCITED_CLAIM, bare, root=("c2",))] * 2, auditor=[])
+    assert team.diagnosis_repairs == 1
     assert team.diagnosis_status == "inconclusive"
     assert team.inconclusive_reason == "no supported claim remains"
     assert handler.calls["auditor"] == 0 and team.supported_claims == []

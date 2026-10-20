@@ -20,8 +20,12 @@ The director ends the investigation with a `Diagnosis`: the root cause, its cate
 (the benchmark's enum, `rookwise.incidents.Category`), claims with citations exactly like
 an operator's, the ids of the claims that support the root cause, and a remediation plan.
 v1 is read-only: the plan is a proposal and nothing in it is executed.
-`diagnosis_model(bundle)` is its run-bound twin, with the same citation check as
-`findings_model` and the same JSON Schema as `Diagnosis`.
+`diagnosis_model(bundle, log)` is its run twin, with the same JSON Schema as `Diagnosis`.
+Unlike the operators' model it checks shape only (the schema, including the one-line
+quote, the category enum and the claim ids): a quote that is not in its cited line does
+not reject the reply. The deterministic check and decision D3 handle it instead (the claim
+is withdrawn with its reason code; `rookwise.team.auditor`). The citation log still
+records every citation of the director's replies against the run's sources.
 
 Both run-bound models take an optional `CitationLog`. With one, every reply they
 validate also records, per citation, whether it passed on its own and why not, under the
@@ -318,13 +322,13 @@ def findings_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> ty
 
 
 def diagnosis_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> type[Diagnosis]:
-    """`Diagnosis` for one run: same name and JSON Schema, with the operators' citation
-    check on every claim (`findings_model`)."""
-    citation, claim = _bound_claim(bundle)
+    """`Diagnosis` for one run: same name and JSON Schema, shape checks only. Each
+    citation is logged against `bundle` (the operators' check), but a failing one does not
+    reject the reply: D3 withdraws its claim after the deterministic check."""
+    citation, _ = _bound_claim(bundle)
 
     class Diagnosis(_Diagnosis):
         __doc__ = _Diagnosis.__doc__
-        claims: list[claim] = Field(default_factory=list)  # type: ignore[valid-type]
 
         @model_validator(mode="wrap")
         @classmethod

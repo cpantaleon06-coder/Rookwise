@@ -24,7 +24,7 @@ from team_stub import (
 from rookwise.evidence import EvidenceBundle
 from rookwise.harness.validate import final_result_instructions, payload_model, validate_final
 from rookwise.incidents import CATEGORIES, Category
-from rookwise.team.models import Diagnosis, RemediationStep, diagnosis_model
+from rookwise.team.models import CitationLog, Diagnosis, RemediationStep, diagnosis_model
 
 STEP = {"action": "[stub] a", "why": "[stub] b", "risk": "[stub] c", "reversible": False}
 OTHER = EvidenceBundle(
@@ -68,13 +68,25 @@ def test_an_invalid_diagnosis_fails_validation(overrides, expected):
     assert not validation.ok and any(expected in e for e in validation.errors)
 
 
-def test_the_run_bound_model_checks_every_quote_like_the_operators():
+def test_the_run_model_checks_shape_only_and_logs_every_citation():
     bad = json.loads(json.dumps(GOOD_CLAIM))
     bad["citations"][0]["quote"] = "the widget weighs 13 units."
-    output = _output(claims=[bad])
-    assert validate_final({"status": "ok", "output": output}, Diagnosis).ok  # plain: no check
-    bound = validate_final({"status": "ok", "output": output}, diagnosis_model(BUNDLE))
-    assert not bound.ok and "is not part of one line" in bound.errors[0]
+    output = _output(claims=[GOOD_CLAIM, bad | {"claim_id": "c2"}])
+    log = CitationLog("diagnosis")
+    run_model = diagnosis_model(BUNDLE, log)
+    assert validate_final({"status": "ok", "output": output}, run_model).ok  # not rejected
+    (reply,) = log.replies
+    assert [c.ok for c in reply.citations] == [True, False]
+    assert "is not part of one line" in reply.citations[1].problem
+    # Shape still counts: a multi-line quote, an unknown category, a bad root id.
+    multi = json.loads(json.dumps(GOOD_CLAIM))
+    multi["citations"][0]["quote"] = "a\nb"
+    for broken in (
+        _output(claims=[multi]),
+        _output(category="x"),
+        _output(root_cause_claim_ids=["c9"]),
+    ):
+        assert not validate_final({"status": "ok", "output": broken}, run_model).ok
 
 
 BOTH = plan_reply(block(1), block(1, source_id="ticket.md"))
@@ -122,17 +134,51 @@ def test_the_director_receives_context_inventory_and_findings_by_reference():
     assert [e.level for e in entries] == ["director"]
 
 
-def test_a_diagnosis_with_a_bad_quote_is_repaired():
-    bad = json.loads(json.dumps(GOOD_CLAIM))
-    bad["citations"][0]["quote"] = "the widget weighs 13 units."
-    team, _, handler = _team(diagnosis=[diagnosis_reply(bad), diagnosis_reply()])
-    attempts = [
-        e.payload.attempt
-        for e in team.events
-        if e.type == "attempt_recorded" and e.payload.attempt.task_id == "diagnosis"
+def _bad(claim_id="c1", quote="the widget weighs 13 units."):
+    claim = json.loads(json.dumps(GOOD_CLAIM))
+    claim["claim_id"] = claim_id
+    claim["citations"][0]["quote"] = quote
+    return claim
+
+
+def test_one_bad_quote_among_good_claims_is_withdrawn_and_the_rest_audited():
+    team, _, handler = _team(diagnosis=[diagnosis_reply(GOOD_CLAIM, _bad("c2"), root=("c1",))])
+    assert handler.calls["diagnosis"] == 1 and team.diagnosis_repairs == 0
+    assert team.diagnosis_status == "audited" and handler.calls["auditor"] == 1
+    assert [(w.claim.claim_id, w.reason) for w in team.withdrawn_claims] == [
+        ("c2", "quote_not_found")
     ]
-    assert [a.reason for a in attempts] == ["first", "repair"]
-    assert handler.calls["diagnosis"] == 2 and team.diagnosis is not None
+    assert team.claim_counts.by_reason == {"quote_not_found": 1}
+    (first,) = [r for r in team.citation_log if r.task_id == "diagnosis"]
+    assert [c.ok for c in first.citations] == [True, False]
+
+
+def test_all_root_claims_bad_gets_one_targeted_repair_then_is_audited():
+    team, _, handler = _team(diagnosis=[diagnosis_reply(_bad()), diagnosis_reply()])
+    assert handler.calls["diagnosis"] == 2 and team.diagnosis_repairs == 1
+    (request,) = [
+        b["messages"][-1]["content"]
+        for b in handler.bodies
+        if "withdrew every claim" in b["messages"][-1]["content"]
+    ]
+    assert "withdrew every claim your root cause rests on" in request
+    assert "- c1: quote_not_found. citation 0: quote_not_found" in request
+    assert "1: Sample record one: the widget weighs 12 units." in request
+    assert team.first_diagnosis.claims[0].citations[0].quote.endswith("13 units.")
+    assert team.diagnosis_status == "audited" and team.withdrawn_claims == []
+    replies = [r for r in team.citation_log if r.task_id == "diagnosis"]
+    assert [(r.index, [c.ok for c in r.citations]) for r in replies] == [(0, [False]), (1, [True])]
+    ids = [e.task_id for e in team.report.entries if e.level == "director"]
+    assert ids == ["plan", "diagnosis", "diagnosis-repair"]
+
+
+def test_all_root_claims_still_bad_after_the_repair_is_inconclusive():
+    team, _, handler = _team(
+        diagnosis=[diagnosis_reply(_bad()), diagnosis_reply(_bad())], auditor=[]
+    )
+    assert handler.calls["diagnosis"] == 2 and team.diagnosis_repairs == 1  # only one repair
+    assert team.diagnosis_status == "inconclusive" and handler.calls["auditor"] == 0
+    assert team.inconclusive_reason == "no supported claim remains"  # its only claim
 
 
 def test_no_valid_diagnosis_is_a_note_not_a_crash():

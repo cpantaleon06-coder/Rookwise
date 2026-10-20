@@ -496,11 +496,13 @@ def test_an_inconclusive_diagnosis_gets_no_auditor_model_call():
     # it is the only root-cause claim the diagnosis is inconclusive (D3).
     handler = TeamHandler(
         director=[plan_reply(block(1))],
-        diagnosis=[diagnosis_reply(GOOD_CLAIM, UNCITED_CLAIM, root=("c2",))],
+        # The first reply and the one targeted repair both rest on the uncited claim.
+        diagnosis=[diagnosis_reply(GOOD_CLAIM, UNCITED_CLAIM, root=("c2",))] * 2,
         operator=[findings_reply(GOOD_CLAIM)],
         manager=[summary_reply()],
     )
     team, book = run_stub_team(handler, run_usd="0.5")
+    assert team.diagnosis_repairs == 1 and handler.calls["diagnosis"] == 2
     assert team.diagnosis_status == "inconclusive"
     assert team.inconclusive_reason == "every root-cause claim was withdrawn"
     assert [w.claim.claim_id for w in team.withdrawn_claims] == ["c2"]

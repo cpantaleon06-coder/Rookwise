@@ -38,11 +38,14 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
    With no reassignment left, the task is escalated to the director.
 4. The manager makes one consolidation call inside its allocation, then closes it; the
    unspent part goes back to the run.
-5. The director writes the diagnosis (`Diagnosis`, validated by `diagnosis_model`, so its
-   citations pass the same check as the operators'), drawn from the run. It receives the
-   context sources in full (`context_sources`, for example the ticket and the runbook),
-   the source inventory, and the managers' summaries and the operators' findings under
-   their store references, and it may cite evidence lines directly.
+5. The director writes the diagnosis (`Diagnosis`, validated by `diagnosis_model` for
+   shape only), drawn from the run. It receives the context sources in full
+   (`context_sources`, for example the ticket and the runbook), the source inventory, and
+   the managers' summaries and the operators' findings under their store references, and
+   it may cite evidence lines directly. A bad quote does not reject its reply: the
+   deterministic check withdraws the claim (D3). If every root-cause claim is withdrawn,
+   the director gets exactly one targeted repair request that lists those claims with
+   their reason codes and the lines they cite (ledger task `diagnosis-repair`).
 6. Decision D3 (`rookwise.team.auditor`): the deterministic check runs on the diagnosis's
    claims; unsupported claims are withdrawn and listed with their reason codes. With no
    supported root-cause claim the diagnosis is inconclusive and the auditor makes no model
@@ -96,14 +99,21 @@ from rookwise.api.models import (
     TaskAssignedPayload,
     TaskResultPayload,
 )
-from rookwise.evidence import EvidenceBundle, EvidenceReport, verify
+from rookwise.evidence import EvidenceBundle, EvidenceReport, split_lines, verify
 from rookwise.harness import Harness, Tool
 from rookwise.ledger import Allocation, CapReached, RunReport
 from rookwise.money import ZERO_USD, format_usd, to_micro_usd
 from rookwise.runner import DEFAULT_BASE_PROMPT, OperatorSpec, run_operator
 from rookwise.schemas import Level, TaskV1
 from rookwise.skills.loader import SKILLS_DIR
-from rookwise.slicing import Slice, SlicingConfig, coverage, load_slicing_config, slice_bundle
+from rookwise.slicing import (
+    Slice,
+    SlicingConfig,
+    coverage,
+    load_slicing_config,
+    numbered_line,
+    slice_bundle,
+)
 from rookwise.store import Store
 from rookwise.team.agents import AgentCaller
 from rookwise.team.auditor import (
@@ -112,6 +122,7 @@ from rookwise.team.auditor import (
     WithdrawnClaim,
     audit,
     render_source,
+    split_claims,
 )
 from rookwise.team.config import BudgetPolicy, RoleSpec, load_team_roles
 from rookwise.team.events import EventLog
@@ -229,6 +240,9 @@ class TeamRun:
     operator_evidence: EvidenceReport | None = None
     # Per-citation results of every validated reply, by task id (first reply: index 0).
     citation_log: list[ReplyCitations] = field(default_factory=list)
+    # The director's first diagnosis and whether the one targeted repair was asked for.
+    first_diagnosis: Diagnosis | None = None
+    diagnosis_repairs: int = 0
 
 
 def summary_ref(run_id: str, block_id: str) -> str:
@@ -423,6 +437,10 @@ class _Team:
             blocks.append(await self._manage(f"b-{index}", block, budget, items, manager, director))
 
         diagnosis, missing = await self._diagnose(goal, director, blocks)
+        first_diagnosis, repairs = diagnosis, 0
+        if diagnosis is not None and self._root_withdrawn(diagnosis):
+            repairs = 1
+            diagnosis = await self._repair_diagnosis(goal, director, diagnosis) or diagnosis
 
         operator_claims = [
             c.claim(f"{t.task_id}:{c.claim_id}")
@@ -481,6 +499,8 @@ class _Team:
             claim_counts=outcome.counts,
             operator_evidence=operator_evidence,
             citation_log=list(self.citation_log.replies),
+            first_diagnosis=first_diagnosis,
+            diagnosis_repairs=repairs,
         )
 
     async def _diagnose(
@@ -507,6 +527,82 @@ class _Team:
             reason = f"the director produced no valid diagnosis ({result.stop_reason})"
         self.notes.append(reason[0].upper() + reason[1:] + ".")
         return None, reason
+
+    def _root_withdrawn(self, diagnosis: Diagnosis) -> bool:
+        split = split_claims(diagnosis, self.evidence)
+        withdrawn = {w.claim.claim_id for w in split.withdrawn}
+        return all(claim_id in withdrawn for claim_id in diagnosis.root_cause_claim_ids)
+
+    async def _repair_diagnosis(
+        self, goal: str, director: AgentNode, diagnosis: Diagnosis
+    ) -> Diagnosis | None:
+        """The one targeted repair: every root-cause claim was withdrawn. The reply is
+        logged as the diagnosis's second reply. None when the call fails."""
+        split = split_claims(diagnosis, self.evidence)
+        results = {r.claim_id: r for r in split.report.claims}
+        root = set(diagnosis.root_cause_claim_ids)
+        listed, cited = [], []
+        for withdrawn in split.withdrawn:
+            if withdrawn.claim.claim_id not in root:
+                continue
+            result = results[withdrawn.claim.claim_id]
+            reasons = "; ".join(
+                f"citation {c.index}: {c.reason}" + (f" ({c.detail})" if c.detail else "")
+                for c in result.citations
+            )
+            listed.append(f"- {withdrawn.claim.claim_id}: {withdrawn.reason}. {reasons}".rstrip())
+            cited += self._lines_near(withdrawn.claim)
+        self.notes.append(
+            "Every root-cause claim of the diagnosis was withdrawn; the director gets one "
+            "targeted repair request."
+        )
+        user = (
+            f"Goal: {goal}\n\nThe deterministic evidence check withdrew every claim your "
+            "root cause rests on:\n" + "\n".join(listed) + "\n\nThe lines around what they "
+            "cite:\n"
+            + ("\n\n".join(cited) or "(none)")
+            + "\n\nYour diagnosis:\n"
+            + diagnosis.model_dump_json()
+            + "\n\nReply with the whole diagnosis again, with corrected citations for these "
+            "claims: each quote copied verbatim from one single line of its range, "
+            "including its timestamp. Keep the claims that were supported."
+        )
+        self.citation_log.task_id = "diagnosis"
+        result = await self.caller.call(
+            director,
+            self.roles.director,
+            level="director",
+            task_id="diagnosis-repair",
+            base_prompt=DIAGNOSIS_PROMPT,
+            user=user,
+            output_model=self.diagnosis_model,
+            budget_id=None,
+        )
+        if result.ok and result.validation is not None:
+            return result.validation.payload.output  # type: ignore[attr-defined]
+        if result.stop_reason == "budget_exhausted":
+            self._exhausted(director, self._stop_of("director", "diagnosis-repair", None))
+        self.notes.append(f"The diagnosis repair produced no valid reply ({result.stop_reason}).")
+        return None
+
+    def _lines_near(self, claim: FindingClaim, context: int = 5) -> list[str]:
+        """The source lines around each citation of `claim`, as agents read them."""
+        parts = []
+        for citation in claim.citations:
+            text = self.evidence.sources.get(citation.source_id)
+            if text is None:
+                parts.append(
+                    f"There is no source {citation.source_id!r}; the sources are "
+                    + ", ".join(self.evidence.sources)
+                    + "."
+                )
+                continue
+            lines = split_lines(text)
+            first = min(max(citation.line_start - context, 1), max(len(lines), 1))
+            last = min(max(citation.line_end, citation.line_start) + context, len(lines))
+            shown = "\n".join(numbered_line(n, lines[n - 1]) for n in range(first, last + 1))
+            parts.append(f"Source {citation.source_id}, lines {first}-{last}:\n{shown}")
+        return parts
 
     def _diagnosis_request(self, goal: str, blocks: list[BlockOutcome]) -> str:
         parts = [f"Goal: {goal}"]
