@@ -31,9 +31,12 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
    pool, a ledger allocation every operator of the block reserves from. Money is held only
    while a call is in flight, so operators running one after another hold one
    reservation at a time; the ledger refuses a reservation the pool (or the run) cannot
-   cover. A task may spend at most `operator_task_limit_reservations` times its first
-   reservation, across its attempts and its reassignment, as the ledger's task cap
-   (money spent, nothing carved out of the pool). When the block's tasks are done the
+   cover. A task may spend at most 3 times its first reservation plus 1 time the same
+   request's reservation one rung up the model ladder (both in config/budget.json),
+   across its attempts and its reassignment, as the ledger's task cap (money spent,
+   nothing carved out of the pool). At start, a run whose slices plus the operator prompt
+   could pass `operator_max_input_tokens` is refused (`ConfigError`), so no task would
+   stop on its token ceiling before its first call. When the block's tasks are done the
    pool is closed and what is left goes back to the manager. How a failed task goes on
    depends on why it stopped:
    - a task ceiling (`length` or `token_ceiling`: this one task hit its own output
@@ -116,7 +119,7 @@ from rookwise.api.models import (
     TaskResultPayload,
 )
 from rookwise.evidence import EvidenceBundle, EvidenceReport, split_lines, verify
-from rookwise.harness import Harness, Tool
+from rookwise.harness import ConfigError, Harness, Tool
 from rookwise.harness.loop import prepare_messages
 from rookwise.harness.request import ChatRequest, JsonObjectFormat, build_request
 from rookwise.harness.validate import final_result_instructions
@@ -267,8 +270,9 @@ class TeamRun:
     # The director's first diagnosis and whether the one targeted repair was asked for.
     first_diagnosis: Diagnosis | None = None
     diagnosis_repairs: int = 0
-    # Each operator task's estimated first reservation (its limit is a multiple of it).
+    # Each operator task's estimated first reservation and its spending limit.
     first_reservations: dict[str, Decimal] = field(default_factory=dict)
+    task_limits: dict[str, Decimal] = field(default_factory=dict)
 
 
 def summary_ref(run_id: str, block_id: str) -> str:
@@ -430,7 +434,9 @@ class _Team:
         self.systems: dict[str, str] = {}  # operator system prompts by role, for estimates
         self.first_reservation: dict[str, Decimal] = {}  # by operator task id
         self.expected_cost: dict[str, Decimal] = {}  # by operator task id
+        self.task_limit: dict[str, Decimal] = {}  # by operator task id
         self.manager_reservation: Decimal | None = None
+        self._check_config(slicing)
 
     # -- director ------------------------------------------------------------------------
 
@@ -506,9 +512,13 @@ class _Team:
                     number += 1
                     task_id = f"t-{number}"
                     items.append((task_id, task, item))
-                    reservation, expected = self._estimate(task, item)
+                    reservation, expected, next_rung = self._estimate(task, item)
                     self.first_reservation[task_id] = reservation
                     self.expected_cost[task_id] = expected
+                    self.task_limit[task_id] = _floor(
+                        reservation * self.policy.task_limit_first_rung_reservations
+                        + next_rung * self.policy.task_limit_next_rung_reservations
+                    )
             work_items.append(items)
         needs = [self._block_need(items) for items in work_items]
         managers = [
@@ -593,6 +603,7 @@ class _Team:
             first_diagnosis=first_diagnosis,
             diagnosis_repairs=repairs,
             first_reservations=dict(self.first_reservation),
+            task_limits=dict(self.task_limit),
         )
 
     async def _diagnose(
@@ -837,9 +848,7 @@ class _Team:
             self.notes.append(outcome.reason)
             return outcome
         self.store.put(brief_ref(self.run_id, task_id), _brief(task, item))
-        limit = _floor(
-            self.first_reservation[task_id] * self.policy.operator_task_limit_reservations
-        )
+        limit = self.task_limit[task_id]
         spent = ZERO_USD
         spec: OperatorSpec | None = candidates[0]
         tried: list[OperatorSpec] = []
@@ -967,14 +976,15 @@ class _Team:
             )
         return self.manager_reservation
 
-    def _estimate(self, task: PlanTask, item: Slice) -> tuple[Decimal, Decimal]:
-        """The first reservation of the task's cheapest operator (its whole first request
-        through the harness's calibrated estimate plus the role's output ceiling) and its
-        expected cost (the same input plus `expected_output_tokens_per_operator`), at the
-        ledger's prices. Zero when no operator serves the role."""
+    def _estimate(self, task: PlanTask, item: Slice) -> tuple[Decimal, Decimal, Decimal]:
+        """For the task's cheapest operator: its first reservation (its whole first request
+        through the harness's calibrated estimate plus the role's output ceiling), its
+        expected cost (the same input plus `expected_output_tokens_per_operator`) and the
+        same request's reservation one rung up the model ladder (zero at the top), at the
+        ledger's prices. All zero when no operator serves the role."""
         specs = [s for s in self.catalog if s.role == task.role]
         if not specs:
-            return ZERO_USD, ZERO_USD
+            return ZERO_USD, ZERO_USD, ZERO_USD
         spec = min(specs, key=lambda s: (s.price_per_task_est_usd, -s.reputation, s.operator_id))
         if spec.role not in self.systems:
             composed = compose_system_prompt(
@@ -1014,10 +1024,60 @@ class _Team:
             config,
         )
         expected_output = min(self.policy.expected_output_tokens_per_operator, built.max_tokens)
+        tokens = built.input_tokens_estimate
+        higher = config.escalation.next.get(spec.model)
         return (
-            self.ledger.reservation_usd(spec.model, built.input_tokens_estimate, built.max_tokens),
-            self.ledger.reservation_usd(spec.model, built.input_tokens_estimate, expected_output),
+            self.ledger.reservation_usd(spec.model, tokens, built.max_tokens),
+            self.ledger.reservation_usd(spec.model, tokens, expected_output),
+            self.ledger.reservation_usd(higher, tokens, built.max_tokens) if higher else ZERO_USD,
         )
+
+    def _check_config(self, slicing: SlicingConfig) -> None:
+        """Fail fast when a full slice plus the operator prompt could pass the operators'
+        input token ceiling: such a task would stop on `token_ceiling` before its call."""
+        limit = self.policy.operator_max_input_tokens
+        for role in sorted({spec.role for spec in self.catalog}):
+            overhead = self._operator_overhead(role)
+            if slicing.max_slice_tokens + overhead > limit:
+                raise ConfigError(
+                    f"max_slice_tokens ({slicing.max_slice_tokens}, config/slicing.json) plus "
+                    f"the {role} prompt overhead estimate ({overhead} tokens) is more than "
+                    f"operator_max_input_tokens ({limit}, config/budget.json)"
+                )
+
+    def _operator_overhead(self, role: str) -> int:
+        """The estimated input of an operator request without its slice: the system prompt,
+        the protocol block, the task header and an instruction of up to 600 characters."""
+        spec = min(
+            (s for s in self.catalog if s.role == role),
+            key=lambda s: (s.price_per_task_est_usd, -s.reputation, s.operator_id),
+        )
+        if role not in self.systems:
+            composed = compose_system_prompt(
+                role, OPERATOR_PROMPT, config=self.skills_config, skills_dir=self.skills_dir
+            )
+            self.systems[role] = (
+                f"{composed.text}\n\n{final_result_instructions(self.findings_model)}"
+            )
+        user = (
+            f"Task t-0000 ({role}).\n\n{'x' * 600}\n\nRead only the slice you are given: "
+            "a source, lines 1000000-1000000 of 1000000.\n\nInputs:\n\n[store://run/slices/x]\n"
+        )
+        config = self.harness.config
+        messages = prepare_messages(
+            [{"role": "system", "content": self.systems[role]}, {"role": "user", "content": user}],
+            config.model(spec.model).loop_protocol,
+            [],
+        )
+        request = ChatRequest(
+            model=spec.model,
+            messages=messages,
+            run_id=self.run_id,
+            level="operator",
+            task_id="t-0",
+            max_tokens=role_max_output_tokens(role, self.skills_config),
+        )
+        return build_request(request, config).input_tokens_estimate
 
     def _reassignment(
         self,

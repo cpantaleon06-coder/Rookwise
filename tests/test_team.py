@@ -182,7 +182,9 @@ def test_sub_budgets_follow_the_policy_and_unspent_money_goes_back():
             p.task for p in _payloads(team, "task_assigned") if p.task.task_id == task_id
         )
         first = team.first_reservations[task_id]
-        assert first > 0 and task_v1.budget.max_usd == floor(first * 4)  # a limit, not a slice
+        limit = team.task_limits[task_id]  # 3 first-rung plus 1 next-rung reservation
+        assert first > 0 and task_v1.budget.max_usd == limit  # a limit, not a slice
+        assert limit > floor(first * 3)  # the rung up (Lightning to Super) is in it
     assert_budget_tree(book)
 
 
@@ -450,11 +452,8 @@ def test_a_task_ceiling_with_no_other_operator_moves_one_rung_up_the_ladder():
         manager=[summary_reply()],
         auditor=[judgment_reply()],
     )
-    # A rung up costs several Lightning reservations, so the task's limit is raised here.
-    policy = BudgetPolicy(operator_task_limit_reservations=12)
-    team, book = run_stub_team(
-        handler, run_usd="0.5", catalog=[operator("stub-op-a", "0.001")], policy=policy
-    )
+    # The default limit holds one reservation one rung up, so the rung up fits.
+    team, book = run_stub_team(handler, run_usd="0.5", catalog=[operator("stub-op-a", "0.001")])
     (task,) = team.blocks[0].tasks
     assert task.status == "ok" and task.operator_ids == ["stub-op-a", "stub-op-a"]
     hired = {p.agent.agent_id: p.agent.model for p in _payloads(team, "agent_hired")}

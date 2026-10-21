@@ -93,9 +93,11 @@ class BudgetPolicy:
       block's operator pool, a ledger allocation all its operators reserve from. Money is
       held only while a call is in flight, so operators that run one after another hold
       one reservation at a time.
-    - One task may spend at most `operator_task_limit_reservations` times its first
-      reservation (an initial attempt, two repairs, one reassignment), counted as money
-      spent through the ledger's task cap; nothing is carved out of the pool for it.
+    - One task may spend at most `task_limit_first_rung_reservations` times its first
+      reservation plus `task_limit_next_rung_reservations` times the same request's
+      reservation one rung up the model ladder (`escalation.next`), so a reassignment one
+      rung up can fit. It is counted as money spent through the ledger's task cap;
+      nothing is carved out of the pool for it.
     - A failed operator is replaced by the next catalog operator for the same role, up
       to `max_reassignments` times, unless it stopped on its budget.
     """
@@ -103,7 +105,8 @@ class BudgetPolicy:
     auditor_share: Decimal = Decimal("0.25")
     director_share: Decimal = Decimal("0.20")
     manager_share: Decimal = Decimal("0.30")
-    operator_task_limit_reservations: int = 4
+    task_limit_first_rung_reservations: int = 3
+    task_limit_next_rung_reservations: int = 1
     # Expected output of one operator reply, to size the blocks (a labeled placeholder
     # until a measured run replaces it).
     expected_output_tokens_per_operator: int = 1000
@@ -127,8 +130,10 @@ class BudgetPolicy:
             raise ValueError("expected_output_tokens_per_operator must be at least 1")
         if self.manager_max_input_tokens < 1:
             raise ValueError("manager_max_input_tokens must be at least 1")
-        if self.operator_task_limit_reservations < 1:
-            raise ValueError("operator_task_limit_reservations must be at least 1")
+        if self.task_limit_first_rung_reservations < 1:
+            raise ValueError("task_limit_first_rung_reservations must be at least 1")
+        if self.task_limit_next_rung_reservations < 0:
+            raise ValueError("task_limit_next_rung_reservations must not be negative")
 
 
 def load_budget_policy(path: Path = BUDGET_PATH) -> BudgetPolicy:

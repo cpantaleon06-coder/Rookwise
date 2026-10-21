@@ -123,7 +123,7 @@ def test_a_runaway_task_stops_at_its_limit_and_the_pool_keeps_the_rest():
     # with a limit of three reservations its second repair no longer fits.
     bad = text_reply(json.dumps({"status": "ok", "output": {}}), prompt=4000, completion=256)
     good = [text_reply(findings_payload(), completion=20) for _ in range(54)]
-    policy = BudgetPolicy(operator_task_limit_reservations=3)
+    policy = BudgetPolicy(task_limit_next_rung_reservations=0)  # a limit of 3 first-rung
     team, book, handler = _run([bad, bad, *good], "0.10", policy=policy)
     first, *rest = [t for b in team.blocks for t in b.tasks]
     assert first.status == "failed" and all(t.status == "ok" for t in rest)
