@@ -287,3 +287,6 @@ benchmarks/log_filter/corpus/*/*.synthetic.*
 
 # Generated SYNTHETIC incident logs (about 6 MB; rebuild with scripts/gen_incidents.py, hashes in benchmarks/incidents/manifest.json)
 benchmarks/incidents/*/logs/
+
+# Claude Code session logs (local only)
+CC-Session-Logs/
