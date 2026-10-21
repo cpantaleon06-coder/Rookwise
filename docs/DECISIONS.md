@@ -91,6 +91,12 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | The director's plan prompt shows a literal example of the nested final result (decided by the user, 2026-10-21): one line with placeholders in angle brackets, one block and one task, and a sentence that "summary" and "blocks" go inside "output" and "notes" comes after it at the top level, the brace the first inc-01 plan reply missed. The JSON Schema text is unchanged. | core/team/flow.py |
 | A record run can stop after the director's plan (decided by the user, 2026-10-21): `scripts/run_incident.py --stop-after plan`, through `run_team(stop_after="plan")`. Implementation choices, pending the user's review: the run ends before any allocation and emits `run_finished` with `status: "cancelled"` and `partial: true` (values the contract already has, so it is unchanged); the plan call keeps its re-prompts, repairs and escalations, so it costs the plan call only but possibly more than one request; the reports go to `<mode>-plan/` so a full run's reports are not overwritten. | core/team/flow.py; scripts/run_incident.py |
 
+## Operator output estimate (2026-10-21)
+
+| Decision | Where |
+| --- | --- |
+| `expected_output_tokens_per_operator` changed from 1000 (a placeholder) to 1889 tokens, the mean operator output of the second smoke record run (`runs/cassettes/team_smoke.run2.json`). Status: measured on the smoke bundle, not yet on inc-01 operators. | config/budget.json; core/team/config.py |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
