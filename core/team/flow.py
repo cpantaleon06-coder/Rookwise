@@ -21,9 +21,12 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
 1. The director reads the run budget from the ledger and makes the plan call, drawn from
    the run itself.
 2. It hires the auditor and allocates its share, keeps the director's share free in the
-   run for its diagnosis, then hires one manager per block and splits the rest among the
-   blocks in proportion to their estimated work: each slice's first operator reservation
-   (`BudgetPolicy`, config/budget.json).
+   run for its diagnosis, and hires one manager per block. The blocks run from the
+   smallest estimated need to the largest, each allocated just before it runs by max-min
+   fairness: the smaller of its need and an equal share of what the run has left for the
+   remaining blocks, and the rest for the last one (`BudgetPolicy`, config/budget.json).
+   Money a block leaves unspent goes back to the run when it closes, so later blocks can
+   use it.
 3. A manager keeps its own share of the block and puts the rest in the block's operator
    pool, a ledger allocation every operator of the block reserves from. Money is held only
    while a call is in flight, so operators running one after another hold one
@@ -288,13 +291,13 @@ def _floor(value: Decimal) -> Decimal:
     return to_micro_usd(value, ROUND_FLOOR)
 
 
-def _split(total: Decimal, work: list[Decimal]) -> list[Decimal]:
-    """`total` split in proportion to `work` (equally when there is no work), rounded
-    down so the parts never pass the total."""
-    whole = sum(work, ZERO_USD)
-    if whole <= 0:
-        return [_floor(total / len(work)) for _ in work] if work else []
-    return [_floor(total * part / whole) for part in work]
+def _fair_share(available: Decimal, need: Decimal, remaining: int) -> Decimal:
+    """Max-min fairness, one block at a time from the smallest need: the smaller of the
+    block's need and an equal share of what is left for the `remaining` blocks; the last
+    block gets all that is left. Rounded down, so it never passes `available`."""
+    if remaining <= 1:
+        return _floor(available)
+    return _floor(min(need, available / remaining))
 
 
 def _finding_entry(run_id: str, task: TaskOutcome) -> str:
@@ -426,6 +429,8 @@ class _Team:
         self.plan: Plan | None = None
         self.systems: dict[str, str] = {}  # operator system prompts by role, for estimates
         self.first_reservation: dict[str, Decimal] = {}  # by operator task id
+        self.expected_cost: dict[str, Decimal] = {}  # by operator task id
+        self.manager_reservation: Decimal | None = None
 
     # -- director ------------------------------------------------------------------------
 
@@ -499,23 +504,28 @@ class _Team:
             for task in block.tasks:
                 for item in self.slices_of[task.source_id]:
                     number += 1
-                    items.append((f"t-{number}", task, item))
-                    self.first_reservation[f"t-{number}"] = self._estimate(task, item)
+                    task_id = f"t-{number}"
+                    items.append((task_id, task, item))
+                    reservation, expected = self._estimate(task, item)
+                    self.first_reservation[task_id] = reservation
+                    self.expected_cost[task_id] = expected
             work_items.append(items)
-        work = [
-            sum((self.first_reservation[i[0]] for i in items), ZERO_USD) for items in work_items
+        needs = [self._block_need(items) for items in work_items]
+        managers = [
+            self._hire(f"a-manager-b-{index}", self.roles.manager, director.agent_id)
+            for index in range(1, len(plan.blocks) + 1)
         ]
-        amounts = _split(max(free - auditor_share - director_share, ZERO_USD), work)
-        managers: list[tuple[AgentNode, Allocation]] = []
-        for index, amount in enumerate(amounts, 1):
-            manager = self._hire(f"a-manager-b-{index}", self.roles.manager, director.agent_id)
-            budget = self._allocate(manager, director, f"budget:b-{index}", amount)
-            managers.append((manager, budget))
-        blocks: list[BlockOutcome] = []
-        for index, block in enumerate(plan.blocks, 1):
-            manager, budget = managers[index - 1]
-            items = work_items[index - 1]
-            blocks.append(await self._manage(f"b-{index}", block, budget, items, manager, director))
+        order = sorted(range(len(plan.blocks)), key=lambda i: (needs[i], i))
+        outcomes: dict[int, BlockOutcome] = {}
+        for position, index in enumerate(order):
+            available = max(self.ledger.free(self.run_id) - director_share, ZERO_USD)
+            amount = _fair_share(available, needs[index], len(order) - position)
+            manager = managers[index]
+            budget = self._allocate(manager, director, f"budget:b-{index + 1}", amount)
+            outcomes[index] = await self._manage(
+                f"b-{index + 1}", plan.blocks[index], budget, work_items[index], manager, director
+            )
+        blocks = [outcomes[index] for index in range(len(plan.blocks))]  # in plan order
 
         diagnosis, missing = await self._diagnose(goal, director, blocks)
         first_diagnosis, repairs = diagnosis, 0
@@ -732,7 +742,7 @@ class _Team:
         manager: AgentNode,
         director: AgentNode,
     ) -> BlockOutcome:
-        own = _floor(budget.usd * self.policy.manager_share)
+        own = self._manager_keeps(budget.usd)
         outcomes = []
         if items:
             pool = self._allocate(
@@ -927,13 +937,44 @@ class _Team:
             spec = following
         return outcome
 
-    def _estimate(self, task: PlanTask, item: Slice) -> Decimal:
-        """The first reservation of the task's cheapest operator: its whole first request
-        through the harness's calibrated estimate plus the role's output ceiling, at the
+    def _block_need(self, items: list[tuple[str, PlanTask, Slice]]) -> Decimal:
+        """What a block needs so its operators can run one after another at their
+        expected cost (the expected costs plus one reservation's headroom for the call in
+        flight), plus what its manager keeps (`_manager_keeps`)."""
+        if not items:
+            return ZERO_USD
+        expected = sum((self.expected_cost[i[0]] for i in items), ZERO_USD)
+        headroom = max(self.first_reservation[i[0]] - self.expected_cost[i[0]] for i in items)
+        operators = expected + max(headroom, ZERO_USD)
+        share = self.policy.manager_share
+        by_share = operators * share / (1 - share) if share < 1 else operators
+        return _floor(operators + max(by_share, self._manager_reservation()))
+
+    def _manager_keeps(self, block_usd: Decimal) -> Decimal:
+        """The manager's part of its block: `manager_share`, but at least one estimated
+        consolidation reservation, so a small block's manager can still consolidate."""
+        share = _floor(block_usd * self.policy.manager_share)
+        return min(max(share, self._manager_reservation()), block_usd)
+
+    def _manager_reservation(self) -> Decimal:
+        """One consolidation call with a request of counts only, at the manager's model
+        and output ceiling. Findings make the real request larger."""
+        if self.manager_reservation is None:
+            role = self.roles.manager
+            tokens = self._manager_tokens(_consolidation_request("Block goal: x", [], 1, 1))
+            self.manager_reservation = self.ledger.reservation_usd(
+                role.model, tokens, role.max_output_tokens
+            )
+        return self.manager_reservation
+
+    def _estimate(self, task: PlanTask, item: Slice) -> tuple[Decimal, Decimal]:
+        """The first reservation of the task's cheapest operator (its whole first request
+        through the harness's calibrated estimate plus the role's output ceiling) and its
+        expected cost (the same input plus `expected_output_tokens_per_operator`), at the
         ledger's prices. Zero when no operator serves the role."""
         specs = [s for s in self.catalog if s.role == task.role]
         if not specs:
-            return ZERO_USD
+            return ZERO_USD, ZERO_USD
         spec = min(specs, key=lambda s: (s.price_per_task_est_usd, -s.reputation, s.operator_id))
         if spec.role not in self.systems:
             composed = compose_system_prompt(
@@ -972,8 +1013,10 @@ class _Team:
             ),
             config,
         )
-        return self.ledger.reservation_usd(
-            spec.model, built.input_tokens_estimate, built.max_tokens
+        expected_output = min(self.policy.expected_output_tokens_per_operator, built.max_tokens)
+        return (
+            self.ledger.reservation_usd(spec.model, built.input_tokens_estimate, built.max_tokens),
+            self.ledger.reservation_usd(spec.model, built.input_tokens_estimate, expected_output),
         )
 
     def _reassignment(

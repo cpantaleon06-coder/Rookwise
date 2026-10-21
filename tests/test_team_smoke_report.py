@@ -54,7 +54,7 @@ def _scripted(module, overrides):
             if text is not None:
                 return httpx.Response(
                     200,
-                    content=module._sse(text, 4000, 300),
+                    content=module._sse(text, 300, 50),
                     headers={"content-type": "text/event-stream"},
                 )
         return stub(request)
@@ -99,12 +99,14 @@ def test_validation_and_protocol_errors_keep_the_full_reply_text(monkeypatch):
     monkeypatch.setattr(module, "_stub_transport", lambda: transport)
     report, _, calls = asyncio.run(module.run("estimate", module.load_scenario()))
     found = {(e["task_id"], e["kind"]): e for e in report["error_replies"]}
-    assert set(found) == {("t-1", "validation_error"), ("t-2", "protocol_error")}
+    # Which task gets operator calls 4 to 6 depends on the budget; only one protocol error.
+    (protocol_key,) = [key for key in found if key[1] == "protocol_error"]
+    assert set(found) == {("t-1", "validation_error"), protocol_key}
     invalid = found[("t-1", "validation_error")]
     assert invalid["model"] == "nemotron-3.5-lightning"
     assert [r["text"] for r in invalid["replies"]] == [long_junk, _multi_line_payload()]
     assert any("single line" in e for e in invalid["validation_errors"])
-    protocol = found[("t-2", "protocol_error")]
+    protocol = found[protocol_key]
     assert [r["text"] for r in protocol["replies"]] == [JUNK] * 3
     assert all(r["model"] == "nemotron-3.5-lightning" for r in protocol["replies"])
     # The multi-line quote never reached the audit: only the repaired claims did.

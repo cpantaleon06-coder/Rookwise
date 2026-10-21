@@ -79,9 +79,16 @@ class BudgetPolicy:
     - Of what is free after the plan, `auditor_share` goes to the auditor's allocation
       and `director_share` stays free in the run for the director's diagnosis (and its one
       repair); the managers cannot spend either.
-    - The rest is split among the plan's blocks in proportion to the estimated cost of
-      each block's work: every slice's first operator reservation (its prompt through the
-      calibrated input estimate plus the role's output ceiling).
+    - The rest goes to the plan's blocks by max-min fairness over their estimated need,
+      one block at a time from the smallest need to the largest: each gets the smaller of
+      its need and an equal share of what remains, and the last (largest) block gets the
+      rest. A block's need is what its pool needs to run its slices one after another:
+      their expected costs (the calibrated input estimate plus
+      `expected_output_tokens_per_operator`) plus one reservation's headroom for the call
+      in flight, divided by 1 - `manager_share`; so a block with work gets at least one
+      operator reservation when the cap allows it. Blocks run in that order and are
+      allocated just before they run, so money an earlier block left unspent goes back to
+      the run and reaches the later ones.
     - A manager keeps `manager_share` of its block for its own calls; the rest is the
       block's operator pool, a ledger allocation all its operators reserve from. Money is
       held only while a call is in flight, so operators that run one after another hold
@@ -97,6 +104,9 @@ class BudgetPolicy:
     director_share: Decimal = Decimal("0.20")
     manager_share: Decimal = Decimal("0.30")
     operator_task_limit_reservations: int = 4
+    # Expected output of one operator reply, to size the blocks (a labeled placeholder
+    # until a measured run replaces it).
+    expected_output_tokens_per_operator: int = 1000
     max_reassignments: int = 1
     max_blocks: int = 5
     max_tasks_per_block: int = 5
@@ -113,6 +123,8 @@ class BudgetPolicy:
                 raise ValueError(f"{name} must be between 0 and 1, not {share}")
         if self.auditor_share + self.director_share >= 1:
             raise ValueError("auditor_share + director_share must leave money for the blocks")
+        if self.expected_output_tokens_per_operator < 1:
+            raise ValueError("expected_output_tokens_per_operator must be at least 1")
         if self.manager_max_input_tokens < 1:
             raise ValueError("manager_max_input_tokens must be at least 1")
         if self.operator_task_limit_reservations < 1:

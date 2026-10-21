@@ -103,14 +103,16 @@ def test_a_normal_run_goes_through_every_level():
         ("a-op-t-2", "operator", "a-manager-b-2"),
         ("a-op-t-3", "operator", "a-manager-b-2"),
     ]
-    # Each block, then its operators' pool (held by the manager), closed in reverse.
+    # Blocks run from the smallest need (b-1: one task) and are allocated just before
+    # they run: the block, then its operators' pool (held by the manager), closed in
+    # reverse.
     assert _allocations(team) == [
         ("allocated", "a-auditor", "a-director"),
         ("allocated", "a-manager-b-1", "a-director"),
-        ("allocated", "a-manager-b-2", "a-director"),
         ("allocated", "a-manager-b-1", "a-manager-b-1"),
         ("released", "a-manager-b-1", "a-manager-b-1"),
         ("released", "a-manager-b-1", "a-director"),
+        ("allocated", "a-manager-b-2", "a-director"),
         ("allocated", "a-manager-b-2", "a-manager-b-2"),
         ("released", "a-manager-b-2", "a-manager-b-2"),
         ("released", "a-manager-b-2", "a-director"),
@@ -222,14 +224,17 @@ def test_the_director_running_out_of_budget_fails_the_run_cleanly():
 
 
 def test_a_manager_running_out_of_budget_leaves_a_partial_block():
+    # The manager keeps one estimated consolidation reservation (about USD 0.025 on Ultra
+    # with 8,192 output tokens), estimated from a request of counts only. This finding's
+    # long claim makes the real request about 16,000 tokens larger, so its reservation
+    # passes what the block has.
+    long_claim = dict(GOOD_CLAIM, text="[stub] " + "a long claim " * 3500)
     handler = TeamHandler(
         director=[plan_reply(block(1))],
-        operator=[findings_reply(GOOD_CLAIM)],
+        operator=[findings_reply(long_claim)],
         auditor=[judgment_reply()],
     )
-    # The manager's allocation is about USD 0.0224; its call's 8,192 output tokens alone
-    # cost USD 0.0246. The operator and the auditor get many times what they need.
-    team, book = run_stub_team(handler, run_usd="0.03")
+    team, book = run_stub_team(handler, run_usd="0.06")
     (outcome,) = team.blocks
     assert outcome.status == "partial" and outcome.summary is None
     assert outcome.tasks[0].status == "ok"

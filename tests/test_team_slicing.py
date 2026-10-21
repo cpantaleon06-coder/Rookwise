@@ -87,11 +87,13 @@ def test_each_slice_goes_to_its_own_operator_with_only_that_slice():
     )
     team, _ = _run(handler)
     assigned = _payloads(team, "task_assigned")
-    assert [a.task.inputs for a in assigned] == [[slice_ref(team.run_id, s)] for s in SLICES]
-    assert [t.slice for b in team.blocks for t in b.tasks] == list(SLICES)
+    # The diff's block has the smaller need, so it runs first; then the log's slices.
+    in_run_order = [s for s in SLICES if s.source_id == "deploy.diff"] + APP_SLICES
+    assert [a.task.inputs for a in assigned] == [[slice_ref(team.run_id, s)] for s in in_run_order]
+    assert [t.slice for b in team.blocks for t in b.tasks] == list(SLICES)  # plan order
     bodies = [b for b in handler.bodies if "Task t-" in b["messages"][-1]["content"]]
     assert len(bodies) == len(SLICES)
-    for body, item in zip(bodies, SLICES, strict=True):
+    for body, item in zip(bodies, in_run_order, strict=True):
         user = body["messages"][-1]["content"]
         assert item.text in user
         assert f"lines {item.line_start}-{item.line_end} of {item.line_count}" in user
@@ -127,7 +129,7 @@ def test_the_plan_must_read_every_source_and_is_repaired_when_it_does_not():
 def test_lines_no_completed_task_read_are_reported_as_unread():
     failed = text_reply(findings_payload(status="failed"))
     replies = [_empty_findings() for _ in SLICES]
-    replies[1] = failed  # the second slice of the log
+    replies[2] = failed  # the diff's block runs first, so this is the log's second slice
     no_ladder = dataclasses.replace(load_config(env={}), escalation=EscalationConfig(0, {}))
     handler = _handler(
         director=[_plan()],
@@ -202,6 +204,6 @@ def test_the_task_carries_the_slice_reference_in_its_inputs_only():
         auditor=[judgment_reply()],
     )
     team, _ = _run(handler)
-    task = _payloads(team, "task_assigned")[0].task
+    task = next(p.task for p in _payloads(team, "task_assigned") if p.task.task_id == "t-1")
     assert task.inputs == [f"store://{team.run_id}/slices/{APP_SLICES[0].slice_id}"]
     assert json.loads(task.model_dump_json())["inputs"] == task.inputs  # contract v1 shape

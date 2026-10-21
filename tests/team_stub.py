@@ -367,6 +367,8 @@ def assert_budget_tree(book) -> None:
         children = [a.spent_usd for a in report.allocations if a.parent == node.id]
         assert sum(children, Decimal(0)) <= node.spent_usd <= node.usd, node.id
         assert node.spent_usd + node.released_usd == node.usd, node.id
-    top = [a.usd for a in report.allocations if a.parent is None]
+    # Blocks are allocated one after another and reuse what earlier ones left, so the
+    # cap bounds what was spent through the top-level allocations.
+    top = [a.spent_usd for a in report.allocations if a.parent is None]
     assert sum(top, Decimal(0)) <= report.caps.run_usd
     assert book.free(RUN_ID) + report.spent_usd == report.caps.run_usd
