@@ -235,6 +235,7 @@ def run_stub_team(
     context_sources=(),
     ledger=None,
     store=None,
+    stop_after=None,
 ):
     book = ledger if ledger is not None else InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
@@ -264,6 +265,7 @@ def run_stub_team(
                 skills_dir=SKILLS_DIR,
                 policy=policy,
                 clock=ticking_clock(),
+                stop_after=stop_after,
             )
 
     return asyncio.run(main()), book

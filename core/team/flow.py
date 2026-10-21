@@ -251,7 +251,8 @@ class UnreadRange:
 @dataclass
 class TeamRun:
     run_id: str
-    status: Literal["finished", "failed"]
+    # "cancelled": the caller stopped the run on purpose (`stop_after`).
+    status: Literal["finished", "failed", "cancelled"]
     partial: bool
     plan: Plan | None
     blocks: list[BlockOutcome]
@@ -364,11 +365,15 @@ async def run_team(
     clock: Callable[[], datetime] | None = None,
     slicing: SlicingConfig | None = None,
     context_sources: Sequence[str] = (),
+    stop_after: Literal["plan"] | None = None,
 ) -> TeamRun:
     """Run the hierarchy for one goal. The run must already be open in the harness's
     ledger (the administrator layer opens it with the run cap). `slicing` defaults to
     config/slicing.json. `context_sources` are the source ids the director reads in full
-    for its diagnosis (for example the ticket and the runbook)."""
+    for its diagnosis (for example the ticket and the runbook). `stop_after="plan"` ends
+    the run once the director's plan is valid, before any allocation or other call: it
+    finishes as `cancelled` and partial, and costs only the plan call (with its re-prompts,
+    repairs and escalations)."""
     unknown = [s for s in context_sources if s not in evidence.sources]
     if unknown:
         raise ValueError(f"context sources not in the evidence bundle: {unknown}")
@@ -386,6 +391,7 @@ async def run_team(
         simulated_case=simulated_case,
         slicing=slicing or load_slicing_config(),
         context_sources=tuple(context_sources),
+        stop_after=stop_after,
     )
     return await team.run(goal)
 
@@ -407,8 +413,10 @@ class _Team:
         simulated_case: bool,
         slicing: SlicingConfig,
         context_sources: tuple[str, ...] = (),
+        stop_after: Literal["plan"] | None = None,
     ) -> None:
         self.run_id = run_id
+        self.stop_after = stop_after
         self.harness = harness
         self.ledger = harness.ledger
         self.store = store
@@ -502,6 +510,12 @@ class _Team:
         if run_stop is not None:  # the plan call ran over the run cap, which stopped the run
             self.notes.append("The run budget was used up by the director's plan call.")
             return self._fail_on_budget(director, run_stop, self.notes[-1])
+        if self.stop_after == "plan":
+            self.notes.append(
+                "Stopped after the director's plan, as asked: no manager, operator, auditor "
+                "or diagnosis call ran."
+            )
+            return self._stopped(plan)
         # Every agent is hired before its allocation, so its budget_allocation event can
         # name it. The amounts fit what is free, so no allocation here is refused.
         auditor = self._hire("a-auditor", self.roles.auditor, None)
@@ -1234,6 +1248,35 @@ class _Team:
                 "requested_usd": format_usd(stop.requested_usd),
             }
         return self._fail("budget_exhausted", message, details)
+
+    def _stopped(self, plan: Plan) -> TeamRun:
+        """The run ended on purpose after its plan: `cancelled` in the contract's terms,
+        and partial, since no slice was read."""
+        report = self.ledger.report(self.run_id)
+        self.log.emit(
+            "run_finished",
+            RunFinishedPayload(
+                status="cancelled",
+                partial=True,
+                spent_usd=report.spent_usd,
+                predicted_usd=sum((e.usd_predicted for e in report.entries), ZERO_USD),
+                package_url=None,
+            ),
+        )
+        return TeamRun(
+            run_id=self.run_id,
+            status="cancelled",
+            partial=True,
+            plan=plan,
+            blocks=[],
+            audit=None,
+            evidence=None,
+            notes=self.notes,
+            events=self.log.events,
+            report=report,
+            unread_slices=self._unread([]),
+            empty_sources=list(self.slices.empty_sources),
+        )
 
     def _fail(self, code: str, message: str, details: dict[str, Any]) -> TeamRun:
         report = self.ledger.report(self.run_id)

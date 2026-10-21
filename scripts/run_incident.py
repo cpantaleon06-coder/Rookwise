@@ -20,7 +20,12 @@ Modes:
   HARNESS_MODE=record). It refuses to start unless --approve-cap equals --run-usd.
 - replay: replays a recorded cassette with a transport that fails on any request.
 
-Each mode writes runs/incidents/<id>/<mode>/: report.json, events.json and calls.json.
+`--stop-after plan` ends the run once the director's plan is valid (in any mode): no other
+agent is called, so a record run costs the plan call only (with its re-prompts, repairs
+and escalations). The run finishes as `cancelled` and partial.
+
+Each mode writes runs/incidents/<id>/<mode>/ (<mode>-plan/ with `--stop-after plan`, so a
+full run's reports are not overwritten): report.json, events.json and calls.json.
 Nothing from .env and no request header is printed or written.
 
 Usage:
@@ -28,6 +33,7 @@ Usage:
     python scripts/run_incident.py inc-01 estimate --run-usd 0.50
     python scripts/run_incident.py inc-01 estimate --empty-slices 0.8
     HARNESS_MODE=record python scripts/run_incident.py inc-01 record --approve-cap 0.10
+    python scripts/run_incident.py inc-01 estimate --stop-after plan
     HARNESS_MODE=replay python scripts/run_incident.py inc-01 replay
 """
 
@@ -307,9 +313,11 @@ async def run(
     config: dict[str, Any] | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
     empty_fraction: float = 0.0,
+    stop_after: str | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """One run. `transport` replaces the network in record mode (tests only);
-    `empty_fraction` is the estimate stub's share of claim-free slices."""
+    `empty_fraction` is the estimate stub's share of claim-free slices; `stop_after`
+    "plan" ends the run after the director's plan."""
     config = config or load_benchmark_config()
     run_id = f"run_{incident_id.replace('-', '')}"
     ledger = InMemoryLedger()
@@ -392,10 +400,12 @@ async def run(
             evidence=bundle,
             mode="recorded" if mode == "replay" else "live",
             context_sources=context,
+            stop_after=stop_after,
         )
     total_s = time.perf_counter() - started
     scored = score_run(team, truth, bundle=bundle)
     report = build_report(mode, incident_id, team, ledger.report(run_id), calls, total_s, scored)
+    report["stop_after"] = stop_after
     if stub is not None:
         report["stub_output_tokens"] = stub
         report["stub_empty_slices_fraction"] = empty_fraction
@@ -581,6 +591,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="FRACTION",
         help="estimate only: the share of slices whose stub reply has no claim",
     )
+    parser.add_argument(
+        "--stop-after",
+        choices=("plan",),
+        help="end the run after the director's plan (a record run then costs the plan call)",
+    )
     args = parser.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # model text is not always cp1252 (Windows)
     run_usd = _usd(args.run_usd)
@@ -627,9 +642,11 @@ def main(argv: list[str] | None = None) -> int:
             cassette=cassette,
             config=config,
             empty_fraction=args.empty_slices,
+            stop_after=args.stop_after,
         )
     )
-    out = OUT_DIR / args.incident_id / args.mode
+    folder = f"{args.mode}-{args.stop_after}" if args.stop_after else args.mode
+    out = OUT_DIR / args.incident_id / folder
     out.mkdir(parents=True, exist_ok=True)
     for name, data in (("report", report), ("events", events), ("calls", calls)):
         text = json.dumps(data, indent=2, default=str, ensure_ascii=False) + "\n"

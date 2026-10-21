@@ -214,3 +214,51 @@ def test_an_approved_record_run_still_needs_the_record_mode(module, monkeypatch,
     monkeypatch.setattr(module, "load_bundle", lambda *a, **k: pytest.fail("a run started"))
     assert module.main(["inc-01", "record", "--approve-cap", "0.10"]) == 2
     assert "HARNESS_MODE=record" in capsys.readouterr().out
+
+
+def test_stop_after_plan_makes_only_the_plan_call(module, tmp_path):
+    report, events, calls = asyncio.run(
+        module.run(
+            "estimate",
+            "inc-test",
+            bundle=BUNDLE,
+            truth=TRUTH,
+            run_usd="0.50",
+            cassette=tmp_path / "unused.json",
+            stop_after="plan",
+        )
+    )
+    assert [(c["level"], c["task_id"]) for c in calls] == [("director", "plan")]
+    assert report["stop_after"] == "plan"
+    assert (report["status"], report["partial"]) == ("cancelled", True)
+    assert report["spent_usd"] == report["by_model"]["nemotron-3-ultra"]["usd_real"]
+    assert report["operator_calls_run"] == 0 and report["managers"] == []
+    assert {u["source_id"] for u in report["unread_slices"]} == set(SOURCES)  # nothing read
+    assert "Stopped after the director's plan" in report["notes"][-1]
+    finished = events[-1]
+    assert finished["type"] == "run_finished"
+    assert (finished["payload"]["status"], finished["payload"]["partial"]) == ("cancelled", True)
+    assert not any(e["type"] == "budget_allocation" for e in events)
+
+
+def test_the_cli_passes_stop_after_and_writes_beside_the_full_run(module, monkeypatch, tmp_path):
+    seen = {}
+
+    async def fake_run(mode, incident_id, **kwargs):
+        seen.update(kwargs, mode=mode)
+        return {"status": "cancelled"}, [], []
+
+    monkeypatch.setattr(module, "run", fake_run)
+    monkeypatch.setattr(module, "OUT_DIR", tmp_path)
+    monkeypatch.setattr(module, "load_bundle", lambda *a, **k: BUNDLE)
+    monkeypatch.setattr(module, "load_ground_truth", lambda *a, **k: TRUTH)
+    assert module.main(["inc-test", "estimate", "--stop-after", "plan"]) == 0
+    assert seen["stop_after"] == "plan" and seen["mode"] == "estimate"
+    assert (tmp_path / "inc-test" / "estimate-plan" / "report.json").exists()
+    assert not (tmp_path / "inc-test" / "estimate").exists()  # a full run's reports stay
+
+
+def test_stop_after_takes_only_plan(module, capsys):
+    with pytest.raises(SystemExit):
+        module.main(["inc-01", "estimate", "--stop-after", "operators"])
+    assert "invalid choice" in capsys.readouterr().err
