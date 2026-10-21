@@ -318,6 +318,8 @@ async def run(
 # -- the report ---------------------------------------------------------------------------
 
 REPLY_TEXT = "_reply_text"  # a call's full reply text, kept until the report is built
+# Loop statuses whose replies broke the protocol (reported as kind "protocol_error").
+PROTOCOL_STATUSES = ("protocol_error", "repeated_invalid_reply")
 
 
 def _checked(report: Any) -> dict[tuple[str, int], Any]:
@@ -409,7 +411,7 @@ def error_replies(
         queue = queues[attempt.task_id]
         own, queues[attempt.task_id] = queue[: attempt.model_calls], queue[attempt.model_calls :]
         validation = attempt.loop_status == "final" and bool(attempt.validation_errors)
-        if not validation and attempt.loop_status != "protocol_error":
+        if not validation and attempt.loop_status not in PROTOCOL_STATUSES:
             continue
         found.append(
             {

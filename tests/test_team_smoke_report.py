@@ -92,9 +92,11 @@ def test_validation_and_protocol_errors_keep_the_full_reply_text(monkeypatch):
     module = _script()
     long_junk = JUNK + " x" * 3000  # never truncated
     # t-1: an invalid reply, then a multi-line quote (a validation error), then the stub's
-    # good reply as the repair. t-2: three invalid replies end its attempt as a protocol
-    # error, and the stub answers on the next model of the ladder.
-    overrides = {1: long_junk, 2: _multi_line_payload(), 4: JUNK, 5: JUNK, 6: JUNK}
+    # good reply as the repair. t-2: three different invalid replies end its attempt as a
+    # protocol error (identical ones would stop it sooner), and the stub answers on the
+    # next model of the ladder.
+    junk = [JUNK, f"{JUNK} (2)", f"{JUNK} (3)"]
+    overrides = {1: long_junk, 2: _multi_line_payload(), 4: junk[0], 5: junk[1], 6: junk[2]}
     transport = _scripted(module, overrides)
     monkeypatch.setattr(module, "_stub_transport", lambda: transport)
     report, _, calls = asyncio.run(module.run("estimate", module.load_scenario()))
@@ -107,7 +109,7 @@ def test_validation_and_protocol_errors_keep_the_full_reply_text(monkeypatch):
     assert [r["text"] for r in invalid["replies"]] == [long_junk, _multi_line_payload()]
     assert any("single line" in e for e in invalid["validation_errors"])
     protocol = found[protocol_key]
-    assert [r["text"] for r in protocol["replies"]] == [JUNK] * 3
+    assert [r["text"] for r in protocol["replies"]] == junk
     assert all(r["model"] == "nemotron-3.5-lightning" for r in protocol["replies"])
     # The multi-line quote never reached the audit: only the repaired claims did.
     assert all("\n" not in c["quote"] for c in report["citations"])

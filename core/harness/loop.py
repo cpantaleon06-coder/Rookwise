@@ -12,7 +12,12 @@ and cassettes apply unchanged. Two protocols, chosen per model in config/harness
   answer is a reply without tool calls whose content is one JSON object.
 
 Limits (config `loop`): `max_steps` model steps per run; `max_protocol_errors` replies
-that break the protocol (fed back to the model each time); `max_repeats` repeats of
+that break the protocol (fed back to the model each time; for a reply that is not valid
+JSON the feedback holds the parser's message, its position, the text around it and the
+brackets still open at the end, and asks for the complete corrected JSON only). A reply
+byte-identical to the previous invalid reply ends the run at once with status
+`repeated_invalid_reply`, instead of paying again for the same feedback; the escalation
+ladder then moves to the next model, if there is one. `max_repeats` repeats of
 one identical tool call; `tool_timeout_s` per tool; tool results longer than
 `tool_result_max_tokens` are truncated before they go back to the model.
 
@@ -59,6 +64,7 @@ LoopStatus = Literal[
     "final",
     "step_limit",
     "protocol_error",
+    "repeated_invalid_reply",
     "repeated_tool_call",
     "length",
     "token_ceiling",
@@ -68,6 +74,10 @@ LoopStatus = Literal[
     "api_error",
 ]
 PROTOCOL_HEADING = "## Tool protocol"
+INVALID_JSON = "the reply is not valid JSON"
+_EXCERPT_BEFORE, _EXCERPT_AFTER = 60, 20
+_ERROR_MARK = "<<ERROR HERE>>"
+_CLOSERS = {"}": "{", "]": "["}
 _FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
 
 
@@ -181,7 +191,54 @@ def parse_json_text(text: str) -> tuple[Any, str | None]:
     try:
         return json.loads(candidate), None
     except json.JSONDecodeError as error:
-        return None, f"the reply is not valid JSON ({error.msg} at character {error.pos})"
+        return None, describe_json_error(candidate, error)
+
+
+def describe_json_error(text: str, error: json.JSONDecodeError) -> str:
+    """The parser's message and position, the text around it with the position marked,
+    and the brackets still open at the end of the text, for a re-prompt the model can act
+    on. Nothing is repaired."""
+    if error.pos >= len(text):
+        where = f"the end of the reply (character {error.pos} of {len(text)})"
+    else:
+        where = f"line {error.lineno}, column {error.colno} (character {error.pos} of {len(text)})"
+    start, end = max(error.pos - _EXCERPT_BEFORE, 0), error.pos + _EXCERPT_AFTER
+    excerpt = (
+        f"{'...' if start else ''}{text[start : error.pos]}{_ERROR_MARK}"
+        f"{text[error.pos : end]}{'...' if end < len(text) else ''}"
+    )
+    description = f"{INVALID_JSON}: {error.msg} at {where}. The text around it: {excerpt}"
+    still_open = open_brackets(text)
+    if still_open:
+        description += (
+            f". At the end of the reply {len(still_open)} bracket(s) are still open, "
+            f"outermost first: {' '.join(still_open)}"
+        )
+    return description
+
+
+def open_brackets(text: str) -> list[str]:
+    """The `{` and `[` still open at the end of `text`, outermost first, outside JSON
+    strings. Empty when a closer does not match its opener: the count would mislead."""
+    stack: list[str] = []
+    in_string = escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in "{[":
+            stack.append(char)
+        elif char in _CLOSERS:
+            if not stack or stack[-1] != _CLOSERS[char]:
+                return []
+            stack.pop()
+    return stack
 
 
 def parse_action(text: str) -> tuple[_ToolAction | _FinalAction | None, str | None]:
@@ -288,6 +345,7 @@ class ToolLoop:
         outcome = LoopOutcome(status="step_limit", model=request.model, protocol=protocol)
         seen: Counter[str] = Counter()
         protocol_errors = 0
+        last_invalid: str | None = None
         context = ToolContext(request.run_id, request.task_id)
         try:
             while outcome.steps < self._limits.max_steps:
@@ -311,6 +369,15 @@ class ToolLoop:
                     outcome.trace.append({"step": outcome.steps, "kind": "final"})
                     break
                 if problem is not None:
+                    if reply.text == last_invalid:
+                        # The same bytes again: the feedback did not change the reply,
+                        # and sending it once more would pay for the same answer.
+                        outcome.trace.append(
+                            {"step": outcome.steps, "kind": "repeated_invalid_reply"}
+                        )
+                        outcome.status, outcome.detail = "repeated_invalid_reply", problem
+                        break
+                    last_invalid = reply.text
                     protocol_errors += 1
                     outcome.trace.append(
                         {"step": outcome.steps, "kind": "protocol_error", "detail": problem}
@@ -460,6 +527,15 @@ class ToolLoop:
 
     @staticmethod
     def _protocol_error(problem: str, protocol: LoopProtocol) -> str:
+        if problem.startswith(INVALID_JSON):
+            if protocol == "json_protocol":
+                expected = "the complete corrected JSON object (a tool action or a final action)"
+            else:
+                expected = "a tool call, or the complete corrected final result as one JSON object"
+            return (
+                f"PROTOCOL ERROR: {problem}. Reply with {expected}: the whole object, "
+                "not only the part you fixed, and nothing else."
+            )
         if protocol == "json_protocol":
             expected = "exactly one JSON object: a tool action or a final action"
         else:

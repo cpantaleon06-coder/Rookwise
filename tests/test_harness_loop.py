@@ -146,7 +146,8 @@ def test_malformed_action_is_fed_back_then_the_run_continues():
 
 def test_too_many_protocol_errors_stop_the_run():
     limit = config().loop.max_protocol_errors
-    handler = replies(*[text_reply("not json") for _ in range(limit + 1)])
+    # Each reply differs: an identical one would stop the run as repeated_invalid_reply.
+    handler = replies(*[text_reply(f"not json {n}") for n in range(limit + 1)])
     outcome, book = _loop_run(handler, [])
     assert outcome.status == "protocol_error" and outcome.steps == limit + 1
     _held_zero(book)

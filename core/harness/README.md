@@ -23,7 +23,7 @@ Works on every model and is the one the loop always supports. The model gets a p
 {"action": "final", "result": {"status": "ok", "output": {"answer": "..."}, "notes": ""}}
 ```
 
-Tool results come back as a user message that starts with `TOOL RESULT for <name>:` and holds `{"ok": true, "result": ...}` or `{"ok": false, "error": {"type": ..., "message": ...}}`. A reply that is not a valid action gets a `PROTOCOL ERROR` message and counts against `max_protocol_errors`.
+Tool results come back as a user message that starts with `TOOL RESULT for <name>:` and holds `{"ok": true, "result": ...}` or `{"ok": false, "error": {"type": ..., "message": ...}}`. A reply that is not a valid action gets a `PROTOCOL ERROR` message and counts against `max_protocol_errors`. For a reply that is not valid JSON (in either protocol) the message holds the parser's error, its line and column (or "the end of the reply"), about 80 characters around it with the position marked `<<ERROR HERE>>`, and the `{` and `[` still open at the end, and asks for the complete corrected JSON only. Nothing is repaired by the harness. A reply byte-identical to the previous invalid reply is not answered with the same message again: the loop stops with status `repeated_invalid_reply`, and the escalation ladder moves to the next model if there is one.
 
 ### native_tools
 
