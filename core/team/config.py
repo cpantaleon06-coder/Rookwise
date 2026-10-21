@@ -107,9 +107,10 @@ class BudgetPolicy:
     manager_share: Decimal = Decimal("0.30")
     task_limit_first_rung_reservations: int = 3
     task_limit_next_rung_reservations: int = 1
-    # Expected output of one operator reply, to size the blocks (a labeled placeholder
-    # until a measured run replaces it).
-    expected_output_tokens_per_operator: int = 1000
+    # Expected output of one operator reply, to size the blocks. Measured on the smoke
+    # bundle only: the mean operator output of the second smoke record run
+    # (runs/cassettes/team_smoke.run2.json), not of inc-01 operators.
+    expected_output_tokens_per_operator: int = 1889
     max_reassignments: int = 1
     max_blocks: int = 5
     max_tasks_per_block: int = 5

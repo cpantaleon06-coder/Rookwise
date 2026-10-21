@@ -93,7 +93,9 @@ def test_at_usd_0_10_the_small_blocks_are_read_in_full_and_the_log_gets_the_rest
         for p in (e.payload for e in team.events if e.type == "budget_allocation")
         if p.action == "allocated" and p.parent_agent_id == "a-director"
     ]
-    assert allocated[1:] == ["a-manager-b-2", "a-manager-b-3", "a-manager-b-1"]
+    # The two small blocks have the same need up to rounding, so either may run first.
+    assert set(allocated[1:3]) == {"a-manager-b-2", "a-manager-b-3"}
+    assert allocated[3:] == ["a-manager-b-1"]
     assert report.spent_usd <= Decimal("0.10")  # the cap is never passed
     assert_budget_tree(book)
 
