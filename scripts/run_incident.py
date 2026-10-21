@@ -20,6 +20,12 @@ Modes:
   HARNESS_MODE=record). It refuses to start unless --approve-cap equals --run-usd.
 - replay: replays a recorded cassette with a transport that fails on any request.
 
+`--plan-response-format json_schema` sends the director's plan call with the plan's schema
+(inlined) as a wrapped json_schema response_format, and `--repair-temperature X` sets the
+director's temperature from its first re-prompt on. Both are off by default
+(config/skills.json, director role) and set only for this run; the report shows the
+values the run used.
+
 `--stop-after plan` ends the run once the director's plan is valid (in any mode): no other
 agent is called, so a record run costs the plan call only (with its re-prompts, repairs
 and escalations). The run finishes as `cancelled` and partial.
@@ -41,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
 import dataclasses
 import json
 import os
@@ -68,9 +75,11 @@ from rookwise.incidents import GroundTruth, load_bundle, load_ground_truth  # no
 from rookwise.ledger import Caps, InMemoryLedger  # noqa: E402
 from rookwise.money import format_usd  # noqa: E402
 from rookwise.runner import OperatorSpec  # noqa: E402
+from rookwise.skills import load_config as load_skills_config  # noqa: E402
 from rookwise.store import InMemoryStore  # noqa: E402
 from rookwise.team import run_team  # noqa: E402
 from rookwise.team.auditor import AUDITOR_PROMPT  # noqa: E402
+from rookwise.team.config import load_team_roles  # noqa: E402
 from rookwise.team.flow import (  # noqa: E402
     DIAGNOSIS_PROMPT,
     DIRECTOR_PROMPT,
@@ -314,11 +323,17 @@ async def run(
     transport: httpx.AsyncBaseTransport | None = None,
     empty_fraction: float = 0.0,
     stop_after: str | None = None,
+    plan_response_format: str | None = None,
+    repair_temperature: float | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """One run. `transport` replaces the network in record mode (tests only);
     `empty_fraction` is the estimate stub's share of claim-free slices; `stop_after`
-    "plan" ends the run after the director's plan."""
+    "plan" ends the run after the director's plan. `plan_response_format` and
+    `repair_temperature` turn on the director's options for this run only (None keeps
+    config/skills.json)."""
     config = config or load_benchmark_config()
+    skills = director_options(load_skills_config(), plan_response_format, repair_temperature)
+    director = load_team_roles(skills).director
     run_id = f"run_{incident_id.replace('-', '')}"
     ledger = InMemoryLedger()
     ledger.open_run(run_id, Caps(run_usd=Decimal(run_usd)))
@@ -401,15 +416,33 @@ async def run(
             mode="recorded" if mode == "replay" else "live",
             context_sources=context,
             stop_after=stop_after,
+            skills_config=skills,
         )
     total_s = time.perf_counter() - started
     scored = score_run(team, truth, bundle=bundle)
     report = build_report(mode, incident_id, team, ledger.report(run_id), calls, total_s, scored)
     report["stop_after"] = stop_after
+    report["director_options"] = {
+        "plan_response_format": director.plan_response_format,
+        "repair_temperature": director.repair_temperature,
+    }
     if stub is not None:
         report["stub_output_tokens"] = stub
         report["stub_empty_slices_fraction"] = empty_fraction
     return report, [e.model_dump(mode="json") for e in team.events], calls
+
+
+def director_options(
+    skills: dict[str, Any], plan_response_format: str | None, repair_temperature: float | None
+) -> dict[str, Any]:
+    """A copy of the skills config with the director's options set where given."""
+    skills = copy.deepcopy(skills)
+    (role,) = [r for r in skills["roles"].values() if r.get("level") == "director"]
+    if plan_response_format is not None:
+        role["plan_response_format"] = plan_response_format
+    if repair_temperature is not None:
+        role["repair_temperature"] = repair_temperature
+    return skills
 
 
 # -- the report --------------------------------------------------------------------------
@@ -596,6 +629,17 @@ def main(argv: list[str] | None = None) -> int:
         choices=("plan",),
         help="end the run after the director's plan (a record run then costs the plan call)",
     )
+    parser.add_argument(
+        "--plan-response-format",
+        choices=("json_schema",),
+        help="send the director's plan call with the plan's schema as response_format",
+    )
+    parser.add_argument(
+        "--repair-temperature",
+        type=float,
+        metavar="X",
+        help="the director's temperature from its first re-prompt on (0 to 2)",
+    )
     args = parser.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # model text is not always cp1252 (Windows)
     run_usd = _usd(args.run_usd)
@@ -624,6 +668,9 @@ def main(argv: list[str] | None = None) -> int:
     if not 0.0 <= args.empty_slices <= 1.0:
         print("--empty-slices must be between 0 and 1; nothing was run.")
         return 2
+    if args.repair_temperature is not None and not 0 <= args.repair_temperature <= 2:
+        print("--repair-temperature must be between 0 and 2; nothing was run.")
+        return 2
     if args.empty_slices and args.mode != "estimate":
         print("--empty-slices is for estimate mode only; nothing was run.")
         return 2
@@ -643,6 +690,8 @@ def main(argv: list[str] | None = None) -> int:
             config=config,
             empty_fraction=args.empty_slices,
             stop_after=args.stop_after,
+            plan_response_format=args.plan_response_format,
+            repair_temperature=args.repair_temperature,
         )
     )
     folder = f"{args.mode}-{args.stop_after}" if args.stop_after else args.mode

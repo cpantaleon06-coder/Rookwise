@@ -24,6 +24,14 @@ one identical tool call; `tool_timeout_s` per tool; tool results longer than
 Tool failures (unknown tool, bad arguments, unavailable, timeout, exception) never raise
 through the loop: they go back to the model as `{"ok": false, "error": {...}}`.
 
+A `json_schema` `response_format` on the request is sent as is in `native_tools` when no
+tool is offered; with tools offered, or in `json_protocol` (whose replies wrap the result
+in an action), it is refused with `RequestError` before anything is sent, since in the
+tool-calling probe every model skipped the tools when both came together.
+`repair_temperature`, when set, replaces the temperature from the first re-prompt on: the
+step after a `PROTOCOL ERROR` message, and every step of a run that continues a history
+(a validation repair). The first step of a run keeps the request's sampling.
+
 `finish_reason: "length"` is never a success (D3): the reply is discarded and the run
 ends at once with status `length`, and `LoopOutcome.length` says which ceiling cut it:
 the call's own `max_tokens` (the role's output ceiling, config/skills.json) or what was
@@ -55,7 +63,13 @@ from rookwise.harness.cassette import canonical_json, request_key
 from rookwise.harness.client import CancelHandle, Harness, Result
 from rookwise.harness.config import LoopConfig, LoopProtocol
 from rookwise.harness.events import ToolCall
-from rookwise.harness.request import ChatRequest, JsonObjectFormat, build_request
+from rookwise.harness.request import (
+    ChatRequest,
+    JsonObjectFormat,
+    JsonSchemaFormat,
+    RequestError,
+    build_request,
+)
 from rookwise.harness.retry import ApiError, StreamInterrupted
 from rookwise.ledger import CapReached
 from rookwise.money import ZERO_USD
@@ -330,6 +344,7 @@ class ToolLoop:
         history: Sequence[Mapping[str, Any]] | None = None,
         budget: TokenBudget | None = None,
         cancel: CancelHandle | None = None,
+        repair_temperature: float | None = None,
     ) -> LoopOutcome:
         """Run until a final answer or a stop. `history` continues an earlier run (its
         messages already hold the protocol block); otherwise `request.messages` is used."""
@@ -346,6 +361,9 @@ class ToolLoop:
         seen: Counter[str] = Counter()
         protocol_errors = 0
         last_invalid: str | None = None
+        # A continued history ends with a repair message: that run is re-prompted from
+        # its first step.
+        reprompted = history is not None
         context = ToolContext(request.run_id, request.task_id)
         try:
             while outcome.steps < self._limits.max_steps:
@@ -353,8 +371,11 @@ class ToolLoop:
                     outcome.status = "cancelled"
                     break
                 outcome.steps += 1
+                step_request = request
+                if reprompted and repair_temperature is not None:
+                    step_request = dataclasses.replace(request, temperature=repair_temperature)
                 reply = await self._model_step(
-                    request, messages, protocol, tools, budget, cancel, outcome
+                    step_request, messages, protocol, tools, budget, cancel, outcome
                 )
                 if isinstance(reply, _Stop):
                     outcome.status, outcome.detail = reply.status, reply.detail
@@ -388,6 +409,7 @@ class ToolLoop:
                     messages.append(
                         {"role": "user", "content": self._protocol_error(problem, protocol)}
                     )
+                    reprompted = True
                     continue
                 stop = await self._run_calls(
                     calls, protocol, messages, seen, context, cancel, outcome
@@ -413,11 +435,18 @@ class ToolLoop:
     ) -> _Reply | _Stop:
         config = self._harness.config
         max_tokens = request.max_tokens or config.model(request.model).max_tokens
+        schema_format = request.response_format
+        if isinstance(schema_format, JsonSchemaFormat) and (tools or protocol != "native_tools"):
+            raise RequestError(
+                "a json_schema response_format is sent only in native_tools with no tool "
+                f"offered (protocol {protocol}, {len(tools)} tool(s)): every model skipped "
+                "the tools when both came together (docs/HARNESS_RESEARCH.md)"
+            )
         if protocol == "native_tools":
             shape = {
                 "tools": tuple(t.native_spec() for t in tools),
                 "tool_choice": "auto" if tools else None,
-                "response_format": None,
+                "response_format": schema_format if not tools else None,
             }
         else:
             json_object = self._limits.json_protocol_response_format == "json_object"

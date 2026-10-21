@@ -97,6 +97,12 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | --- | --- |
 | `expected_output_tokens_per_operator` changed from 1000 (a placeholder) to 1889 tokens, the mean operator output of the second smoke record run (`runs/cassettes/team_smoke.run2.json`). Status: measured on the smoke bundle, not yet on inc-01 operators. | config/budget.json; core/team/config.py |
 
+## Plan call options (2026-10-21)
+
+| Decision | Where |
+| --- | --- |
+| Two director options, both off by default (decided by the user, 2026-10-21): `plan_response_format: json_schema` sends the plan call with the plan's JSON Schema, inlined, in the wrapped form `{"type": "json_schema", "json_schema": {"name", "schema", "strict": true}}`; `repair_temperature` sets the temperature from the first re-prompt on. A json_schema is refused when tools are offered. `scripts/run_incident.py` turns them on for one run (`--plan-response-format json_schema`, `--repair-temperature X`) and reports them. Implementation choices, pending the user's review: both live on the role in config/skills.json; the schema name is `PlanPayload`; a json_schema is also refused in `json_protocol`, whose replies wrap the result in an action; the run flags set the director only, and operators (run through `core/runner.py`) take no repair temperature yet. UNVERIFIED: whether the server enforces `strict` on a schema with an optional field (`notes`), `minItems` and `minLength`, and whether any temperature changes Ultra's repeated reply; neither has run live. | core/harness/loop.py; core/harness/schema.py; core/team/flow.py; config/skills.json; scripts/run_incident.py |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.

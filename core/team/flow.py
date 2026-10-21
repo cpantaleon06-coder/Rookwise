@@ -121,8 +121,9 @@ from rookwise.api.models import (
 from rookwise.evidence import EvidenceBundle, EvidenceReport, split_lines, verify
 from rookwise.harness import ConfigError, Harness, Tool
 from rookwise.harness.loop import prepare_messages
-from rookwise.harness.request import ChatRequest, JsonObjectFormat, build_request
-from rookwise.harness.validate import final_result_instructions
+from rookwise.harness.request import ChatRequest, JsonObjectFormat, JsonSchemaFormat, build_request
+from rookwise.harness.schema import inline_refs
+from rookwise.harness.validate import final_result_instructions, payload_model
 from rookwise.ledger import Allocation, CapReached, RunReport
 from rookwise.money import ZERO_USD, format_usd, to_micro_usd
 from rookwise.runner import DEFAULT_BASE_PROMPT, OperatorSpec, run_operator
@@ -481,6 +482,7 @@ class _Team:
             user=self._plan_request(goal),
             output_model=self.plan_model,
             budget_id=None,
+            response_format=self._plan_format(),
         )
         if not result.ok or result.validation is None:
             if result.stop_reason == "budget_exhausted":
@@ -1248,6 +1250,14 @@ class _Team:
                 "requested_usd": format_usd(stop.requested_usd),
             }
         return self._fail("budget_exhausted", message, details)
+
+    def _plan_format(self) -> JsonSchemaFormat | None:
+        """The plan's schema as a wrapped json_schema response_format, inlined (no $ref),
+        when the director's role turns it on; None (nothing sent) otherwise."""
+        if self.roles.director.plan_response_format != "json_schema":
+            return None
+        schema = payload_model(self.plan_model).model_json_schema()
+        return JsonSchemaFormat(name="PlanPayload", schema=inline_refs(schema), strict=True)
 
     def _stopped(self, plan: Plan) -> TeamRun:
         """The run ended on purpose after its plan: `cancelled` in the contract's terms,

@@ -262,3 +262,53 @@ def test_stop_after_takes_only_plan(module, capsys):
     with pytest.raises(SystemExit):
         module.main(["inc-01", "estimate", "--stop-after", "operators"])
     assert "invalid choice" in capsys.readouterr().err
+
+
+def test_the_director_options_are_off_by_default_and_shown_in_the_report(module, tmp_path):
+    report, _, _ = _estimate(module, tmp_path)
+    assert report["director_options"] == {"plan_response_format": None, "repair_temperature": None}
+
+
+def test_the_flags_turn_the_director_options_on_for_one_run(module, tmp_path):
+    report, _, _ = asyncio.run(
+        module.run(
+            "estimate",
+            "inc-test",
+            bundle=BUNDLE,
+            truth=TRUTH,
+            run_usd="0.50",
+            cassette=tmp_path / "unused.json",
+            stop_after="plan",
+            plan_response_format="json_schema",
+            repair_temperature=0.3,
+        )
+    )
+    assert report["director_options"] == {
+        "plan_response_format": "json_schema",
+        "repair_temperature": 0.3,
+    }
+    config = module.load_skills_config()  # the repo's config is not changed
+    director = next(r for r in config["roles"].values() if r.get("level") == "director")
+    assert director["plan_response_format"] is None and director["repair_temperature"] is None
+
+
+def test_the_cli_passes_the_director_flags(module, monkeypatch, tmp_path):
+    seen = {}
+
+    async def fake_run(mode, incident_id, **kwargs):
+        seen.update(kwargs)
+        return {}, [], []
+
+    monkeypatch.setattr(module, "run", fake_run)
+    monkeypatch.setattr(module, "OUT_DIR", tmp_path)
+    monkeypatch.setattr(module, "load_bundle", lambda *a, **k: BUNDLE)
+    monkeypatch.setattr(module, "load_ground_truth", lambda *a, **k: TRUTH)
+    argv = ["inc-test", "estimate", "--plan-response-format", "json_schema"]
+    assert module.main([*argv, "--repair-temperature", "0.5"]) == 0
+    assert (seen["plan_response_format"], seen["repair_temperature"]) == ("json_schema", 0.5)
+
+
+def test_the_cli_refuses_a_repair_temperature_out_of_range(module, monkeypatch, capsys):
+    monkeypatch.setattr(module, "load_bundle", lambda *a, **k: pytest.fail("a run started"))
+    assert module.main(["inc-01", "estimate", "--repair-temperature", "2.5"]) == 2
+    assert "between 0 and 2" in capsys.readouterr().out

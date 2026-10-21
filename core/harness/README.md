@@ -29,6 +29,10 @@ Tool results come back as a user message that starts with `TOOL RESULT for <name
 
 OpenAI-style `tools` with `tool_choice: "auto"`. The streamed tool-call fragments are joined per index (`events.assemble_tool_calls`); results go back as `tool` messages with the matching `tool_call_id`. The final answer is a reply without tool calls whose content is one JSON object. `response_format` is never sent together with `tools`: in the tool-calling probe every model skipped the tools when both were present.
 
+A request may carry a wrapped `json_schema` `response_format` (`JsonSchemaFormat`, the form that worked on all four models in the smoke test). The loop sends it only in `native_tools` with no tool offered; with tools, or in `json_protocol`, it raises `RequestError` before sending. A schema with `$defs` is sent inlined (`rookwise.harness.schema.inline_refs`, which fails on a recursive reference), since the Nebius docs do not mention `$ref`. The director's plan call uses it when its role sets `plan_response_format: json_schema` in config/skills.json (off by default).
+
+`repair_temperature` (on `ToolLoop.run` and `run_with_escalation`, from a role's `repair_temperature` in config/skills.json, off by default) replaces the temperature from the first re-prompt on: the step after a `PROTOCOL ERROR` message and every step of a validation repair. The first step of an attempt, including the first step on a new model of the ladder, keeps the model's sampling.
+
 ### Which model uses which
 
 From the tool-calling probe of 2026-10-16 (one sample per call, so weak evidence):

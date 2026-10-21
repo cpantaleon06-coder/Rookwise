@@ -106,7 +106,10 @@ async def run_with_escalation(
     config: EscalationConfig,
     budget: TokenBudget | None = None,
     cancel: CancelHandle | None = None,
+    repair_temperature: float | None = None,
 ) -> EscalationResult:
+    """`repair_temperature` (None: unchanged) is the loop's sampling from the first
+    re-prompt on, in every attempt."""
     cancel = cancel or CancelHandle()
     attempts: list[AttemptRecord] = []
     tool_calls: Counter[str] = Counter()
@@ -121,6 +124,7 @@ async def run_with_escalation(
             history=history,
             budget=budget,
             cancel=cancel,
+            repair_temperature=repair_temperature,
         )
         tool_calls += outcome.tool_calls
         if outcome.status == "final":

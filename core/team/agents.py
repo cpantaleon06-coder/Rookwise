@@ -24,7 +24,7 @@ from rookwise.api.models import (
     TaskStartedPayload,
 )
 from rookwise.harness import AttemptRecord, EscalationResult, Harness, ToolLoop, run_with_escalation
-from rookwise.harness.request import ChatRequest
+from rookwise.harness.request import ChatRequest, JsonSchemaFormat
 from rookwise.harness.validate import final_result_instructions
 from rookwise.money import ZERO_USD
 from rookwise.schemas import LedgerEntry, Level
@@ -58,6 +58,7 @@ class AgentCaller:
         user: str,
         output_model: type[BaseModel],
         budget_id: str | None,
+        response_format: JsonSchemaFormat | None = None,
     ) -> EscalationResult:
         composed = compose_system_prompt(
             role.role, base_prompt, config=self.skills_config, skills_dir=self.skills_dir
@@ -72,12 +73,14 @@ class AgentCaller:
             max_tokens=role.max_output_tokens,
             skills=composed.skill_ids,
             budget_id=budget_id,
+            response_format=response_format,
         )
         result = await run_with_escalation(
             ToolLoop(self.harness, ()),
             request,
             output_model,
             config=self.harness.config.escalation,
+            repair_temperature=role.repair_temperature,
         )
         self.emit_attempts(agent.agent_id, result.attempts, self.entries(task_id))
         return result

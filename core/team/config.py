@@ -33,6 +33,12 @@ class RoleSpec:
     model: str
     skills: tuple[str, ...]
     max_output_tokens: int
+    # Optional request settings (config/skills.json), off when None. Only the director
+    # takes `plan_response_format` ("json_schema": its plan call is sent with the plan's
+    # schema, inlined, as a wrapped json_schema response_format). `repair_temperature`
+    # is the temperature from the first re-prompt on (protocol errors and repairs).
+    plan_response_format: Literal["json_schema"] | None = None
+    repair_temperature: float | None = None
 
 
 @dataclass(frozen=True)
@@ -54,12 +60,26 @@ def load_team_roles(config: dict[str, Any] | None = None) -> TeamRoles:
             raise ValueError(f"role {role}: level must be one of {TEAM_LEVELS}, not {level!r}")
         if level in found:
             raise ValueError(f"two roles lead the {level} level: {found[level].role} and {role}")
+        plan_format = spec.get("plan_response_format")
+        if plan_format not in (None, "json_schema"):
+            raise ValueError(f"role {role}: plan_response_format must be null or json_schema")
+        if plan_format is not None and level != "director":
+            raise ValueError(f"role {role}: only the director has a plan call")
+        temperature = spec.get("repair_temperature")
+        if temperature is not None and (
+            isinstance(temperature, bool)
+            or not isinstance(temperature, int | float)
+            or not 0 <= temperature <= 2
+        ):
+            raise ValueError(f"role {role}: repair_temperature must be null or in 0..2")
         found[level] = RoleSpec(
             role,
             level,
             spec["model"],
             tuple(spec.get("skills", [])),
             role_max_output_tokens(role, config),
+            plan_format,
+            None if temperature is None else float(temperature),
         )
     missing = [level for level in TEAM_LEVELS if level not in found]
     if missing:

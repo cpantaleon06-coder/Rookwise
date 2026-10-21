@@ -1,5 +1,5 @@
 {
-  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final. A role that leads a level of the team hierarchy names it in `level` (director, manager or auditor; core/team); every other role is an operator role. max_output_tokens is the role's output ceiling: every call of the role is sent with that max_tokens and the ledger reserves it; a reply cut at the ceiling (finish_reason length) ends the call as a typed `length` outcome and is not retried. The incident operator roles (log-reader, metrics-reader, deploy-diff-reader) use original skills that are not measured yet: their counts are the loader's labeled ESTIMATE (characters / 4), and their ceilings are that estimate plus 20%, rounded up to a multiple of 50. The other operator roles stay as placeholders; the smoke scenario uses them.",
+  "_note": "Maps each role to its model (an alias from config/prices.json) and skill ids. measured_prompt_tokens is the prompt-token cost of each skill per model, measured with scripts/skill_check.py on 2026-10-15; it applies only while measured_sha256 matches the skill text, otherwise the loader falls back to an ESTIMATE (characters / 4). Ceilings are the measured values plus 20%, rounded up to a multiple of 50. The ITOps roles are placeholders until the ITOps and DevOps use case is final. A role that leads a level of the team hierarchy names it in `level` (director, manager or auditor; core/team); every other role is an operator role. plan_response_format (director only; null or json_schema) sends the plan call with the plan's JSON Schema, inlined, as a wrapped json_schema response_format; repair_temperature (null or 0 to 2) is the role's temperature from its first re-prompt on (protocol errors and validation repairs). Both are null (off), so requests are unchanged; scripts/run_incident.py can turn them on for one run. max_output_tokens is the role's output ceiling: every call of the role is sent with that max_tokens and the ledger reserves it; a reply cut at the ceiling (finish_reason length) ends the call as a typed `length` outcome and is not retried. The incident operator roles (log-reader, metrics-reader, deploy-diff-reader) use original skills that are not measured yet: their counts are the loader's labeled ESTIMATE (characters / 4), and their ceilings are that estimate plus 20%, rounded up to a multiple of 50. The other operator roles stay as placeholders; the smoke scenario uses them.",
   "skills": {
     "prose-style": {
       "max_tokens": 800,
@@ -193,6 +193,8 @@
       "level": "director",
       "model": "nemotron-3-ultra",
       "max_output_tokens": 2048,
+      "plan_response_format": null,
+      "repair_temperature": null,
       "skills": [],
       "max_skill_tokens": 0
     },
