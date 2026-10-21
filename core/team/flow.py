@@ -169,7 +169,13 @@ DIRECTOR_PROMPT = (
     "per manager, and each block into tasks for operators. Each task names an operator role "
     "and the one source it reads, and every source must be read by at least one task. Use "
     "only the operator roles and source ids you are given. Keep to the required final "
-    "result format."
+    "result format. Its shape, with placeholders in angle brackets and one block and one "
+    "task shown (the JSON Schema below is the rule):\n"
+    '{"status": "ok", "output": {"summary": "<the plan in one paragraph>", "blocks": '
+    '[{"goal": "<the goal of the block>", "tasks": [{"role": "<an operator role>", '
+    '"source_id": "<a source id>", "instruction": "<what to look for>"}]}]}, "notes": ""}\n'
+    '"summary" and "blocks" go inside "output"; "notes" comes after "output" is closed, at '
+    "the top level."
 )
 DIAGNOSIS_PROMPT = (
     "You are the director of a team of AI agents, and the investigation is done. Write the "
