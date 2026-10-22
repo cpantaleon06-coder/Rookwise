@@ -1,0 +1,431 @@
+{
+ "_note": "SYNTHETIC incident inc-01 (benchmarks/incidents/, dev split), first full record run on 2026-10-21 (cassette runs/cassettes/inc-01.run2.json, gitignored). One entry per charged operator call, in call order: the length of the JSON the input estimate measures ({\"messages\": ..., \"response_format\": ...}) and the prompt_tokens the API reported. No prompt text is kept. This is the calibration source of input_estimate.chars_per_token in config/harness.json.",
+ "calls": [
+  {
+   "task_id": "t-1",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 5772,
+   "prompt_tokens": 1425
+  },
+  {
+   "task_id": "t-55",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 5781,
+   "prompt_tokens": 1395
+  },
+  {
+   "task_id": "t-2",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 6036,
+   "prompt_tokens": 1476
+  },
+  {
+   "task_id": "t-54",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 19781,
+   "prompt_tokens": 15136
+  },
+  {
+   "task_id": "t-3",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34440,
+   "prompt_tokens": 16573
+  },
+  {
+   "task_id": "t-3",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 38935,
+   "prompt_tokens": 18077
+  },
+  {
+   "task_id": "t-3.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34442,
+   "prompt_tokens": 16575
+  },
+  {
+   "task_id": "t-4",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34516,
+   "prompt_tokens": 16595
+  },
+  {
+   "task_id": "t-5",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34506,
+   "prompt_tokens": 16526
+  },
+  {
+   "task_id": "t-6",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34528,
+   "prompt_tokens": 16602
+  },
+  {
+   "task_id": "t-6",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 37206,
+   "prompt_tokens": 17509
+  },
+  {
+   "task_id": "t-6",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 37847,
+   "prompt_tokens": 17651
+  },
+  {
+   "task_id": "t-6.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34530,
+   "prompt_tokens": 16604
+  },
+  {
+   "task_id": "t-7",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34495,
+   "prompt_tokens": 16728
+  },
+  {
+   "task_id": "t-8",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34531,
+   "prompt_tokens": 16610
+  },
+  {
+   "task_id": "t-9",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34533,
+   "prompt_tokens": 16652
+  },
+  {
+   "task_id": "t-9",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 38956,
+   "prompt_tokens": 18137
+  },
+  {
+   "task_id": "t-10",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34514,
+   "prompt_tokens": 16768
+  },
+  {
+   "task_id": "t-10",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 36643,
+   "prompt_tokens": 17429
+  },
+  {
+   "task_id": "t-11",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34509,
+   "prompt_tokens": 16583
+  },
+  {
+   "task_id": "t-11",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 39680,
+   "prompt_tokens": 18353
+  },
+  {
+   "task_id": "t-11.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34511,
+   "prompt_tokens": 16585
+  },
+  {
+   "task_id": "t-12",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34533,
+   "prompt_tokens": 16773
+  },
+  {
+   "task_id": "t-13",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34511,
+   "prompt_tokens": 16424
+  },
+  {
+   "task_id": "t-13",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 44786,
+   "prompt_tokens": 20056
+  },
+  {
+   "task_id": "t-13.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34513,
+   "prompt_tokens": 16426
+  },
+  {
+   "task_id": "t-14",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34419,
+   "prompt_tokens": 16106
+  },
+  {
+   "task_id": "t-14.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34421,
+   "prompt_tokens": 16108
+  },
+  {
+   "task_id": "t-15",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34463,
+   "prompt_tokens": 16029
+  },
+  {
+   "task_id": "t-15.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34465,
+   "prompt_tokens": 16031
+  },
+  {
+   "task_id": "t-16",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34556,
+   "prompt_tokens": 16095
+  },
+  {
+   "task_id": "t-16",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 45210,
+   "prompt_tokens": 19735
+  },
+  {
+   "task_id": "t-16.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34558,
+   "prompt_tokens": 16097
+  },
+  {
+   "task_id": "t-17",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34508,
+   "prompt_tokens": 16313
+  },
+  {
+   "task_id": "t-17",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 43524,
+   "prompt_tokens": 19495
+  },
+  {
+   "task_id": "t-17.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34510,
+   "prompt_tokens": 16315
+  },
+  {
+   "task_id": "t-18",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34551,
+   "prompt_tokens": 16160
+  },
+  {
+   "task_id": "t-19",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 31725,
+   "prompt_tokens": 14769
+  },
+  {
+   "task_id": "t-19.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 31727,
+   "prompt_tokens": 14771
+  },
+  {
+   "task_id": "t-20",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34473,
+   "prompt_tokens": 17887
+  },
+  {
+   "task_id": "t-20",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 39859,
+   "prompt_tokens": 19628
+  },
+  {
+   "task_id": "t-20.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34475,
+   "prompt_tokens": 17889
+  },
+  {
+   "task_id": "t-21",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34465,
+   "prompt_tokens": 17956
+  },
+  {
+   "task_id": "t-21",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 42485,
+   "prompt_tokens": 21071
+  },
+  {
+   "task_id": "t-21.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34467,
+   "prompt_tokens": 17958
+  },
+  {
+   "task_id": "t-22",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34556,
+   "prompt_tokens": 18007
+  },
+  {
+   "task_id": "t-23",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34529,
+   "prompt_tokens": 18034
+  },
+  {
+   "task_id": "t-24",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34479,
+   "prompt_tokens": 17977
+  },
+  {
+   "task_id": "t-25",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34411,
+   "prompt_tokens": 18011
+  },
+  {
+   "task_id": "t-25",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 38883,
+   "prompt_tokens": 19488
+  },
+  {
+   "task_id": "t-26",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34456,
+   "prompt_tokens": 18045
+  },
+  {
+   "task_id": "t-26",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 36662,
+   "prompt_tokens": 18787
+  },
+  {
+   "task_id": "t-26.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34458,
+   "prompt_tokens": 18047
+  },
+  {
+   "task_id": "t-27",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34526,
+   "prompt_tokens": 18093
+  },
+  {
+   "task_id": "t-27",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 37488,
+   "prompt_tokens": 18995
+  },
+  {
+   "task_id": "t-27.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34528,
+   "prompt_tokens": 18095
+  },
+  {
+   "task_id": "t-28",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34535,
+   "prompt_tokens": 18049
+  },
+  {
+   "task_id": "t-28",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 42341,
+   "prompt_tokens": 21118
+  },
+  {
+   "task_id": "t-28.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34537,
+   "prompt_tokens": 18051
+  },
+  {
+   "task_id": "t-29",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34497,
+   "prompt_tokens": 18044
+  },
+  {
+   "task_id": "t-30",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34477,
+   "prompt_tokens": 18073
+  },
+  {
+   "task_id": "t-30",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 37823,
+   "prompt_tokens": 19075
+  },
+  {
+   "task_id": "t-30.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34479,
+   "prompt_tokens": 18075
+  },
+  {
+   "task_id": "t-31",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34518,
+   "prompt_tokens": 18039
+  },
+  {
+   "task_id": "t-31",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 37461,
+   "prompt_tokens": 18980
+  },
+  {
+   "task_id": "t-31.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34520,
+   "prompt_tokens": 18041
+  },
+  {
+   "task_id": "t-32",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34530,
+   "prompt_tokens": 18128
+  },
+  {
+   "task_id": "t-32",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 40261,
+   "prompt_tokens": 20113
+  },
+  {
+   "task_id": "t-32.2",
+   "model": "nvidia/nemotron-3-super-120b-a12b",
+   "payload_characters": 34532,
+   "prompt_tokens": 18130
+  },
+  {
+   "task_id": "t-33",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34464,
+   "prompt_tokens": 18074
+  },
+  {
+   "task_id": "t-34",
+   "model": "nvidia/Nemotron-3_5-Lightning",
+   "payload_characters": 34484,
+   "prompt_tokens": 18058
+  }
+ ]
+}

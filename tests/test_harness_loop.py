@@ -217,7 +217,7 @@ def test_long_tool_results_are_truncated_to_the_token_cap():
     outcome, _ = _loop_run(handler, [tool], cfg=cfg)
     sent = json.loads(handler.bodies[1]["messages"][-1]["content"].split("\n", 1)[1])
     assert sent["truncated"] is True and sent["original_characters"] > 10_000
-    assert len(sent["content"]) == 50 * cfg.chars_per_token
+    assert len(sent["content"]) == int(50 * cfg.chars_per_token)
     assert outcome.status == "final"
 
 
