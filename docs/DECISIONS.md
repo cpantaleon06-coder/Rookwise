@@ -103,6 +103,12 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | --- | --- |
 | Two director options, both off by default (decided by the user, 2026-10-21): `plan_response_format: json_schema` sends the plan call with the plan's JSON Schema, inlined, in the wrapped form `{"type": "json_schema", "json_schema": {"name", "schema", "strict": true}}`; `repair_temperature` sets the temperature from the first re-prompt on. A json_schema is refused when tools are offered. `scripts/run_incident.py` turns them on for one run (`--plan-response-format json_schema`, `--repair-temperature X`) and reports them. Implementation choices, pending the user's review: both live on the role in config/skills.json; the schema name is `PlanPayload`; a json_schema is also refused in `json_protocol`, whose replies wrap the result in an action; the run flags set the director only, and operators (run through `core/runner.py`) take no repair temperature yet. UNVERIFIED: whether the server enforces `strict` on a schema with an optional field (`notes`), `minItems` and `minLength`, and whether any temperature changes Ultra's repeated reply; neither has run live. | core/harness/loop.py; core/harness/schema.py; core/team/flow.py; config/skills.json; scripts/run_incident.py |
 
+## After the first full inc-01 run (2026-10-21)
+
+| Decision | Where |
+| --- | --- |
+| An operator's citation source is derived from its assigned slice, not taken from the model (decided by the user, 2026-10-21; in the first full inc-01 run 78 of the most common validation errors were a slice store reference used as source_id). A missing source_id, the slice's store reference (with or without a line range) or "<source>:<range>" of the slice's own source becomes the slice's source id and is counted (`TeamRun.citation_source_normalizations`, `citation_source_normalizations` in the incident report); any other source_id, another source of the run included, fails validation with a message naming the slice's source. The quote and line checks are unchanged. Implementation choices, pending the user's review: the citation log records citations after the source is derived, so first-pass validity counts a derived citation as valid; the smoke stub's operators now cite their own slice. | core/team/models.py; core/team/flow.py; scripts/run_incident.py; scripts/team_smoke.py |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.

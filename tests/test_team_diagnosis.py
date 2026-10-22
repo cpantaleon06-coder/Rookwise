@@ -114,7 +114,12 @@ def test_the_director_receives_context_inventory_and_findings_by_reference():
             ],
         }
     )
-    team, _, handler = _team(context_sources=("ticket.md",), director=[plan])
+    # Each operator cites its own slice: the ticket's operator reports no claim.
+    team, _, handler = _team(
+        context_sources=("ticket.md",),
+        director=[plan],
+        operator=[findings_reply(GOOD_CLAIM), findings_reply()],
+    )
     (body,) = [
         b
         for b in handler.bodies

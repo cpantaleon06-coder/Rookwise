@@ -38,6 +38,7 @@ import dataclasses
 import json
 import math
 import os
+import re
 import sys
 import time
 from collections import defaultdict
@@ -172,7 +173,10 @@ def _stub_transport() -> httpx.MockTransport:
         system = body["messages"][0]["content"]
         kind = next(kind for kind, prompt in routes if system.startswith(prompt))
         prompt = math.ceil(sum(len(m["content"] or "") for m in body["messages"]) / 4)
-        text = json.dumps({"status": "ok", "output": outputs[kind], "notes": ""})
+        output = outputs[kind]
+        if kind == "operator":
+            output = _own_slice_findings(body["messages"][1]["content"], output)
+        text = json.dumps({"status": "ok", "output": output, "notes": ""})
         return httpx.Response(
             200,
             content=_sse(text, prompt, STUB_OUTPUT_TOKENS[kind]),
@@ -180,6 +184,26 @@ def _stub_transport() -> httpx.MockTransport:
         )
 
     return httpx.MockTransport(handle)
+
+
+def _own_slice_findings(user: str, app_log_findings: dict[str, Any]) -> dict[str, Any]:
+    """The stub operator's findings for the slice in its request: the planted app-log
+    claim for an app-log slice, otherwise one claim citing the slice's first line, so every
+    citation names the operator's own slice (the team rejects any other source)."""
+    source = re.search(r"Read only the slice you are given: (\S+), lines", user)
+    if source is None or source.group(1) == "app-log":
+        return app_log_findings
+    first = re.search(r"^(\d+): (\S.*)$", user.split("(cite it by this id", 1)[-1], re.M)
+    if first is None:
+        return {"summary": "[stub] Nothing relevant.", "claims": []}
+    citation = {
+        "source_id": source.group(1),
+        "line_start": int(first.group(1)),
+        "line_end": int(first.group(1)),
+        "quote": first.group(2),
+    }
+    claim = {"claim_id": "c1", "text": "[stub] The first line.", "citations": [citation]}
+    return {"summary": "[stub] Findings.", "claims": [claim]}
 
 
 def _no_network(request: httpx.Request) -> httpx.Response:
