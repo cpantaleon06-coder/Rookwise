@@ -163,7 +163,8 @@ def test_missing_usage_can_be_estimated_from_text_instead():
         async with _harness(Handler([respond(body)]), book, cfg=cfg) as harness:
             result = await harness.complete(request())
         assert result.usage_estimated is True
-        assert result.usage.output_tokens == 2  # 5 characters / 3, rounded up
+        # 5 characters over the configured characters per token, rounded up.
+        assert result.usage.output_tokens == math.ceil(5 / cfg.chars_per_token)
         assert 0 < result.usd < _reservation_usd(request())
         _assert_no_hold(book)
 

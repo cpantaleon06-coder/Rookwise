@@ -25,7 +25,7 @@ def _estimate(call, chars_per_token, headroom, margin=64):
 
 def test_the_calibration_is_in_config():
     config = load_config(env={})
-    assert (config.chars_per_token, config.input_headroom) == (2.7, 0.1)
+    assert (config.chars_per_token, config.input_headroom) == (2.03, 0.1)
 
 
 @pytest.mark.parametrize("index", range(len(CALLS)), ids=[c["model"] for c in CALLS])
