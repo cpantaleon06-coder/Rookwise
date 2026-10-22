@@ -27,6 +27,14 @@ not reject the reply. The deterministic check and decision D3 handle it instead 
 is withdrawn with its reason code; `rookwise.team.auditor`). The citation log still
 records every citation of the director's replies against the run's sources.
 
+An operator reads one slice, so its citations' source is derived from that slice, not
+taken from the model: with a `SliceAssignment` (set by the team before each operator call),
+the operators' model rewrites a citation's `source_id` to the slice's source when it is
+missing or names the same slice in another form (the slice's store reference, with or
+without a line range, or "<source>:<range>"), and counts each rewrite. Any other
+`source_id`, including another source of the run, fails validation. The quote and line
+checks are unchanged.
+
 Both run-bound models take an optional `CitationLog`. With one, every reply they
 validate also records, per citation, whether it passed on its own and why not, under the
 task id the team sets before each call. Attempt records keep only the validation error
@@ -44,6 +52,7 @@ joins the cited lines with a space.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -280,9 +289,71 @@ class CitationLog:
         return [reply for reply in self.replies if reply.index == 0]
 
 
-def _bound_claim(bundle: EvidenceBundle) -> tuple[type[SourceCitation], type[FindingClaim]]:
+@dataclass
+class SliceAssignment:
+    """The slice of the operator call in progress (`source_id` None between calls). The
+    team sets it before each operator call, like `CitationLog.task_id`; calls run one after
+    another. `normalized` counts the citations whose `source_id` was derived from it."""
+
+    source_id: str | None = None
+    slice_ref: str = ""
+    normalized: int = 0
+    by_task: dict[str, int] = field(default_factory=dict)
+    task_id: str = ""
+
+    def assign(self, task_id: str, source_id: str, slice_ref: str) -> None:
+        self.task_id, self.source_id, self.slice_ref = task_id, source_id, slice_ref
+
+    def clear(self) -> None:
+        self.task_id, self.source_id, self.slice_ref = "", None, ""
+
+    def names_the_slice(self, value: Any) -> bool:
+        """Whether `value` is missing or names the assigned slice's source in a form
+        other than its source id."""
+        source = self.source_id
+        if source is None or value == source:
+            return False
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return True
+        if not isinstance(value, str):
+            return False
+        prefix = self.slice_ref[: self.slice_ref.find("/slices/") + len("/slices/")]
+        tail = value[len(prefix) :] if prefix and value.startswith(prefix) else value
+        return re.fullmatch(rf"{re.escape(source)}(:\d+(-\d+)?)?", tail.strip()) is not None
+
+    def derive(self, data: Any) -> Any:
+        """A copy of a reply's output with each citation that names the slice another way
+        given the slice's source id; other citations are left for validation to judge."""
+        if self.source_id is None or not isinstance(data, dict):
+            return data
+        claims = data.get("claims")
+        if not isinstance(claims, list):
+            return data
+        count = 0
+        new_claims = []
+        for claim in claims:
+            citations = claim.get("citations") if isinstance(claim, dict) else None
+            if not isinstance(citations, list):
+                new_claims.append(claim)
+                continue
+            new_citations = []
+            for citation in citations:
+                if isinstance(citation, dict) and self.names_the_slice(citation.get("source_id")):
+                    citation = {**citation, "source_id": self.source_id}
+                    count += 1
+                new_citations.append(citation)
+            new_claims.append({**claim, "citations": new_citations})
+        self.normalized += count
+        self.by_task[self.task_id] = self.by_task.get(self.task_id, 0) + count
+        return {**data, "claims": new_claims}
+
+
+def _bound_claim(
+    bundle: EvidenceBundle, assignment: SliceAssignment | None = None
+) -> tuple[type[SourceCitation], type[FindingClaim]]:
     """`SourceCitation` and `FindingClaim` whose citations check that each quote sits
-    inside a single line of `bundle` in the cited range (same names and JSON Schema)."""
+    inside a single line of `bundle` in the cited range (same names and JSON Schema). With
+    an active `assignment`, a citation of any source but the assigned slice's fails."""
     lines = {source_id: split_lines(text) for source_id, text in bundle.sources.items()}
 
     class SourceCitation(_SourceCitation):
@@ -290,6 +361,12 @@ def _bound_claim(bundle: EvidenceBundle) -> tuple[type[SourceCitation], type[Fin
 
         @model_validator(mode="after")
         def _inside_one_line(self) -> SourceCitation:
+            source = assignment.source_id if assignment is not None else None
+            if source is not None and self.source_id != source:
+                raise ValueError(
+                    f"source_id {self.source_id!r} is not the slice you were given: cite "
+                    f"its lines with source_id {source!r}"
+                )
             problem = quote_problem(lines.get(self.source_id), self)
             if problem is not None:
                 raise ValueError(problem)
@@ -302,10 +379,15 @@ def _bound_claim(bundle: EvidenceBundle) -> tuple[type[SourceCitation], type[Fin
     return SourceCitation, FindingClaim
 
 
-def findings_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> type[Findings]:
+def findings_model(
+    bundle: EvidenceBundle,
+    log: CitationLog | None = None,
+    assignment: SliceAssignment | None = None,
+) -> type[Findings]:
     """`Findings` for one run: same name and JSON Schema, plus the check that each quote
-    sits inside a single line of `bundle` in the cited range."""
-    citation, claim = _bound_claim(bundle)
+    sits inside a single line of `bundle` in the cited range. With `assignment`, each
+    citation's source is derived from the operator's slice (see the module docstring)."""
+    citation, claim = _bound_claim(bundle, assignment)
 
     class Findings(_Findings):
         __doc__ = _Findings.__doc__
@@ -314,6 +396,8 @@ def findings_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> ty
         @model_validator(mode="wrap")
         @classmethod
         def _log_citations(cls, data: Any, handler: Any) -> Any:
+            if assignment is not None:
+                data = assignment.derive(data)
             if log is not None:
                 log.record(data, citation)
             return handler(data)

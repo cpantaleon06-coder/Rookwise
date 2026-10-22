@@ -541,6 +541,11 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
         },
         "outcomes_by_role": {k: dict(v) for k, v in outcomes.items()},
         "unread_slices": [dataclasses.asdict(u) for u in team.unread_slices],
+        # Operator citations whose source_id the team derived from the assigned slice.
+        "citation_source_normalizations": {
+            "total": sum(team.citation_source_normalizations.values()),
+            "by_task": dict(team.citation_source_normalizations),
+        },
         "managers": [
             {
                 "block_id": b.block_id,

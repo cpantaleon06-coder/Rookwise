@@ -160,6 +160,7 @@ from rookwise.team.models import (
     PlanBlock,
     PlanTask,
     ReplyCitations,
+    SliceAssignment,
     diagnosis_model,
     findings_model,
     plan_model,
@@ -281,6 +282,8 @@ class TeamRun:
     # Each operator task's estimated first reservation and its spending limit.
     first_reservations: dict[str, Decimal] = field(default_factory=dict)
     task_limits: dict[str, Decimal] = field(default_factory=dict)
+    # Operator citations whose source_id was derived from the assigned slice, by task id.
+    citation_source_normalizations: dict[str, int] = field(default_factory=dict)
 
 
 def summary_ref(run_id: str, block_id: str) -> str:
@@ -434,7 +437,9 @@ class _Team:
         # The operators' output model checks every quote against this run's full sources.
         # Per-citation results of every reply, for the run report (`TeamRun.citation_log`).
         self.citation_log = CitationLog()
-        self.findings_model = findings_model(evidence, self.citation_log)
+        # The slice of the operator call in progress: citations take their source from it.
+        self.slice_assignment = SliceAssignment()
+        self.findings_model = findings_model(evidence, self.citation_log, self.slice_assignment)
         self.diagnosis_model = diagnosis_model(evidence, self.citation_log)
         self.context_sources = context_sources
         self.slices = slice_bundle(evidence.sources, slicing)
@@ -626,6 +631,9 @@ class _Team:
             diagnosis_repairs=repairs,
             first_reservations=dict(self.first_reservation),
             task_limits=dict(self.task_limit),
+            citation_source_normalizations={
+                k: v for k, v in self.slice_assignment.by_task.items() if v
+            },
         )
 
     async def _diagnose(
@@ -910,18 +918,22 @@ class _Team:
                 ),
             )
             self.citation_log.task_id = assignment
-            record = await run_operator(
-                task_v1,
-                spec,
-                harness=self.harness,
-                store=self.store,
-                output_model=self.findings_model,
-                tools=self.tools,
-                base_prompt=OPERATOR_PROMPT,
-                skills_config=self.skills_config,
-                skills_dir=self.skills_dir,
-                budget_id=pool.id,
-            )
+            self.slice_assignment.assign(assignment, item.source_id, slice_ref(self.run_id, item))
+            try:
+                record = await run_operator(
+                    task_v1,
+                    spec,
+                    harness=self.harness,
+                    store=self.store,
+                    output_model=self.findings_model,
+                    tools=self.tools,
+                    base_prompt=OPERATOR_PROMPT,
+                    skills_config=self.skills_config,
+                    skills_dir=self.skills_dir,
+                    budget_id=pool.id,
+                )
+            finally:
+                self.slice_assignment.clear()
             entries = self.caller.entries(assignment)
             spent += sum((e.usd_real for e in entries), ZERO_USD)
             self.caller.emit_attempts(agent.agent_id, record.attempts, entries)
