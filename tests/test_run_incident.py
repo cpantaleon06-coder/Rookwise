@@ -312,3 +312,8 @@ def test_the_cli_refuses_a_repair_temperature_out_of_range(module, monkeypatch, 
     monkeypatch.setattr(module, "load_bundle", lambda *a, **k: pytest.fail("a run started"))
     assert module.main(["inc-01", "estimate", "--repair-temperature", "2.5"]) == 2
     assert "between 0 and 2" in capsys.readouterr().out
+
+
+def test_the_report_counts_salvaged_replies(module, tmp_path):
+    report, _, _ = _estimate(module, tmp_path)
+    assert report["salvaged_replies"] == {"replies": 0, "dropped_elements": 0, "by_task": {}}
