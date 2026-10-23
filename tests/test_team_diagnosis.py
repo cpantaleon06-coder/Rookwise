@@ -94,7 +94,9 @@ BOTH = plan_reply(block(1), block(1, source_id="ticket.md"))
 
 def _team(context_sources=(), **replies):
     replies.setdefault("director", [BOTH])
-    replies.setdefault("operator", [findings_reply(GOOD_CLAIM), findings_reply(GOOD_CLAIM)])
+    # ticket.md's block runs first (the smaller need) and has nothing to report; src-a's
+    # operator cites its own slice. An operator may cite only its own slice.
+    replies.setdefault("operator", [findings_reply(), findings_reply(GOOD_CLAIM)])
     replies.setdefault("manager", [summary_reply(), summary_reply()])
     replies.setdefault("auditor", [judgment_reply()])
     handler = TeamHandler(**replies)
@@ -114,7 +116,7 @@ def test_the_director_receives_context_inventory_and_findings_by_reference():
             ],
         }
     )
-    # Each operator cites its own slice: the ticket's operator reports no claim.
+    # One block: src-a's task runs first and cites its slice; ticket.md's reports nothing.
     team, _, handler = _team(
         context_sources=("ticket.md",),
         director=[plan],

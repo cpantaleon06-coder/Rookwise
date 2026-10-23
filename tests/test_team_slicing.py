@@ -181,7 +181,8 @@ def test_citations_are_validated_against_the_full_source_not_the_slice():
     }
     assert APP_SLICES[0].line_end < 30
     replies = [_empty_findings() for _ in SLICES]
-    replies[0] = text_reply(findings_payload(far))
+    # deploy.diff's block runs first, so the first app.log slice gets the next reply.
+    replies[sum(s.source_id == "deploy.diff" for s in SLICES)] = text_reply(findings_payload(far))
     handler = _handler(
         director=[_plan()],
         operator=replies,
