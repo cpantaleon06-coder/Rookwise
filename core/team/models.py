@@ -383,15 +383,39 @@ def findings_model(
     bundle: EvidenceBundle,
     log: CitationLog | None = None,
     assignment: SliceAssignment | None = None,
+    *,
+    max_claims: int | None = None,
+    max_citations_per_claim: int | None = None,
 ) -> type[Findings]:
     """`Findings` for one run: same name and JSON Schema, plus the check that each quote
     sits inside a single line of `bundle` in the cited range. With `assignment`, each
-    citation's source is derived from the operator's slice (see the module docstring)."""
+    citation's source is derived from the operator's slice (see the module docstring).
+    `max_claims` and `max_citations_per_claim` (None: no limit) cap a reply; a reply over
+    either fails validation with a message the repair can act on. The JSON Schema does
+    not carry the caps, so it stays the same as `Findings`."""
     citation, claim = _bound_claim(bundle, assignment)
 
     class Findings(_Findings):
         __doc__ = _Findings.__doc__
         claims: list[claim] = Field(default_factory=list)  # type: ignore[valid-type]
+
+        @model_validator(mode="after")
+        def _within_the_caps(self) -> Findings:
+            if max_claims is not None and len(self.claims) > max_claims:
+                raise ValueError(
+                    f"the reply has {len(self.claims)} claims; report at most {max_claims}, "
+                    "the ones that matter most for the task"
+                )
+            for item in self.claims:
+                count = len(item.citations)
+                if max_citations_per_claim is not None and count > max_citations_per_claim:
+                    raise ValueError(
+                        f"claim {item.claim_id!r} has {count} citations; give at most "
+                        f"{max_citations_per_claim}: the first and last occurrence of a "
+                        "repeated line and any line that shows a different cause, never "
+                        "every matching line"
+                    )
+            return self
 
         @model_validator(mode="wrap")
         @classmethod
