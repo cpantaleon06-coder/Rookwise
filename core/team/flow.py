@@ -99,6 +99,8 @@ from decimal import ROUND_FLOOR, Decimal
 from pathlib import Path
 from typing import Any, Literal
 
+from pydantic import ValidationError
+
 from rookwise.api.models import (
     AgentHiredPayload,
     AgentNode,
@@ -130,6 +132,7 @@ from rookwise.harness.request import (
     JsonSchemaFormat,
     build_request,
 )
+from rookwise.harness.salvage import Salvage, salvage_json
 from rookwise.harness.schema import inline_refs
 from rookwise.harness.validate import final_result_instructions, payload_model
 from rookwise.ledger import Allocation, CapReached, RunReport
@@ -304,6 +307,9 @@ class TeamRun:
     task_limits: dict[str, Decimal] = field(default_factory=dict)
     # Each operator task's estimated reservation of one retry with history (zero when off).
     retry_reservations: dict[str, Decimal] = field(default_factory=dict)
+    # Operator replies salvaged from a cut or broken reply, by task id: the trailing
+    # elements each salvage dropped.
+    salvaged_replies: dict[str, list[int]] = field(default_factory=dict)
     # Operator citations whose source_id was derived from the assigned slice, by task id.
     citation_source_normalizations: dict[str, int] = field(default_factory=dict)
 
@@ -499,6 +505,8 @@ class _Team:
         self.expected_cost: dict[str, Decimal] = {}  # by operator task id
         self.task_limit: dict[str, Decimal] = {}  # by operator task id
         self.retry_reservation: dict[str, Decimal] = {}  # by operator task id
+        # Operator replies salvaged from a cut or broken reply: the elements each dropped.
+        self.salvaged: dict[str, list[int]] = {}
         self.manager_reservation: Decimal | None = None
         self._check_config(slicing)
 
@@ -677,6 +685,7 @@ class _Team:
             first_reservations=dict(self.first_reservation),
             task_limits=dict(self.task_limit),
             retry_reservations=dict(self.retry_reservation),
+            salvaged_replies={k: list(v) for k, v in self.salvaged.items()},
             citation_source_normalizations={
                 k: v for k, v in self.slice_assignment.by_task.items() if v
             },
@@ -977,6 +986,7 @@ class _Team:
                     skills_config=self.skills_config,
                     skills_dir=self.skills_dir,
                     budget_id=pool.id,
+                    salvage=self._salvage_for(assignment),
                 )
             finally:
                 self.slice_assignment.clear()
@@ -1123,6 +1133,40 @@ class _Team:
             self.ledger.reservation_usd(higher, tokens, built.max_tokens) if higher else ZERO_USD,
             self._retry_reservation(built) if self.policy.pool_covers_one_retry else ZERO_USD,
         )
+
+    def _salvage_for(self, assignment: str) -> Callable[[str], Salvage | None]:
+        """Salvage for one operator call: the complete part of a cut or broken reply,
+        kept only when it validates against the operators' output model (on a probe that
+        neither logs nor counts) and holds at least one claim. Accepted salvages are
+        counted per task with the elements they dropped."""
+        probe = SliceAssignment()
+        model = payload_model(
+            findings_model(
+                self.evidence,
+                None,
+                probe,
+                max_claims=self.policy.operator_max_claims,
+                max_citations_per_claim=self.policy.operator_max_citations_per_claim,
+            )
+        )
+
+        def accept(value: Any) -> bool:
+            probe.assign(
+                assignment, self.slice_assignment.source_id or "", self.slice_assignment.slice_ref
+            )
+            try:
+                payload = model.model_validate(value)
+            except ValidationError:
+                return False
+            return payload.status == "ok" and bool(payload.output.claims)
+
+        def salvage(text: str) -> Salvage | None:
+            found = salvage_json(text, accept)
+            if found is not None:
+                self.salvaged.setdefault(assignment, []).append(found.dropped_elements)
+            return found
+
+        return salvage
 
     def _retry_reservation(self, first: BuiltRequest) -> Decimal:
         """The reservation of one retry of `first`, at the ledger's prices."""

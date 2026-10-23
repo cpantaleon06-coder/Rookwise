@@ -33,6 +33,8 @@ A request may carry a wrapped `json_schema` `response_format` (`JsonSchemaFormat
 
 `repair_temperature` (on `ToolLoop.run` and `run_with_escalation`, from a role's `repair_temperature` in config/skills.json, off by default) replaces the temperature from the first re-prompt on: the step after a `PROTOCOL ERROR` message and every step of a validation repair. The first step of an attempt, including the first step on a new model of the ladder, keeps the model's sampling.
 
+Salvage (`rookwise.harness.salvage`, 2026-10-22): a `ToolLoop` built with a `salvage` callback tries it in `native_tools` on a final reply that is not valid JSON and on a reply cut at `finish_reason: "length"`. `salvage_json` cuts the reply at the last point where an element is complete (outside strings, depth aware), closes the brackets still open there, parses, and keeps the first result the caller accepts, with the number of trailing elements it dropped. Nothing is patched, only cut away. The loop then ends with status `salvaged` and the escalation validates the value like any final result. The team passes a callback for operators only (never the director, managers or auditor): it accepts findings that validate against the operators' output model and hold at least one claim, and every citation still goes through the deterministic check. For operators this changes D3's rule that a `length` reply is discarded: its complete part can now be kept.
+
 ### Which model uses which
 
 From the tool-calling probe of 2026-10-16 (one sample per call, so weak evidence):

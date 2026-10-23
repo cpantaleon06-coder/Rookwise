@@ -37,6 +37,8 @@ from rookwise.money import Usd
 
 OutcomeLabel = Literal["first_pass_ok", "ok_after_retry", "ok_after_escalation", "failed"]
 AttemptReason = Literal["first", "repair", "escalation"]
+# Loop statuses that carry a final result to validate.
+FINAL_STATUSES = ("final", "salvaged")
 _STOP_AT_ONCE = ("length", "budget_exhausted", "token_ceiling", "cancelled")
 
 
@@ -83,7 +85,7 @@ class EscalationResult:
 
 
 def _failure_reason(outcome: LoopOutcome, validation: Validation) -> str:
-    if outcome.status != "final":
+    if outcome.status not in FINAL_STATUSES:
         return outcome.status
     if not validation.ok:
         return "validation_failed"
@@ -127,7 +129,7 @@ async def run_with_escalation(
             repair_temperature=repair_temperature,
         )
         tool_calls += outcome.tool_calls
-        if outcome.status == "final":
+        if outcome.status in FINAL_STATUSES:
             validation = validate_final(outcome.final, output_model)
         else:
             detail = f"{outcome.status}: {outcome.detail}" if outcome.detail else outcome.status

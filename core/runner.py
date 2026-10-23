@@ -22,7 +22,7 @@ model config sets them (D4).
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +32,7 @@ from rookwise.harness.client import CancelHandle, Harness
 from rookwise.harness.escalate import AttemptRecord, OutcomeLabel, run_with_escalation
 from rookwise.harness.loop import TokenBudget, Tool, ToolLoop
 from rookwise.harness.request import ChatRequest
+from rookwise.harness.salvage import Salvage
 from rookwise.harness.validate import build_result, final_result_instructions
 from rookwise.money import ZERO_USD, Usd
 from rookwise.schemas import ResultV1, TaskV1
@@ -106,7 +107,9 @@ async def run_operator(
     skills_dir: Path = SKILLS_DIR,
     cancel: CancelHandle | None = None,
     budget_id: str | None = None,
+    salvage: Callable[[str], Salvage | None] | None = None,
 ) -> OperatorRun:
+    """`salvage` (None: off) is handed to the tool loop: see `rookwise.harness.loop`."""
     tools = tools or {}
     if (spec.input_schema, spec.output_schema) != ("task_v1", "result_v1"):
         raise ValueError(f"{spec.operator_id}: only task_v1 -> result_v1 operators are supported")
@@ -146,7 +149,7 @@ async def run_operator(
     ledger.set_task_cap(task.run_id, task.task_id, task.budget.max_usd)
     operator_tools = [tools[name] for name in spec.tools]
     escalation = await run_with_escalation(
-        ToolLoop(harness, operator_tools),
+        ToolLoop(harness, operator_tools, salvage=salvage),
         request,
         output_model,
         config=harness.config.escalation,

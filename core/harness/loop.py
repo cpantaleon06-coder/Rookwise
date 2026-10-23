@@ -32,6 +32,13 @@ tool-calling probe every model skipped the tools when both came together.
 step after a `PROTOCOL ERROR` message, and every step of a run that continues a history
 (a validation repair). The first step of a run keeps the request's sampling.
 
+A loop built with `salvage` (the team passes one for operators only) tries it, in
+`native_tools`, on a final reply that is not valid JSON and on a reply cut at
+`finish_reason: "length"`: when it returns a value, the run ends with status `salvaged`
+and that value as its final result (`LoopOutcome.salvage` says how much was dropped), and
+the escalation validates it like any final result. Without `salvage`, or when it returns
+None, nothing changes.
+
 `finish_reason: "length"` is never a success (D3): the reply is discarded and the run
 ends at once with status `length`, and `LoopOutcome.length` says which ceiling cut it:
 the call's own `max_tokens` (the role's output ceiling, config/skills.json) or what was
@@ -71,11 +78,13 @@ from rookwise.harness.request import (
     build_request,
 )
 from rookwise.harness.retry import ApiError, StreamInterrupted
+from rookwise.harness.salvage import Salvage
 from rookwise.ledger import CapReached
 from rookwise.money import ZERO_USD
 
 LoopStatus = Literal[
     "final",
+    "salvaged",
     "step_limit",
     "protocol_error",
     "repeated_invalid_reply",
@@ -169,6 +178,8 @@ class LoopOutcome:
     tool_calls: Counter[str] = field(default_factory=Counter)
     trace: list[dict[str, Any]] = field(default_factory=list)
     detail: str = ""
+    # Set when the final result was salvaged from a cut or broken reply.
+    salvage: Salvage | None = None
 
 
 class _ToolAction(BaseModel):
@@ -188,6 +199,14 @@ class _FinalAction(BaseModel):
 class _Reply:
     text: str
     tool_calls: tuple[ToolCall, ...]
+
+
+@dataclass(frozen=True)
+class _Salvaged:
+    """A reply cut at the length limit whose complete part was salvaged."""
+
+    text: str
+    salvage: Salvage
 
 
 @dataclass(frozen=True)
@@ -323,11 +342,16 @@ class ToolLoop:
     """Runs one model through the tool loop. Holds no state between runs."""
 
     def __init__(
-        self, harness: Harness, tools: Sequence[Tool] = (), config: LoopConfig | None = None
+        self,
+        harness: Harness,
+        tools: Sequence[Tool] = (),
+        config: LoopConfig | None = None,
+        salvage: Callable[[str], Salvage | None] | None = None,
     ) -> None:
         self._harness = harness
         self._tools = {tool.name: tool for tool in tools}
         self._limits = config or harness.config.loop
+        self._salvage = salvage
 
     def offered_tools(self) -> list[Tool]:
         """Tools offered to the model. Replay offers every tool, since it runs none, so the
@@ -380,6 +404,10 @@ class ToolLoop:
                 if isinstance(reply, _Stop):
                     outcome.status, outcome.detail = reply.status, reply.detail
                     break
+                if isinstance(reply, _Salvaged):
+                    messages.append({"role": "assistant", "content": reply.text})
+                    self._salvaged(outcome, reply.text, reply.salvage)
+                    break
                 calls, problem, final = self._read_reply(reply, protocol, messages)
                 if final is not None:
                     outcome.status, outcome.final, outcome.final_text = (
@@ -390,6 +418,10 @@ class ToolLoop:
                     outcome.trace.append({"step": outcome.steps, "kind": "final"})
                     break
                 if problem is not None:
+                    salvage = self._try_salvage(reply.text, protocol, problem)
+                    if salvage is not None:
+                        self._salvaged(outcome, reply.text, salvage)
+                        break
                     if reply.text == last_invalid:
                         # The same bytes again: the feedback did not change the reply,
                         # and sending it once more would pay for the same answer.
@@ -484,9 +516,9 @@ class ToolLoop:
         if result.cancelled:
             return _Stop("cancelled")
         if result.finish_reason == "length":
-            # D3: never a success; the content is discarded and nothing is retried.
+            # D3: never a success as it stands, and nothing is retried; a loop with
+            # `salvage` may keep the reply's complete part instead of discarding it.
             limited_by = "output_ceiling" if step_max == max_tokens else "token_budget"
-            outcome.length = LengthStop(step_max, limited_by)
             outcome.trace.append(
                 {
                     "step": outcome.steps,
@@ -495,8 +527,36 @@ class ToolLoop:
                     "limited_by": limited_by,
                 }
             )
+            salvage = self._try_salvage(result.text, protocol, INVALID_JSON)
+            if salvage is not None and not result.tool_calls:
+                return _Salvaged(result.text, salvage)
+            outcome.length = LengthStop(step_max, limited_by)
             return _Stop("length", f"finish_reason length at max_tokens {step_max} ({limited_by})")
         return _Reply(result.text, result.tool_calls)
+
+    def _try_salvage(self, text: str, protocol: LoopProtocol, problem: str) -> Salvage | None:
+        """The salvaged final result of a reply that is not valid JSON, or None."""
+        if self._salvage is None or protocol != "native_tools":
+            return None
+        if not problem.startswith(INVALID_JSON):
+            return None
+        return self._salvage(text)
+
+    @staticmethod
+    def _salvaged(outcome: LoopOutcome, text: str, salvage: Salvage) -> None:
+        outcome.status, outcome.final, outcome.final_text = "salvaged", salvage.value, text
+        outcome.salvage = salvage
+        outcome.detail = (
+            f"salvaged: kept {salvage.cut_at} of {len(text)} characters, dropped "
+            f"{salvage.dropped_elements} trailing element(s)"
+        )
+        outcome.trace.append(
+            {
+                "step": outcome.steps,
+                "kind": "salvaged",
+                "dropped_elements": salvage.dropped_elements,
+            }
+        )
 
     @staticmethod
     def _count(result: Result, outcome: LoopOutcome) -> None:

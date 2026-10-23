@@ -541,6 +541,12 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
         },
         "outcomes_by_role": {k: dict(v) for k, v in outcomes.items()},
         "unread_slices": [dataclasses.asdict(u) for u in team.unread_slices],
+        # Operator replies whose complete part was salvaged from a cut or broken reply.
+        "salvaged_replies": {
+            "replies": sum(len(v) for v in team.salvaged_replies.values()),
+            "dropped_elements": sum(sum(v) for v in team.salvaged_replies.values()),
+            "by_task": {k: list(v) for k, v in team.salvaged_replies.items()},
+        },
         # Operator citations whose source_id the team derived from the assigned slice.
         "citation_source_normalizations": {
             "total": sum(team.citation_source_normalizations.values()),
