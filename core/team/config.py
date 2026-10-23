@@ -104,9 +104,14 @@ class BudgetPolicy:
       its need and an equal share of what remains, and the last (largest) block gets the
       rest. A block's need is what its pool needs to run its slices one after another:
       their expected costs (the calibrated input estimate plus
-      `expected_output_tokens_per_operator`) plus one reservation's headroom for the call
-      in flight, divided by 1 - `manager_share`; so a block with work gets at least one
-      operator reservation when the cap allows it. Blocks run in that order and are
+      `expected_output_tokens_per_operator`) plus the headroom for the task in flight,
+      divided by 1 - `manager_share`. With `pool_covers_one_retry` that headroom is the
+      task's first reservation plus the reservation of one retry with its history (the
+      first request, a reply of the role's whole output ceiling at
+      `retry_reply_chars_per_token` characters per token, and `retry_feedback_chars` of
+      feedback), less its expected cost, for the task where it is largest; without it, the
+      first reservation alone. So a one-slice block covers its first call and one repair
+      or re-prompt when the cap allows it. Blocks run in that order and are
       allocated just before they run, so money an earlier block left unspent goes back to
       the run and reaches the later ones.
     - A manager keeps `manager_share` of its block for its own calls; the rest is the
@@ -131,6 +136,13 @@ class BudgetPolicy:
     # bundle only: the mean operator output of the second smoke record run
     # (runs/cassettes/team_smoke.run2.json), not of inc-01 operators.
     expected_output_tokens_per_operator: int = 1889
+    # The pool's headroom covers one retry with history (see above). 4.02 is the 90th
+    # percentile of JSON-escaped characters per output token over the 70 inc-01 operator
+    # replies longer than 50 tokens (2026-10-21); 1200 is above the longest feedback
+    # message seen there (1038 characters). Both are measured on inc-01 only.
+    pool_covers_one_retry: bool = True
+    retry_reply_chars_per_token: Decimal = Decimal("4.02")
+    retry_feedback_chars: int = 1200
     max_reassignments: int = 1
     max_blocks: int = 5
     max_tasks_per_block: int = 5
@@ -149,6 +161,11 @@ class BudgetPolicy:
             raise ValueError("auditor_share + director_share must leave money for the blocks")
         if self.expected_output_tokens_per_operator < 1:
             raise ValueError("expected_output_tokens_per_operator must be at least 1")
+        ratio = require_decimal(self.retry_reply_chars_per_token, "retry_reply_chars_per_token")
+        if ratio <= 0:
+            raise ValueError("retry_reply_chars_per_token must be positive")
+        if self.retry_feedback_chars < 0:
+            raise ValueError("retry_feedback_chars must not be negative")
         if self.manager_max_input_tokens < 1:
             raise ValueError("manager_max_input_tokens must be at least 1")
         if self.task_limit_first_rung_reservations < 1:
@@ -163,4 +180,6 @@ def load_budget_policy(path: Path = BUDGET_PATH) -> BudgetPolicy:
     values = {k: v for k, v in data.items() if not k.startswith("_")}
     for name in ("auditor_share", "director_share", "manager_share"):
         values[name] = Decimal(values[name])
+    if "retry_reply_chars_per_token" in values:
+        values["retry_reply_chars_per_token"] = Decimal(values["retry_reply_chars_per_token"])
     return BudgetPolicy(**values)

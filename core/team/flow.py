@@ -91,8 +91,9 @@ event per tool call, cancellation and reputation updates.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_FLOOR, Decimal
 from pathlib import Path
@@ -120,8 +121,15 @@ from rookwise.api.models import (
 )
 from rookwise.evidence import EvidenceBundle, EvidenceReport, split_lines, verify
 from rookwise.harness import ConfigError, Harness, Tool
+from rookwise.harness.config import HarnessConfig
 from rookwise.harness.loop import prepare_messages
-from rookwise.harness.request import ChatRequest, JsonObjectFormat, JsonSchemaFormat, build_request
+from rookwise.harness.request import (
+    BuiltRequest,
+    ChatRequest,
+    JsonObjectFormat,
+    JsonSchemaFormat,
+    build_request,
+)
 from rookwise.harness.schema import inline_refs
 from rookwise.harness.validate import final_result_instructions, payload_model
 from rookwise.ledger import Allocation, CapReached, RunReport
@@ -282,6 +290,8 @@ class TeamRun:
     # Each operator task's estimated first reservation and its spending limit.
     first_reservations: dict[str, Decimal] = field(default_factory=dict)
     task_limits: dict[str, Decimal] = field(default_factory=dict)
+    # Each operator task's estimated reservation of one retry with history (zero when off).
+    retry_reservations: dict[str, Decimal] = field(default_factory=dict)
     # Operator citations whose source_id was derived from the assigned slice, by task id.
     citation_source_normalizations: dict[str, int] = field(default_factory=dict)
 
@@ -343,6 +353,20 @@ def _consolidation_request(header: str, entries: list[str], number: int, total: 
     part = f"\n\nBatch {number} of {total} of this block's findings." if total > 1 else ""
     findings = "\n".join(entries) or "(no finding with claims)"
     return f"{header}{part}\n\nFindings with claims, by reference:\n{findings}"
+
+
+def retry_request(first: BuiltRequest, policy: BudgetPolicy, config: HarnessConfig) -> BuiltRequest:
+    """One retry of `first` (a repair or a re-prompt), as the harness would build it: the
+    same request with the reply in its history, sized as the whole output ceiling at
+    `retry_reply_chars_per_token`, then `retry_feedback_chars` of feedback. It goes through
+    the same estimate the harness reserves with."""
+    reply = math.ceil(first.max_tokens * policy.retry_reply_chars_per_token)
+    history = [
+        *first.request.messages,
+        {"role": "assistant", "content": "x" * reply},
+        {"role": "user", "content": "x" * policy.retry_feedback_chars},
+    ]
+    return build_request(replace(first.request, messages=history), config)
 
 
 def _brief(task: PlanTask, item: Slice) -> str:
@@ -455,6 +479,7 @@ class _Team:
         self.first_reservation: dict[str, Decimal] = {}  # by operator task id
         self.expected_cost: dict[str, Decimal] = {}  # by operator task id
         self.task_limit: dict[str, Decimal] = {}  # by operator task id
+        self.retry_reservation: dict[str, Decimal] = {}  # by operator task id
         self.manager_reservation: Decimal | None = None
         self._check_config(slicing)
 
@@ -539,9 +564,10 @@ class _Team:
                     number += 1
                     task_id = f"t-{number}"
                     items.append((task_id, task, item))
-                    reservation, expected, next_rung = self._estimate(task, item)
+                    reservation, expected, next_rung, retry = self._estimate(task, item)
                     self.first_reservation[task_id] = reservation
                     self.expected_cost[task_id] = expected
+                    self.retry_reservation[task_id] = retry
                     self.task_limit[task_id] = _floor(
                         reservation * self.policy.task_limit_first_rung_reservations
                         + next_rung * self.policy.task_limit_next_rung_reservations
@@ -631,6 +657,7 @@ class _Team:
             diagnosis_repairs=repairs,
             first_reservations=dict(self.first_reservation),
             task_limits=dict(self.task_limit),
+            retry_reservations=dict(self.retry_reservation),
             citation_source_normalizations={
                 k: v for k, v in self.slice_assignment.by_task.items() if v
             },
@@ -982,12 +1009,19 @@ class _Team:
 
     def _block_need(self, items: list[tuple[str, PlanTask, Slice]]) -> Decimal:
         """What a block needs so its operators can run one after another at their
-        expected cost (the expected costs plus one reservation's headroom for the call in
-        flight), plus what its manager keeps (`_manager_keeps`)."""
+        expected cost (the expected costs plus the headroom of the task in flight: its
+        first reservation and, with `pool_covers_one_retry`, one retry's reservation, less
+        its expected cost, for the task where that is largest), plus what its manager keeps
+        (`_manager_keeps`)."""
         if not items:
             return ZERO_USD
         expected = sum((self.expected_cost[i[0]] for i in items), ZERO_USD)
-        headroom = max(self.first_reservation[i[0]] - self.expected_cost[i[0]] for i in items)
+        headroom = max(
+            self.first_reservation[i[0]]
+            + self.retry_reservation.get(i[0], ZERO_USD)
+            - self.expected_cost[i[0]]
+            for i in items
+        )
         operators = expected + max(headroom, ZERO_USD)
         share = self.policy.manager_share
         by_share = operators * share / (1 - share) if share < 1 else operators
@@ -1010,15 +1044,16 @@ class _Team:
             )
         return self.manager_reservation
 
-    def _estimate(self, task: PlanTask, item: Slice) -> tuple[Decimal, Decimal, Decimal]:
+    def _estimate(self, task: PlanTask, item: Slice) -> tuple[Decimal, Decimal, Decimal, Decimal]:
         """For the task's cheapest operator: its first reservation (its whole first request
         through the harness's calibrated estimate plus the role's output ceiling), its
-        expected cost (the same input plus `expected_output_tokens_per_operator`) and the
-        same request's reservation one rung up the model ladder (zero at the top), at the
-        ledger's prices. All zero when no operator serves the role."""
+        expected cost (the same input plus `expected_output_tokens_per_operator`), the
+        same request's reservation one rung up the model ladder (zero at the top), and the
+        reservation of one retry with its history (zero unless `pool_covers_one_retry`), at
+        the ledger's prices. All zero when no operator serves the role."""
         specs = [s for s in self.catalog if s.role == task.role]
         if not specs:
-            return ZERO_USD, ZERO_USD, ZERO_USD
+            return ZERO_USD, ZERO_USD, ZERO_USD, ZERO_USD
         spec = min(specs, key=lambda s: (s.price_per_task_est_usd, -s.reputation, s.operator_id))
         if spec.role not in self.systems:
             composed = compose_system_prompt(
@@ -1064,6 +1099,14 @@ class _Team:
             self.ledger.reservation_usd(spec.model, tokens, built.max_tokens),
             self.ledger.reservation_usd(spec.model, tokens, expected_output),
             self.ledger.reservation_usd(higher, tokens, built.max_tokens) if higher else ZERO_USD,
+            self._retry_reservation(built) if self.policy.pool_covers_one_retry else ZERO_USD,
+        )
+
+    def _retry_reservation(self, first: BuiltRequest) -> Decimal:
+        """The reservation of one retry of `first`, at the ledger's prices."""
+        retry = retry_request(first, self.policy, self.harness.config)
+        return self.ledger.reservation_usd(
+            retry.request.model, retry.input_tokens_estimate, retry.max_tokens
         )
 
     def _check_config(self, slicing: SlicingConfig) -> None:
