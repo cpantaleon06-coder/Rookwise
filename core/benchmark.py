@@ -8,7 +8,11 @@ even when one of its citations points at an essential line. It also returns:
 
 - `citation_first_pass_validity`: valid citations over all citations in the first reply
   of every task (index 0 in the run's `CitationLog`), before any repair; None when the
-  first replies hold no citation.
+  first replies hold no citation. Two numbers: after the operators' citation source is
+  derived from their slice (`citation_first_pass_validity`) and with every citation as
+  the model wrote it (`citation_first_pass_validity_before_normalization`). Baselines (b)
+  and (c) must report the same two numbers, so the comparison does not credit the
+  hierarchy for a normalization the baselines lack.
 - `citation_repairs`: repair attempts spent on citation errors, that is repairs whose
   previous attempt of the same task failed validation on a citation.
 - `withdrawn_claims`: how many claims of the diagnosis D3 withdrew.
@@ -40,15 +44,23 @@ class DiagnosisScore:
     first_pass_valid: int
     citation_first_pass_validity: float | None
     citation_repairs: int
+    # The same first replies, every citation as the model wrote it.
+    first_pass_valid_before_normalization: int = 0
+    citation_first_pass_validity_before_normalization: float | None = None
 
     @property
     def diagnosis_correct(self) -> bool:
         return self.score.diagnosis_correct
 
 
-def first_pass(replies: Sequence[ReplyCitations]) -> tuple[int, int]:
-    """(valid, total) citations over every task's first reply."""
+def first_pass(
+    replies: Sequence[ReplyCitations], *, before_normalization: bool = False
+) -> tuple[int, int]:
+    """(valid, total) citations over every task's first reply, after the operators'
+    citation source is derived, or as written with `before_normalization`."""
     checks = [check for reply in replies if reply.index == 0 for check in reply.citations]
+    if before_normalization:
+        return sum(check.ok_before_normalization for check in checks), len(checks)
     return sum(check.ok for check in checks), len(checks)
 
 
@@ -85,6 +97,7 @@ def score_diagnosis(
         claims = [claim.claim() for claim in split.supported]
         category, withdrawn = diagnosis.category, len(split.withdrawn)
     valid, total = first_pass(citation_log)
+    as_written, _ = first_pass(citation_log, before_normalization=True)
     return DiagnosisScore(
         score=score(claims, truth, category=category, bundle=bundle),
         withdrawn_claims=withdrawn,
@@ -92,6 +105,8 @@ def score_diagnosis(
         first_pass_valid=valid,
         citation_first_pass_validity=valid / total if total else None,
         citation_repairs=citation_repairs(attempts),
+        first_pass_valid_before_normalization=as_written,
+        citation_first_pass_validity_before_normalization=as_written / total if total else None,
     )
 
 

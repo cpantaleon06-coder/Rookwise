@@ -278,7 +278,7 @@ Metrics, per run and aggregated per configuration:
 |---|---|
 | `diagnosis_correct` | The diagnosis's root-cause category matches the ground truth AND at least one essential evidence line is cited by a citation that passes the evidence check. This scoring rule is a proposal. |
 | `citation_verified_rate` | Valid citations over all citations (`core/evidence.py`) |
-| Citation first-pass validity | Valid citations over all citations in each task's first reply, before any repair (`TeamRun.citation_log`) |
+| Citation first-pass validity | Valid citations over all citations in each task's first reply, before any repair (`TeamRun.citation_log`). Two numbers since 2026-10-22: after the operators' citation source is derived from their slice, and with every citation as the model wrote it. Baselines (b) and (c) must report the same two numbers. |
 | Citation repairs | Repair attempts spent on citation errors |
 | Withdrawn claims | Claims of the diagnosis withdrawn as unsupported (D3); they never count toward `diagnosis_correct` or `evidence_recall` |
 | `evidence_recall` | Essential evidence refs covered by at least one valid citation, over all essential refs. A valid citation covers a ref when its quote, inside its cited lines, falls on one of the ref's lines; a wide range whose quote comes from another line covers nothing |

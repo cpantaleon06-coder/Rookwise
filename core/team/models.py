@@ -243,12 +243,19 @@ def quote_problem(lines: list[str] | None, citation: SourceCitation) -> str | No
 
 @dataclass(frozen=True)
 class CitationCheck:
-    """One citation of one reply: valid on its own, or the problem the schema found."""
+    """One citation of one reply: valid on its own, or the problem the schema found.
+    `ok` is after the source is derived from the operator's slice; `ok_as_written` is the
+    citation exactly as the model wrote it (the same as `ok` where nothing was derived)."""
 
     claim_index: int
     citation_index: int
     ok: bool
     problem: str = ""
+    ok_as_written: bool | None = None
+
+    @property
+    def ok_before_normalization(self) -> bool:
+        return self.ok if self.ok_as_written is None else self.ok_as_written
 
 
 @dataclass(frozen=True)
@@ -269,24 +276,44 @@ class CitationLog:
     task_id: str = ""
     replies: list[ReplyCitations] = field(default_factory=list)
 
-    def record(self, data: Any, citation_model: type[BaseModel]) -> None:
+    def record(self, data: Any, citation_model: type[BaseModel], as_written: Any = None) -> None:
+        """Check every citation of `data`; with `as_written` (the reply before its
+        sources were derived), also check each citation as the model wrote it."""
         checks = []
-        claims = data.get("claims") if isinstance(data, dict) else None
-        for i, claim in enumerate(claims if isinstance(claims, list) else []):
-            citations = claim.get("citations") if isinstance(claim, dict) else None
-            for j, citation in enumerate(citations if isinstance(citations, list) else []):
-                try:
-                    citation_model.model_validate(citation)
-                except ValidationError as failure:
-                    problem = "; ".join(error["msg"] for error in failure.errors())
-                    checks.append(CitationCheck(i, j, False, problem))
-                else:
-                    checks.append(CitationCheck(i, j, True))
+        for i, j, citation in _citations(data):
+            original = _citation_at(as_written, i, j) if as_written is not None else None
+            ok_as_written = None
+            if original is not None and original != citation:
+                ok_as_written = _valid(citation_model, original)[0]
+            ok, problem = _valid(citation_model, citation)
+            checks.append(CitationCheck(i, j, ok, problem, ok_as_written))
         index = sum(reply.task_id == self.task_id for reply in self.replies)
         self.replies.append(ReplyCitations(self.task_id, index, tuple(checks)))
 
     def first_replies(self) -> list[ReplyCitations]:
         return [reply for reply in self.replies if reply.index == 0]
+
+
+def _citations(data: Any) -> list[tuple[int, int, Any]]:
+    found = []
+    claims = data.get("claims") if isinstance(data, dict) else None
+    for i, claim in enumerate(claims if isinstance(claims, list) else []):
+        citations = claim.get("citations") if isinstance(claim, dict) else None
+        for j, citation in enumerate(citations if isinstance(citations, list) else []):
+            found.append((i, j, citation))
+    return found
+
+
+def _citation_at(data: Any, i: int, j: int) -> Any:
+    return next((c for a, b, c in _citations(data) if (a, b) == (i, j)), None)
+
+
+def _valid(citation_model: type[BaseModel], citation: Any) -> tuple[bool, str]:
+    try:
+        citation_model.model_validate(citation)
+    except ValidationError as failure:
+        return False, "; ".join(error["msg"] for error in failure.errors())
+    return True, ""
 
 
 @dataclass
@@ -420,10 +447,11 @@ def findings_model(
         @model_validator(mode="wrap")
         @classmethod
         def _log_citations(cls, data: Any, handler: Any) -> Any:
+            as_written = data
             if assignment is not None:
                 data = assignment.derive(data)
             if log is not None:
-                log.record(data, citation)
+                log.record(data, citation, as_written)
             return handler(data)
 
     return Findings
