@@ -317,3 +317,11 @@ def test_the_cli_refuses_a_repair_temperature_out_of_range(module, monkeypatch, 
 def test_the_report_counts_salvaged_replies(module, tmp_path):
     report, _, _ = _estimate(module, tmp_path)
     assert report["salvaged_replies"] == {"replies": 0, "dropped_elements": 0, "by_task": {}}
+
+
+def test_the_report_gives_first_pass_validity_before_and_after_normalization(module, tmp_path):
+    report, _, _ = _estimate(module, tmp_path)
+    first = report["score"]["citation_first_pass"]
+    assert {"valid", "total", "validity"} <= set(first)
+    assert {"valid_before_normalization", "validity_before_normalization"} <= set(first)
+    assert first["valid_before_normalization"] <= first["valid"]

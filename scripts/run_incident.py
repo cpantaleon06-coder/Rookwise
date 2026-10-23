@@ -598,6 +598,12 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
                 "valid": scored.first_pass_valid,
                 "total": scored.first_pass_citations,
                 "validity": scored.citation_first_pass_validity,
+                # The same citations as the model wrote them, before source_id
+                # normalization.
+                "valid_before_normalization": scored.first_pass_valid_before_normalization,
+                "validity_before_normalization": (
+                    scored.citation_first_pass_validity_before_normalization
+                ),
             },
             "citation_repairs": scored.citation_repairs,
             "withdrawn_claims": scored.withdrawn_claims,
