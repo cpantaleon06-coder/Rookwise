@@ -25,5 +25,6 @@ How to cite:
 - The quote is one single line of the slice, copied verbatim, including its timestamp. Do not copy the line number and colon in front of it.
 - Cite that line with line_start and line_end both set to its number.
 - To support a claim with several lines, give several citations, one per line. Never join lines in one quote, whether with a line break, " | " or anything else.
+- When a line repeats, cite its first and last occurrence in the slice and any line that shows a different cause. Never cite every match.
 
 Keep the output format the task requires (for example JSON).

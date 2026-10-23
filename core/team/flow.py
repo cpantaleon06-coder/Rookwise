@@ -206,8 +206,20 @@ OPERATOR_PROMPT = (
     "one single line between line_start and line_end, including its timestamp, and never "
     'includes the line-number prefix (the "12: " before each line). To support a claim '
     "with several lines, give several citations, one per line, with line_start equal to "
-    'line_end. Never join lines in one quote, with a line break, " | " or anything else.'
+    'line_end. Never join lines in one quote, with a line break, " | " or anything else. '
+    "When the same kind of line repeats, cite its first and last occurrence and any line "
+    "that shows a different cause; never cite every matching line."
 )
+
+
+def operator_prompt(policy: BudgetPolicy) -> str:
+    """`OPERATOR_PROMPT` with the reply caps of `policy` (config/budget.json)."""
+    return (
+        f"{OPERATOR_PROMPT} Report at most {policy.operator_max_claims} claims, each with "
+        f"at most {policy.operator_max_citations_per_claim} citations."
+    )
+
+
 # Why an operator stopped. A task ceiling is this one task hitting its own cap (its
 # output ceiling or its token budget); a ledger stop is the ledger refusing a reservation.
 TASK_CEILING_STOPS = ("length", "token_ceiling")
@@ -463,7 +475,14 @@ class _Team:
         self.citation_log = CitationLog()
         # The slice of the operator call in progress: citations take their source from it.
         self.slice_assignment = SliceAssignment()
-        self.findings_model = findings_model(evidence, self.citation_log, self.slice_assignment)
+        self.findings_model = findings_model(
+            evidence,
+            self.citation_log,
+            self.slice_assignment,
+            max_claims=self.policy.operator_max_claims,
+            max_citations_per_claim=self.policy.operator_max_citations_per_claim,
+        )
+        self.operator_prompt = operator_prompt(self.policy)
         self.diagnosis_model = diagnosis_model(evidence, self.citation_log)
         self.context_sources = context_sources
         self.slices = slice_bundle(evidence.sources, slicing)
@@ -954,7 +973,7 @@ class _Team:
                     store=self.store,
                     output_model=self.findings_model,
                     tools=self.tools,
-                    base_prompt=OPERATOR_PROMPT,
+                    base_prompt=self.operator_prompt,
                     skills_config=self.skills_config,
                     skills_dir=self.skills_dir,
                     budget_id=pool.id,
@@ -1057,7 +1076,10 @@ class _Team:
         spec = min(specs, key=lambda s: (s.price_per_task_est_usd, -s.reputation, s.operator_id))
         if spec.role not in self.systems:
             composed = compose_system_prompt(
-                spec.role, OPERATOR_PROMPT, config=self.skills_config, skills_dir=self.skills_dir
+                spec.role,
+                self.operator_prompt,
+                config=self.skills_config,
+                skills_dir=self.skills_dir,
             )
             self.systems[spec.role] = (
                 f"{composed.text}\n\n{final_result_instructions(self.findings_model)}"
@@ -1131,7 +1153,7 @@ class _Team:
         )
         if role not in self.systems:
             composed = compose_system_prompt(
-                role, OPERATOR_PROMPT, config=self.skills_config, skills_dir=self.skills_dir
+                role, self.operator_prompt, config=self.skills_config, skills_dir=self.skills_dir
             )
             self.systems[role] = (
                 f"{composed.text}\n\n{final_result_instructions(self.findings_model)}"

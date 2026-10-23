@@ -148,6 +148,10 @@ class BudgetPolicy:
     max_tasks_per_block: int = 5
     operator_max_input_tokens: int = 50_000
     operator_max_output_tokens: int = 5_000
+    # Caps on one operator reply, said in the operator prompt and checked by the findings
+    # model. First guesses (2026-10-22), to be tuned on the dev incidents.
+    operator_max_claims: int = 4
+    operator_max_citations_per_claim: int = 5
     operator_deadline_s: int = 120
     # Above this estimated input a manager consolidates its findings in batches.
     manager_max_input_tokens: int = 60_000
@@ -166,6 +170,10 @@ class BudgetPolicy:
             raise ValueError("retry_reply_chars_per_token must be positive")
         if self.retry_feedback_chars < 0:
             raise ValueError("retry_feedback_chars must not be negative")
+        if self.operator_max_claims < 1 or self.operator_max_citations_per_claim < 1:
+            raise ValueError(
+                "operator_max_claims and operator_max_citations_per_claim must be at least 1"
+            )
         if self.manager_max_input_tokens < 1:
             raise ValueError("manager_max_input_tokens must be at least 1")
         if self.task_limit_first_rung_reservations < 1:
