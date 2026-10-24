@@ -26,6 +26,12 @@ director's temperature from its first re-prompt on. Both are off by default
 (config/skills.json, director role) and set only for this run; the report shows the
 values the run used.
 
+`--configuration` picks what runs: `a` the hierarchy (the default), `b` and `c` the
+single-model baselines on Ultra and Lightning (config/benchmark.json `baselines`): one model
+reads every slice with the operators' prompt, skills and findings model and writes the
+diagnosis, with no plan, managers, auditor model, escalation ladder or reassignment, under
+their own cap (USD 1.00 each, D2). A baseline's reports go to `<mode>-<configuration>/`.
+
 `--stop-after plan` ends the run once the director's plan is valid (in any mode): no other
 agent is called, so a record run costs the plan call only (with its re-prompts, repairs
 and escalations). The run finishes as `cancelled` and partial.
@@ -79,12 +85,13 @@ from rookwise.skills import load_config as load_skills_config  # noqa: E402
 from rookwise.store import InMemoryStore  # noqa: E402
 from rookwise.team import run_team  # noqa: E402
 from rookwise.team.auditor import AUDITOR_PROMPT  # noqa: E402
-from rookwise.team.config import load_team_roles  # noqa: E402
+from rookwise.team.config import load_budget_policy, load_team_roles  # noqa: E402
 from rookwise.team.flow import (  # noqa: E402
     DIAGNOSIS_PROMPT,
     DIRECTOR_PROMPT,
     MANAGER_PROMPT,
     OPERATOR_PROMPT,
+    Baseline,
 )
 
 CONFIG_PATH = REPO_ROOT / "config" / "benchmark.json"
@@ -112,12 +119,40 @@ def load_benchmark_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def default_cap(config: dict[str, Any]) -> str:
-    return config["caps_usd"]["hierarchy"]
+CONFIGURATIONS = ("a", "b", "c")
 
 
-def cassette_path(incident_id: str) -> Path:
-    return REPO_ROOT / "runs" / "cassettes" / f"incident-{incident_id}.json"
+def default_cap(config: dict[str, Any], configuration: str = "a") -> str:
+    if configuration == "a":
+        return config["caps_usd"]["hierarchy"]
+    return config["caps_usd"][config["baselines"][configuration]["cap"]]
+
+
+def baseline_setup(
+    config: dict[str, Any], configuration: str
+) -> tuple[Baseline, list[OperatorSpec]]:
+    """The baseline and its catalog: one operator per role, on the baseline's model."""
+    spec = config["baselines"]
+    model = spec[configuration]["model"]
+    catalog: dict[str, OperatorSpec] = {}
+    for entry in config["catalog"]:
+        operator = OperatorSpec.model_validate(entry)
+        if operator.role not in catalog:
+            catalog[operator.role] = operator.model_copy(
+                update={"model": model, "operator_id": f"{operator.role}-baseline-{configuration}"}
+            )
+    baseline = Baseline(
+        model=model,
+        instruction=spec["instruction"],
+        roles_by_source=dict(spec["roles_by_source"]),
+        default_role=spec["default_role"],
+    )
+    return baseline, list(catalog.values())
+
+
+def cassette_path(incident_id: str, configuration: str = "a") -> Path:
+    suffix = "" if configuration == "a" else f"-{configuration}"
+    return REPO_ROOT / "runs" / "cassettes" / f"incident-{incident_id}{suffix}.json"
 
 
 # -- the estimate stub -------------------------------------------------------------------
@@ -325,6 +360,7 @@ async def run(
     stop_after: str | None = None,
     plan_response_format: str | None = None,
     repair_temperature: float | None = None,
+    configuration: str = "a",
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """One run. `transport` replaces the network in record mode (tests only);
     `empty_fraction` is the estimate stub's share of claim-free slices; `stop_after`
@@ -338,6 +374,15 @@ async def run(
     ledger = InMemoryLedger()
     ledger.open_run(run_id, Caps(run_usd=Decimal(run_usd)))
     harness_config = load_config(env={"HARNESS_MODE": "live"} if mode == "estimate" else os.environ)
+    baseline, policy = None, None
+    if configuration != "a":
+        # One model only: no escalation ladder, no reassignment, no next-rung limit.
+        harness_config = dataclasses.replace(
+            harness_config, escalation=dataclasses.replace(harness_config.escalation, next={})
+        )
+        policy = dataclasses.replace(
+            load_budget_policy(), max_reassignments=0, task_limit_next_rung_reservations=0
+        )
     context = [s for s in config["context_sources"] if s in bundle.sources]
     stub = None
     if mode == "estimate":
@@ -404,6 +449,8 @@ async def run(
 
     harness.complete = timed  # type: ignore[method-assign]
     catalog = [OperatorSpec.model_validate(entry) for entry in config["catalog"]]
+    if configuration != "a":
+        baseline, catalog = baseline_setup(config, configuration)
     started = time.perf_counter()
     async with harness:
         team = await run_team(
@@ -417,11 +464,15 @@ async def run(
             context_sources=context,
             stop_after=stop_after,
             skills_config=skills,
+            baseline=baseline,
+            policy=policy,
         )
     total_s = time.perf_counter() - started
     scored = score_run(team, truth, bundle=bundle)
     report = build_report(mode, incident_id, team, ledger.report(run_id), calls, total_s, scored)
     report["stop_after"] = stop_after
+    report["configuration"] = configuration
+    report["baseline_model"] = baseline.model if baseline is not None else None
     report["director_options"] = {
         "plan_response_format": director.plan_response_format,
         "repair_temperature": director.repair_temperature,
@@ -628,7 +679,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("incident_id")
     parser.add_argument("mode", choices=("estimate", "record", "replay"))
     parser.add_argument(
-        "--run-usd", default=default_cap(config), help="the run cap (default: the hierarchy's)"
+        "--configuration",
+        choices=CONFIGURATIONS,
+        default="a",
+        help="a: the hierarchy; b: single Ultra; c: single Lightning (config/benchmark.json)",
+    )
+    parser.add_argument(
+        "--run-usd", help="the run cap (default: the configuration's, config/benchmark.json)"
     )
     parser.add_argument("--cassette", type=Path, help="default runs/cassettes/incident-<id>.json")
     parser.add_argument(
@@ -659,11 +716,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # model text is not always cp1252 (Windows)
+    if args.run_usd is None:
+        args.run_usd = default_cap(config, args.configuration)
+    if args.configuration != "a" and (args.stop_after or args.plan_response_format):
+        print(
+            "A baseline makes no plan call: --stop-after and --plan-response-format are for "
+            "configuration a only; nothing was run."
+        )
+        return 2
     run_usd = _usd(args.run_usd)
     if run_usd is None:
         print("--run-usd must be a positive amount; nothing was run.")
         return 2
-    cassette = (args.cassette or cassette_path(args.incident_id)).resolve()
+    cassette = (args.cassette or cassette_path(args.incident_id, args.configuration)).resolve()
     if args.mode == "record":
         approved = _usd(args.approve_cap) if args.approve_cap is not None else None
         if approved is None or approved != run_usd:
@@ -709,9 +774,12 @@ def main(argv: list[str] | None = None) -> int:
             stop_after=args.stop_after,
             plan_response_format=args.plan_response_format,
             repair_temperature=args.repair_temperature,
+            configuration=args.configuration,
         )
     )
     folder = f"{args.mode}-{args.stop_after}" if args.stop_after else args.mode
+    if args.configuration != "a":
+        folder = f"{args.mode}-{args.configuration}"
     out = OUT_DIR / args.incident_id / folder
     out.mkdir(parents=True, exist_ok=True)
     for name, data in (("report", report), ("events", events), ("calls", calls)):

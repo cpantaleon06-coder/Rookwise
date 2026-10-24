@@ -314,6 +314,22 @@ class TeamRun:
     citation_source_normalizations: dict[str, int] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class Baseline:
+    """A single-model baseline, (b) or (c) of the benchmark (docs/ARCHITECTURE.md,
+    "Benchmark design"): `model` reads every slice of every source with the operators'
+    prompt, skills and findings model, then writes the diagnosis with the director's
+    diagnosis prompt and schema. There is no plan call, no manager and no auditor model:
+    the deterministic check and D3's withdrawal (with its one targeted repair) are the
+    whole verification. The role of a slice's operator comes from `roles_by_source`, or
+    `default_role`; every task gets `instruction`."""
+
+    model: str
+    instruction: str
+    roles_by_source: Mapping[str, str] = field(default_factory=dict)
+    default_role: str = "log-reader"
+
+
 def summary_ref(run_id: str, block_id: str) -> str:
     return f"store://{run_id}/summaries/{block_id}"
 
@@ -412,6 +428,7 @@ async def run_team(
     slicing: SlicingConfig | None = None,
     context_sources: Sequence[str] = (),
     stop_after: Literal["plan"] | None = None,
+    baseline: Baseline | None = None,
 ) -> TeamRun:
     """Run the hierarchy for one goal. The run must already be open in the harness's
     ledger (the administrator layer opens it with the run cap). `slicing` defaults to
@@ -419,7 +436,9 @@ async def run_team(
     for its diagnosis (for example the ticket and the runbook). `stop_after="plan"` ends
     the run once the director's plan is valid, before any allocation or other call: it
     finishes as `cancelled` and partial, and costs only the plan call (with its re-prompts,
-    repairs and escalations)."""
+    repairs and escalations). `baseline` runs a single-model baseline instead of the
+    hierarchy (see `Baseline`); the caller gives it a catalog and a harness on that model
+    only, with no escalation ladder."""
     unknown = [s for s in context_sources if s not in evidence.sources]
     if unknown:
         raise ValueError(f"context sources not in the evidence bundle: {unknown}")
@@ -438,6 +457,7 @@ async def run_team(
         slicing=slicing or load_slicing_config(),
         context_sources=tuple(context_sources),
         stop_after=stop_after,
+        baseline=baseline,
     )
     return await team.run(goal)
 
@@ -460,9 +480,11 @@ class _Team:
         slicing: SlicingConfig,
         context_sources: tuple[str, ...] = (),
         stop_after: Literal["plan"] | None = None,
+        baseline: Baseline | None = None,
     ) -> None:
         self.run_id = run_id
         self.stop_after = stop_after
+        self.baseline = baseline
         self.harness = harness
         self.ledger = harness.ledger
         self.store = store
@@ -528,9 +550,16 @@ class _Team:
                 simulated_case=self.simulated_case,
             ),
         )
+        if self.baseline is not None:
+            # The single model is the director for the diagnosis.
+            self.roles = replace(
+                self.roles, director=replace(self.roles.director, model=self.baseline.model)
+            )
         director = self._hire("a-director", self.roles.director, None)
         for item in self.slices.slices:
             self.store.put(slice_ref(self.run_id, item), item.text)
+        if self.baseline is not None:
+            return await self._run_baseline(goal, director, self.baseline)
 
         result = await self.caller.call(
             director,
@@ -693,6 +722,129 @@ class _Team:
             },
         )
 
+    async def _run_baseline(self, goal: str, director: AgentNode, baseline: Baseline) -> TeamRun:
+        """One model reads every slice, one after another, out of one pool drawn from
+        the run (less `director_share`, kept for the diagnosis), then writes the
+        diagnosis; the deterministic check and D3 verify it."""
+        tasks = [
+            PlanTask(
+                role=baseline.roles_by_source.get(source_id, baseline.default_role),
+                source_id=source_id,
+                instruction=baseline.instruction,
+            )
+            for source_id, items in self.slices_of.items()
+            if items
+        ]
+        plan = Plan(
+            summary=f"Single-model baseline on {baseline.model}: every slice, then the diagnosis.",
+            blocks=[PlanBlock(goal=goal, tasks=tasks)],
+        )
+        self.plan = plan
+        items: list[tuple[str, PlanTask, Slice]] = []
+        for task in tasks:
+            for item in self.slices_of[task.source_id]:
+                task_id = f"t-{len(items) + 1}"
+                items.append((task_id, task, item))
+                reservation, expected, next_rung, retry = self._estimate(task, item, task_id)
+                self.first_reservation[task_id] = reservation
+                self.expected_cost[task_id] = expected
+                self.retry_reservation[task_id] = retry
+                self.task_limit[task_id] = _floor(
+                    reservation * self.policy.task_limit_first_rung_reservations
+                    + next_rung * self.policy.task_limit_next_rung_reservations
+                )
+        self._say(f"{plan.summary} ({len(items)} slices.)")
+        free = self.ledger.free(self.run_id)
+        director_share = _floor(free * self.policy.director_share)  # stays in the run
+        pool = self._allocate(director, director, "pool:baseline", free - director_share)
+        outcomes = [
+            await self._staff(task_id, task, item, director, director, pool)
+            for task_id, task, item in items
+        ]
+        released = self._close(pool, director, director)
+        done = [t for t in outcomes if t.status == "ok"]
+        block = BlockOutcome(
+            block_id="baseline",
+            agent_id=director.agent_id,
+            goal=goal,
+            status="ok" if len(done) == len(outcomes) else ("partial" if done else "failed"),
+            tasks=outcomes,
+            summary=None,
+            allocated_usd=pool.usd,
+            released_usd=released,
+            slices_read=len(done),
+            empty_slices=sum(not t.findings.claims for t in done),
+            not_done=len(outcomes) - len(done),
+        )
+        blocks = [block]
+        diagnosis, missing = await self._diagnose(goal, director, blocks)
+        first_diagnosis, repairs = diagnosis, 0
+        if diagnosis is not None and self._root_withdrawn(diagnosis):
+            repairs = 1
+            diagnosis = await self._repair_diagnosis(goal, director, diagnosis) or diagnosis
+        operator_claims = [
+            c.claim(f"{t.task_id}:{c.claim_id}")
+            for t in outcomes
+            if t.findings is not None
+            for c in t.findings.claims
+        ]
+        outcome = await audit(
+            self.caller,
+            director,
+            self.roles.director,
+            goal=goal,
+            diagnosis=diagnosis,
+            bundle=self.evidence,
+            budget_id=None,
+            missing_reason=missing,
+            model_review=False,
+        )
+        self.log.emit("audit_result", AuditResultPayload(audit=outcome.verdict))
+        partial = block.status != "ok"
+        self._say(self._closing_message(blocks, outcome))
+        report = self.ledger.report(self.run_id)
+        self.log.emit(
+            "run_finished",
+            RunFinishedPayload(
+                status="finished",
+                partial=partial,
+                spent_usd=report.spent_usd,
+                predicted_usd=sum((e.usd_predicted for e in report.entries), ZERO_USD),
+                package_url=None,
+            ),
+        )
+        return TeamRun(
+            run_id=self.run_id,
+            status="finished",
+            partial=partial,
+            plan=plan,
+            blocks=blocks,
+            audit=outcome.verdict,
+            evidence=outcome.evidence,
+            notes=self.notes,
+            events=self.log.events,
+            report=report,
+            unread_slices=self._unread(blocks),
+            empty_sources=list(self.slices.empty_sources),
+            diagnosis=diagnosis,
+            diagnosis_status=outcome.status,
+            inconclusive_reason=outcome.reason,
+            supported_claims=list(outcome.supported),
+            withdrawn_claims=list(outcome.withdrawn),
+            claim_counts=outcome.counts,
+            operator_evidence=verify(self.evidence, operator_claims),
+            citation_log=list(self.citation_log.replies),
+            first_diagnosis=first_diagnosis,
+            diagnosis_repairs=repairs,
+            first_reservations=dict(self.first_reservation),
+            task_limits=dict(self.task_limit),
+            retry_reservations=dict(self.retry_reservation),
+            salvaged_replies={k: list(v) for k, v in self.salvaged.items()},
+            citation_source_normalizations={
+                k: v for k, v in self.slice_assignment.by_task.items() if v
+            },
+        )
+
     async def _diagnose(
         self, goal: str, director: AgentNode, blocks: list[BlockOutcome]
     ) -> tuple[Diagnosis | None, str]:
@@ -804,14 +956,25 @@ class _Team:
             for source_id, items in self.slices_of.items()
         ]
         parts.append("Sources and their slices:\n" + ("\n".join(inventory) or "none"))
-        findings = ["Managers' consolidated findings, by reference (only findings with claims):"]
+        if self.baseline is not None:
+            findings = ["Your findings from every slice, by reference (only findings with claims):"]
+        else:
+            findings = [
+                "Managers' consolidated findings, by reference (only findings with claims):"
+            ]
         for block in blocks:
-            findings.append(
-                f"[{summary_ref(self.run_id, block.block_id)}]\nBlock {block.block_id}: "
-                f"{block.goal}\nSummary: {block.summary or '(none)'}\n"
-                f"Slices read: {block.slices_read}, of which {block.empty_slices} with no "
-                f"claims; not done: {block.not_done}."
-            )
+            if self.baseline is not None:
+                findings.append(
+                    f"Slices read: {block.slices_read}, of which {block.empty_slices} with no "
+                    f"claims; not done: {block.not_done}."
+                )
+            else:
+                findings.append(
+                    f"[{summary_ref(self.run_id, block.block_id)}]\nBlock {block.block_id}: "
+                    f"{block.goal}\nSummary: {block.summary or '(none)'}\n"
+                    f"Slices read: {block.slices_read}, of which {block.empty_slices} with no "
+                    f"claims; not done: {block.not_done}."
+                )
             findings += [
                 _finding_entry(self.run_id, t)
                 for t in block.tasks
@@ -1038,7 +1201,7 @@ class _Team:
                 else "; escalated to the director."
             )
             self.notes.append(note)
-            if following is None:
+            if following is None and manager.agent_id != director.agent_id:
                 self._escalate(manager, director, assignment, note)
             else:
                 failed = (agent, assignment, note)

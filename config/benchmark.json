@@ -5,6 +5,14 @@
     "single_large": "1.000000",
     "single_small": "1.000000"
   },
+  "baselines": {
+    "_note": "The single-model baselines (docs/ARCHITECTURE.md, Benchmark design): (b) on Ultra and (c) on Lightning. Each reads every slice with the operators' prompt, skills and findings model, then writes the diagnosis; no plan, no managers, no auditor model, no escalation ladder and no reassignment. roles_by_source picks the operator role (and so its skill) for a source; every other source uses default_role. cap names the entry of caps_usd.",
+    "b": {"model": "nemotron-3-ultra", "cap": "single_large"},
+    "c": {"model": "nemotron-3.5-lightning", "cap": "single_small"},
+    "roles_by_source": {"deploy.diff": "deploy-diff-reader", "metrics.csv": "metrics-reader"},
+    "default_role": "log-reader",
+    "instruction": "Report what this slice shows about the incident in the goal: errors, changes and anything that points to its root cause, citing single lines."
+  },
   "goal": "Investigate the incident described in ticket.md: find its root cause and its category, cite the evidence line by line, and propose a remediation plan.",
   "context_sources": ["ticket.md", "runbook.md"],
   "catalog": [
