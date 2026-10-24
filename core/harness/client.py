@@ -16,6 +16,10 @@ For every attempt of a call:
      same way, since the server may already be working on it.
    A call cancelled before its request is sent is released.
 
+Every failed attempt yields an `ErrorEvent` with its status, whether it is retried and
+the wait before the next attempt; `on_attempt_error`, when given, also receives each one
+as it happens (for reports: the events of a call that raises never reach `complete`).
+
 Cancellation: cancel the consuming task (asyncio), or pass a `CancelHandle` and call
 `cancel()`. Either way the HTTP connection is closed and the ledger is settled. After
 a handle cancel the stream ends with `Finish(cancelled=True)`; an asyncio cancellation
@@ -193,8 +197,10 @@ class Harness:
         clock: Clock | None = None,
         rng: random.Random | None = None,
         cassette: Cassette | None = None,
+        on_attempt_error: Callable[[ErrorEvent], None] | None = None,
     ) -> None:
         self._ledger = ledger
+        self._on_attempt_error = on_attempt_error
         self._config = config or load_config()
         self._clock = clock or SystemClock()
         self._rng = rng or random.Random()
@@ -325,13 +331,17 @@ class Harness:
                 delay = None
                 if not state.started and not isinstance(error, StreamInterrupted):
                     delay = self._policy.delay(attempt, error, self._rng)
-                yield ErrorEvent(
+                failed = ErrorEvent(
                     kind=error.kind,
                     message=error.message,
                     status_code=error.status_code,
                     retryable=delay is not None,
                     attempt=attempt,
+                    delay_s=delay,
                 )
+                if self._on_attempt_error is not None:
+                    self._on_attempt_error(failed)
+                yield failed
                 if delay is None:
                     raise
             finally:

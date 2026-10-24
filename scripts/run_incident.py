@@ -37,7 +37,12 @@ agent is called, so a record run costs the plan call only (with its re-prompts, 
 and escalations). The run finishes as `cancelled` and partial.
 
 Each mode writes runs/incidents/<id>/<mode>/ (<mode>-plan/ with `--stop-after plan`, so a
-full run's reports are not overwritten): report.json, events.json and calls.json.
+full run's reports are not overwritten): report.json, events.json and calls.json. Each
+call in calls.json carries `attempt_log`, one entry per attempt: its HTTP status (None
+without one), the error kind, the wait before the next attempt and its outcome (`ok`,
+`retried`, `gave_up`, or `refused` when the ledger refused the attempt's reservation);
+report.json sums them under `retries`. A replay has only the attempts its cassette kept:
+the last one of each call.
 Nothing from .env and no request header is printed or written.
 
 Usage:
@@ -53,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextvars
 import copy
 import dataclasses
 import json
@@ -75,10 +81,16 @@ sys.path.insert(0, str(REPO_ROOT))  # noqa: E402 (lets `rookwise` resolve from a
 
 from rookwise.benchmark import score_run  # noqa: E402
 from rookwise.evidence import EvidenceBundle, split_lines  # noqa: E402
-from rookwise.harness import Cassette, Harness, StreamInterrupted, load_config  # noqa: E402
+from rookwise.harness import (  # noqa: E402
+    Cassette,
+    ErrorEvent,
+    Harness,
+    StreamInterrupted,
+    load_config,
+)
 from rookwise.harness.request import build_request, estimate_input_tokens  # noqa: E402
 from rookwise.incidents import GroundTruth, load_bundle, load_ground_truth  # noqa: E402
-from rookwise.ledger import Caps, InMemoryLedger  # noqa: E402
+from rookwise.ledger import CapReached, Caps, InMemoryLedger  # noqa: E402
 from rookwise.money import format_usd  # noqa: E402
 from rookwise.runner import OperatorSpec  # noqa: E402
 from rookwise.skills import load_config as load_skills_config  # noqa: E402
@@ -384,6 +396,16 @@ async def run(
             load_budget_policy(), max_reassignments=0, task_limit_next_rung_reservations=0
         )
     context = [s for s in config["context_sources"] if s in bundle.sources]
+    # The attempt log of the call in progress (set by `timed` below).
+    attempt_log: contextvars.ContextVar[list[dict[str, Any]] | None] = contextvars.ContextVar(
+        "attempt_log", default=None
+    )
+
+    def log_attempt(event: ErrorEvent) -> None:
+        log = attempt_log.get()
+        if log is not None:
+            log.append(attempt_entry(event))
+
     stub = None
     if mode == "estimate":
         stub = stub_output_tokens()
@@ -394,6 +416,7 @@ async def run(
             transport=stub_transport(
                 bundle, context, stub["tokens"], harness_config, empty_fraction
             ),
+            on_attempt_error=log_attempt,
         )
     elif mode == "record":
         cassette.parent.mkdir(parents=True, exist_ok=True)
@@ -402,6 +425,7 @@ async def run(
             config=harness_config,
             transport=transport,
             cassette=Cassette(cassette, "record"),
+            on_attempt_error=log_attempt,
         )
     else:
         harness = Harness(
@@ -410,6 +434,7 @@ async def run(
             api_key="",
             transport=httpx.MockTransport(_no_network),
             cassette=Cassette(cassette, "replay"),
+            on_attempt_error=log_attempt,
         )
 
     calls: list[dict[str, Any]] = []
@@ -425,17 +450,25 @@ async def run(
             "input_tokens_expected": built.predicted_input_tokens,
             "max_tokens": built.max_tokens,
         }
+        log: list[dict[str, Any]] = []
+        token = attempt_log.set(log)
         start = time.perf_counter()
         try:
             result = await complete(request, cancel)
         except Exception as error:  # a refused reservation (CapReached) or an API error
+            if not log or log[-1]["outcome"] == "retried":
+                log.append(final_attempt(len(log) + 1, error))
             record |= {
                 "seconds": round(time.perf_counter() - start, 3),
                 "raised": str(error),
                 "counted": isinstance(error, StreamInterrupted),
+                "attempt_log": log,
             }
             calls.append(record)
             raise
+        finally:
+            attempt_log.reset(token)
+        log.append(final_attempt(result.attempts or len(log) + 1, None))
         record |= {
             "seconds": round(time.perf_counter() - start, 3),
             "finish_reason": result.finish_reason,
@@ -443,6 +476,7 @@ async def run(
             "output_tokens": result.usage.output_tokens,
             "usd": format_usd(result.usd),
             "attempts": result.attempts,
+            "attempt_log": log,
         }
         calls.append(record)
         return result
@@ -481,6 +515,52 @@ async def run(
         report["stub_output_tokens"] = stub
         report["stub_empty_slices_fraction"] = empty_fraction
     return report, [e.model_dump(mode="json") for e in team.events], calls
+
+
+def attempt_entry(event: ErrorEvent) -> dict[str, Any]:
+    """One failed attempt of a call, for calls.json (no message text: it can echo input)."""
+    return {
+        "attempt": event.attempt,
+        "status_code": event.status_code,
+        "kind": event.kind,
+        "wait_s": None if event.delay_s is None else round(event.delay_s, 3),
+        "outcome": "retried" if event.retryable else "gave_up",
+    }
+
+
+def final_attempt(number: int, error: Exception | None) -> dict[str, Any]:
+    """The attempt that ended a call without an `ErrorEvent`: it succeeded, the ledger
+    refused its reservation, or something else raised before it was sent."""
+    if error is None:
+        outcome, kind = "ok", None
+    elif isinstance(error, CapReached):
+        outcome, kind = "refused", "budget"
+    else:
+        outcome, kind = "raised", type(error).__name__
+    return {
+        "attempt": number,
+        "status_code": 200 if error is None else None,
+        "kind": kind,
+        "wait_s": None,
+        "outcome": outcome,
+    }
+
+
+def retry_summary(calls: list[dict[str, Any]]) -> dict[str, Any]:
+    """Counts over every call's attempt log: retried attempts by HTTP status (or error
+    kind), their waits, and the calls that retried or gave up after an error."""
+    logs = [c.get("attempt_log", []) for c in calls]
+    retried = [e for log in logs for e in log if e["outcome"] == "retried"]
+    by_status: dict[str, int] = defaultdict(int)
+    for entry in retried:
+        by_status[str(entry["status_code"] or entry["kind"])] += 1
+    return {
+        "retried_attempts": len(retried),
+        "retried_by_status": dict(sorted(by_status.items())),
+        "wait_s_total": round(sum(e["wait_s"] or 0 for e in retried), 3),
+        "calls_retried": sum(any(e["outcome"] == "retried" for e in log) for log in logs),
+        "calls_gave_up": sum(any(e["outcome"] == "gave_up" for e in log) for log in logs),
+    }
 
 
 def director_options(
@@ -584,6 +664,7 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
         },
         "ledger_refusals": refusals,
         "operator_calls_run": len(operator_calls),
+        "retries": retry_summary(calls),
         "operator_tasks": {
             "total": len(tasks),
             "ok": sum(t.status == "ok" for t in tasks),
