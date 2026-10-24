@@ -123,6 +123,14 @@ class BudgetPolicy:
       reservation one rung up the model ladder (`escalation.next`), so a reassignment one
       rung up can fit. It is counted as money spent through the ledger's task cap;
       nothing is carved out of the pool for it.
+    - With `pool_top_up`, a block pool that cannot cover its next task (that task's
+      first reservation plus its retry reservation) draws one extra allocation from the
+      run's unallocated money: what is free in the run less `director_share` and less the
+      needs of the blocks that have not run yet. It is at most `pool_top_up_max_ratio`
+      times the pool's own allocation and is drawn only if it covers that task's first
+      reservation. The auditor's allocation is never touched, and the ledger still
+      refuses whatever the run cap cannot cover. What the extra allocation leaves unspent
+      goes back to the run when the block ends.
     - A failed operator is replaced by the next catalog operator for the same role, up
       to `max_reassignments` times, unless it stopped on its budget.
     """
@@ -143,6 +151,11 @@ class BudgetPolicy:
     pool_covers_one_retry: bool = True
     retry_reply_chars_per_token: Decimal = Decimal("4.02")
     retry_feedback_chars: int = 1200
+    # An exhausted block pool may draw extra money from the run's unallocated balance,
+    # at most this ratio of its own allocation. Placeholders (2026-10-24), after the third
+    # inc-01 run, where pool b-3 ran dry with USD 0.24 of the cap unspent.
+    pool_top_up: bool = True
+    pool_top_up_max_ratio: Decimal = Decimal("1.0")
     max_reassignments: int = 1
     max_blocks: int = 5
     max_tasks_per_block: int = 5
@@ -168,6 +181,9 @@ class BudgetPolicy:
         ratio = require_decimal(self.retry_reply_chars_per_token, "retry_reply_chars_per_token")
         if ratio <= 0:
             raise ValueError("retry_reply_chars_per_token must be positive")
+        top_up = require_decimal(self.pool_top_up_max_ratio, "pool_top_up_max_ratio")
+        if top_up < 0:
+            raise ValueError("pool_top_up_max_ratio must not be negative")
         if self.retry_feedback_chars < 0:
             raise ValueError("retry_feedback_chars must not be negative")
         if self.operator_max_claims < 1 or self.operator_max_citations_per_claim < 1:
@@ -188,6 +204,7 @@ def load_budget_policy(path: Path = BUDGET_PATH) -> BudgetPolicy:
     values = {k: v for k, v in data.items() if not k.startswith("_")}
     for name in ("auditor_share", "director_share", "manager_share"):
         values[name] = Decimal(values[name])
-    if "retry_reply_chars_per_token" in values:
-        values["retry_reply_chars_per_token"] = Decimal(values["retry_reply_chars_per_token"])
+    for name in ("retry_reply_chars_per_token", "pool_top_up_max_ratio"):
+        if name in values:
+            values[name] = Decimal(values[name])
     return BudgetPolicy(**values)

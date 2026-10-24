@@ -36,9 +36,13 @@ Flow and budget, through the ledger's allocations (`rookwise.ledger`):
    across its attempts and its reassignment, as the ledger's task cap (money spent,
    nothing carved out of the pool). At start, a run whose slices plus the operator prompt
    could pass `operator_max_input_tokens` is refused (`ConfigError`), so no task would
-   stop on its token ceiling before its first call. When the block's tasks are done the
-   pool is closed and what is left goes back to the manager. How a failed task goes on
-   depends on why it stopped:
+   stop on its token ceiling before its first call. With `pool_top_up`, a pool that
+   cannot cover its next task (first reservation plus retry reservation) draws one extra
+   allocation from the run's unallocated money, never from the director's share, the
+   auditor's allocation or what the blocks still to run need (`BudgetPolicy`). When the
+   block's tasks are done the pool is closed and what is left goes back to the manager;
+   the extra allocation is closed too and its rest goes back to the run. How a failed
+   task goes on depends on why it stopped:
    - a task ceiling (`length` or `token_ceiling`: this one task hit its own output
      ceiling or token budget) gets at most one reassignment: to the next catalog
      operator for the role, or, when none is left, to the same operator one rung up the
@@ -259,6 +263,7 @@ class BlockOutcome:
     released_usd: Decimal
     reason: str = ""
     batches: int = 0  # the manager's consolidation calls (0 when it made none)
+    top_up_usd: Decimal = ZERO_USD  # extra pool money drawn from the run (`pool_top_up`)
     slices_read: int = 0  # completed operator tasks
     empty_slices: int = 0  # completed operator tasks whose finding has no claim
     not_done: int = 0
@@ -643,8 +648,16 @@ class _Team:
             amount = _fair_share(available, needs[index], len(order) - position)
             manager = managers[index]
             budget = self._allocate(manager, director, f"budget:b-{index + 1}", amount)
+            # A pool top-up leaves the director's share and the later blocks' needs.
+            keep = director_share + sum((needs[i] for i in order[position + 1 :]), ZERO_USD)
             outcomes[index] = await self._manage(
-                f"b-{index + 1}", plan.blocks[index], budget, work_items[index], manager, director
+                f"b-{index + 1}",
+                plan.blocks[index],
+                budget,
+                work_items[index],
+                manager,
+                director,
+                keep_in_run=keep,
             )
         blocks = [outcomes[index] for index in range(len(plan.blocks))]  # in plan order
 
@@ -1002,16 +1015,33 @@ class _Team:
         items: list[tuple[str, PlanTask, Slice]],
         manager: AgentNode,
         director: AgentNode,
+        *,
+        keep_in_run: Decimal = ZERO_USD,
     ) -> BlockOutcome:
         own = self._manager_keeps(budget.usd)
         outcomes = []
+        top_up_usd = ZERO_USD
         if items:
             pool = self._allocate(
                 manager, manager, f"pool:{block_id}", budget.usd - own, parent=budget.id
             )
+            extra: Allocation | None = None
+            tried_top_up = False
             for task_id, task, item in items:
-                outcomes.append(await self._staff(task_id, task, item, manager, director, pool))
+                source = pool
+                if self.policy.pool_top_up and self._pool_short(pool, task_id):
+                    if not tried_top_up:
+                        tried_top_up = True
+                        extra = self._top_up(pool, task_id, manager, director, keep_in_run)
+                    if extra is not None and self.ledger.free(
+                        self.run_id, extra.id
+                    ) > self.ledger.free(self.run_id, pool.id):
+                        source = extra
+                outcomes.append(await self._staff(task_id, task, item, manager, director, source))
             self._close(pool, manager, manager)
+            if extra is not None:
+                top_up_usd = extra.usd
+                self._close(extra, manager, director)
         done = [t for t in outcomes if t.status == "ok"]
         summary, reason, batches = None, "", []
         if not done:
@@ -1073,6 +1103,7 @@ class _Team:
             released_usd=released,
             reason=reason,
             batches=len(batches) if done else 0,
+            top_up_usd=top_up_usd,
             slices_read=len(done),
             empty_slices=sum(not t.findings.claims for t in done),
             not_done=len(outcomes) - len(done),
@@ -1209,6 +1240,45 @@ class _Team:
                 ceiling_reassignments += ceiling
             spec = following
         return outcome
+
+    def _pool_short(self, pool: Allocation, task_id: str) -> bool:
+        """Whether `pool` cannot cover the task's first reservation plus its retry
+        reservation (zero unless `pool_covers_one_retry`)."""
+        need = self.first_reservation[task_id] + self.retry_reservation.get(task_id, ZERO_USD)
+        return self.ledger.free(self.run_id, pool.id) < need
+
+    def _top_up(
+        self,
+        pool: Allocation,
+        task_id: str,
+        manager: AgentNode,
+        director: AgentNode,
+        keep_in_run: Decimal,
+    ) -> Allocation | None:
+        """One extra allocation for an exhausted pool, drawn from the run: the smaller of
+        `pool_top_up_max_ratio` times the pool and what is free in the run less
+        `keep_in_run` (the director's share and the needs of the blocks still to run).
+        None when that is nothing or would not cover the task's first reservation (noted
+        only when there is some unallocated money). The ledger checks the
+        allocation against the run cap like any other."""
+        limit = _floor(pool.usd * self.policy.pool_top_up_max_ratio)
+        available = max(self.ledger.free(self.run_id) - keep_in_run, ZERO_USD)
+        amount = _floor(min(limit, available))
+        if amount <= 0:
+            return None
+        if amount < self.first_reservation[task_id]:
+            self.notes.append(
+                f"Pool {pool.id} cannot cover {task_id}, and the run's unallocated money "
+                f"(USD {available}, at most USD {limit} for this pool) does not cover its "
+                "first call: no top-up."
+            )
+            return None
+        extra = self._allocate(manager, director, f"{pool.id}:top-up", amount)
+        self.notes.append(
+            f"Pool {pool.id} cannot cover {task_id}; the director tops it up with USD "
+            f"{amount} of the run's unallocated money ({extra.id})."
+        )
+        return extra
 
     def _block_need(self, items: list[tuple[str, PlanTask, Slice]]) -> Decimal:
         """What a block needs so its operators can run one after another at their

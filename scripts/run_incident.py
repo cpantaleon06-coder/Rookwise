@@ -611,6 +611,7 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
                 "not_done": b.not_done,
                 "batches": b.batches,
                 "allocated_usd": format_usd(b.allocated_usd),
+                "top_up_usd": format_usd(b.top_up_usd),
                 "input_tokens_estimate": [
                     c["input_tokens_estimate"]
                     for c in calls
