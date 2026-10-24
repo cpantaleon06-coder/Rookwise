@@ -390,3 +390,12 @@ def test_a_baseline_writes_beside_the_hierarchy(module, monkeypatch, tmp_path):
     assert seen["configuration"] == "b" and seen["run_usd"] == "1.000000"
     assert seen["cassette"].name == "incident-inc-test-b.json"
     assert (tmp_path / "inc-test" / "estimate-b" / "report.json").exists()
+
+
+def test_the_report_counts_diagnosis_items_trimmed_over_the_bound(module, tmp_path):
+    report, _, calls = _estimate(module, tmp_path)
+    assert report["diagnosis_trimmed"] == {"claims": 0, "citations": 0}
+    (diagnosis,) = [c for c in calls if c["task_id"] == "diagnosis"]
+    assert diagnosis["max_tokens"] == 4096
+    (plan,) = [c for c in calls if c["task_id"] == "plan"]
+    assert plan["max_tokens"] == 2048

@@ -219,6 +219,15 @@ OPERATOR_PROMPT = (
 )
 
 
+def diagnosis_prompt(policy: BudgetPolicy) -> str:
+    """`DIAGNOSIS_PROMPT` with the diagnosis size bound of `policy` (config/budget.json)."""
+    return (
+        f"{DIAGNOSIS_PROMPT} Give at most {policy.diagnosis_max_claims} claims, each with at "
+        f"most {policy.diagnosis_max_citations_per_claim} citations: the evidence that "
+        "matters most for the root cause."
+    )
+
+
 def operator_prompt(policy: BudgetPolicy) -> str:
     """`OPERATOR_PROMPT` with the reply caps of `policy` (config/budget.json)."""
     return (
@@ -320,6 +329,9 @@ class TeamRun:
     # Operator citations dropped, by position and before any check, from claims over
     # `operator_max_citations_per_claim`, by task id (no repair is asked for them).
     trimmed_citations: dict[str, int] = field(default_factory=dict)
+    # The same for the director's diagnosis (and its repair), over the diagnosis bound.
+    diagnosis_trimmed_claims: int = 0
+    diagnosis_trimmed_citations: int = 0
 
 
 @dataclass(frozen=True)
@@ -519,7 +531,13 @@ class _Team:
             max_citations_per_claim=self.policy.operator_max_citations_per_claim,
         )
         self.operator_prompt = operator_prompt(self.policy)
-        self.diagnosis_model = diagnosis_model(evidence, self.citation_log)
+        self.diagnosis_model = diagnosis_model(
+            evidence,
+            self.citation_log,
+            max_claims=self.policy.diagnosis_max_claims,
+            max_citations_per_claim=self.policy.diagnosis_max_citations_per_claim,
+        )
+        self.diagnosis_prompt = diagnosis_prompt(self.policy)
         self.context_sources = context_sources
         self.slices = slice_bundle(evidence.sources, slicing)
         self.slices_of: dict[str, list[Slice]] = {source_id: [] for source_id in evidence.sources}
@@ -736,7 +754,15 @@ class _Team:
             citation_source_normalizations={
                 k: v for k, v in self.slice_assignment.by_task.items() if v
             },
-            trimmed_citations=self.citation_log.trimmed_by_task(),
+            trimmed_citations={
+                k: v for k, v in self.citation_log.trimmed_by_task().items() if k != "diagnosis"
+            },
+            diagnosis_trimmed_claims=sum(
+                r.trimmed_claims for r in self.citation_log.replies if r.task_id == "diagnosis"
+            ),
+            diagnosis_trimmed_citations=sum(
+                r.trimmed for r in self.citation_log.replies if r.task_id == "diagnosis"
+            ),
         )
 
     async def _run_baseline(self, goal: str, director: AgentNode, baseline: Baseline) -> TeamRun:
@@ -860,7 +886,15 @@ class _Team:
             citation_source_normalizations={
                 k: v for k, v in self.slice_assignment.by_task.items() if v
             },
-            trimmed_citations=self.citation_log.trimmed_by_task(),
+            trimmed_citations={
+                k: v for k, v in self.citation_log.trimmed_by_task().items() if k != "diagnosis"
+            },
+            diagnosis_trimmed_claims=sum(
+                r.trimmed_claims for r in self.citation_log.replies if r.task_id == "diagnosis"
+            ),
+            diagnosis_trimmed_citations=sum(
+                r.trimmed for r in self.citation_log.replies if r.task_id == "diagnosis"
+            ),
         )
 
     async def _diagnose(
@@ -873,10 +907,11 @@ class _Team:
             self.roles.director,
             level="director",
             task_id="diagnosis",
-            base_prompt=DIAGNOSIS_PROMPT,
+            base_prompt=self.diagnosis_prompt,
             user=self._diagnosis_request(goal, blocks),
             output_model=self.diagnosis_model,
             budget_id=None,
+            max_tokens=self.roles.director.diagnosis_tokens,
         )
         if result.ok and result.validation is not None:
             return result.validation.payload.output, ""  # type: ignore[attr-defined]
@@ -933,10 +968,11 @@ class _Team:
             self.roles.director,
             level="director",
             task_id="diagnosis-repair",
-            base_prompt=DIAGNOSIS_PROMPT,
+            base_prompt=self.diagnosis_prompt,
             user=user,
             output_model=self.diagnosis_model,
             budget_id=None,
+            max_tokens=self.roles.director.diagnosis_tokens,
         )
         if result.ok and result.validation is not None:
             return result.validation.payload.output  # type: ignore[attr-defined]

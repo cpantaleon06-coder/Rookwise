@@ -268,6 +268,7 @@ class ReplyCitations:
     index: int
     citations: tuple[CitationCheck, ...]
     trimmed: int = 0
+    trimmed_claims: int = 0
 
 
 @dataclass
@@ -284,10 +285,12 @@ class CitationLog:
         citation_model: type[BaseModel],
         as_written: Any = None,
         trimmed: int = 0,
+        trimmed_claims: int = 0,
     ) -> None:
         """Check every citation of `data`; with `as_written` (the reply before its
         sources were derived), also check each citation as the model wrote it. `trimmed`
-        is how many citations were dropped from the reply over the cap."""
+        and `trimmed_claims` are how many citations and claims were dropped from the reply
+        over the caps."""
         checks = []
         for i, j, citation in _citations(data):
             original = _citation_at(as_written, i, j) if as_written is not None else None
@@ -297,7 +300,9 @@ class CitationLog:
             ok, problem = _valid(citation_model, citation)
             checks.append(CitationCheck(i, j, ok, problem, ok_as_written))
         index = sum(reply.task_id == self.task_id for reply in self.replies)
-        self.replies.append(ReplyCitations(self.task_id, index, tuple(checks), trimmed))
+        self.replies.append(
+            ReplyCitations(self.task_id, index, tuple(checks), trimmed, trimmed_claims)
+        )
 
     def first_replies(self) -> list[ReplyCitations]:
         return [reply for reply in self.replies if reply.index == 0]
@@ -330,6 +335,23 @@ def trim_citations(data: Any, cap: int | None) -> tuple[Any, int]:
     if not dropped:
         return data, 0
     return {**data, "claims": new_claims}, dropped
+
+
+def trim_claims(data: Any, cap: int | None) -> tuple[Any, int]:
+    """A copy of a diagnosis where only its first `cap` claims stay, by position, and how
+    many were dropped. `root_cause_claim_ids` loses the ids of dropped claims (when that
+    leaves none, validation asks for a repair, as for any diagnosis without root-cause
+    claims). Nothing is checked first. `data` is returned as is when nothing is over."""
+    claims = data.get("claims") if isinstance(data, dict) else None
+    if cap is None or not isinstance(claims, list) or len(claims) <= cap:
+        return data, 0
+    kept = claims[:cap]
+    trimmed = {**data, "claims": kept}
+    root = data.get("root_cause_claim_ids")
+    if isinstance(root, list):
+        ids = {c.get("claim_id") for c in kept if isinstance(c, dict)}
+        trimmed["root_cause_claim_ids"] = [i for i in root if i in ids]
+    return trimmed, len(claims) - cap
 
 
 def _citations(data: Any) -> list[tuple[int, int, Any]]:
@@ -491,10 +513,19 @@ def findings_model(
     return Findings
 
 
-def diagnosis_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> type[Diagnosis]:
+def diagnosis_model(
+    bundle: EvidenceBundle,
+    log: CitationLog | None = None,
+    *,
+    max_claims: int | None = None,
+    max_citations_per_claim: int | None = None,
+) -> type[Diagnosis]:
     """`Diagnosis` for one run: same name and JSON Schema, shape checks only. Each
     citation is logged against `bundle` (the operators' check), but a failing one does not
-    reject the reply: D3 withdraws its claim after the deterministic check."""
+    reject the reply: D3 withdraws its claim after the deterministic check. A diagnosis
+    over `max_claims` or `max_citations_per_claim` keeps its first claims and citations by
+    position, before any check (`trim_claims`, `trim_citations`), with no repair; the
+    dropped items are counted in `log`."""
     citation, _ = _bound_claim(bundle)
 
     class Diagnosis(_Diagnosis):
@@ -503,8 +534,11 @@ def diagnosis_model(bundle: EvidenceBundle, log: CitationLog | None = None) -> t
         @model_validator(mode="wrap")
         @classmethod
         def _log_citations(cls, data: Any, handler: Any) -> Any:
+            # Trim first, by position, so no check picks which claims or citations stay.
+            data, claims = trim_claims(data, max_claims)
+            data, citations = trim_citations(data, max_citations_per_claim)
             if log is not None:
-                log.record(data, citation)
+                log.record(data, citation, trimmed=citations, trimmed_claims=claims)
             return handler(data)
 
     return Diagnosis
