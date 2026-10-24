@@ -21,7 +21,12 @@
     "base_delay_s": 1.0,
     "max_delay_s": 30.0,
     "jitter": 0.2,
-    "max_retry_after_s": 60.0
+    "max_retry_after_s": 60.0,
+    "overload": {
+      "_note": "Provider overload (HTTP 5xx, including 529, error kind server): a longer backoff before the call gives up and the escalation ladder moves it to a larger model (Super costs about 5 times Lightning per call). max_attempts counts the first attempt; delays_s is the wait before each retry, times the jitter factor above, not capped by max_delay_s. 5 attempts with 2, 5, 15 and 30 seconds (2026-10-24) replace the general 4 attempts with 1, 2 and 4 seconds, which escalated 5 tasks in the third inc-01 run; placeholders, not measured.",
+      "max_attempts": 5,
+      "delays_s": [2.0, 5.0, 15.0, 30.0]
+    }
   },
   "max_concurrent_requests": 8,
   "cassette": {

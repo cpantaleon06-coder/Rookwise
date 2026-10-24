@@ -5,8 +5,13 @@ errors or timeouts before the response headers arrive (`connection`, `timeout`).
 Everything else is final, in particular 4xx validation errors such as 422.
 
 Backoff is exponential with jitter: `base * 2^(attempt - 1)`, capped at `max_delay_s`,
-times a random factor in `[1 - jitter, 1 + jitter]`. A `Retry-After` header (seconds,
-VERIFIED on 429 in the Token Factory docs) replaces the backoff; if it asks for more
+times a random factor in `[1 - jitter, 1 + jitter]`. Provider overload (`server`: HTTP
+5xx, including 529) has its own, longer schedule when one is configured
+(`retry.overload` in config/harness.json): up to `overload_max_attempts` attempts, the
+n-th retry waiting `overload_delays_s[n - 1]` times the same jitter factor. It is not
+capped by `max_delay_s`. Only when the call gives up does the escalation ladder move it
+to the next, larger model, at a higher price per call. A `Retry-After` header (seconds,
+VERIFIED on 429 in the Token Factory docs) replaces either backoff; if it asks for more
 than `max_retry_after_s`, the call gives up instead of waiting.
 
 Retries never double-charge: the client gives every attempt its own ledger reservation
@@ -123,6 +128,9 @@ class RetryPolicy:
     max_delay_s: float
     jitter: float
     max_retry_after_s: float
+    # Provider overload (`server` errors). With no delays, the general backoff applies.
+    overload_max_attempts: int = 0
+    overload_delays_s: tuple[float, ...] = ()
 
     @classmethod
     def from_config(cls, config: RetryConfig) -> RetryPolicy:
@@ -132,16 +140,27 @@ class RetryPolicy:
             config.max_delay_s,
             config.jitter,
             config.max_retry_after_s,
+            config.overload_max_attempts,
+            config.overload_delays_s,
         )
+
+    def overloaded(self, error: ApiError) -> bool:
+        """Whether `error` takes the overload schedule (a server error, one configured)."""
+        return error.kind == "server" and bool(self.overload_delays_s)
 
     def delay(self, attempt: int, error: ApiError, rng: random.Random) -> float | None:
         """Seconds to wait before attempt `attempt + 1`, or None to give up."""
-        if not error.retryable or attempt >= self.max_attempts:
+        overloaded = self.overloaded(error)
+        limit = self.overload_max_attempts if overloaded else self.max_attempts
+        if not error.retryable or attempt >= limit:
             return None
         if error.retry_after_s is not None:
             if error.retry_after_s > self.max_retry_after_s:
                 return None
             return error.retry_after_s
-        backoff = min(self.max_delay_s, self.base_delay_s * 2 ** (attempt - 1))
         factor = 1 + self.jitter * (2 * rng.random() - 1)
+        if overloaded:
+            wait = self.overload_delays_s[min(attempt, len(self.overload_delays_s)) - 1]
+            return max(0.0, wait * factor)
+        backoff = min(self.max_delay_s, self.base_delay_s * 2 ** (attempt - 1))
         return min(self.max_delay_s, max(0.0, backoff * factor))

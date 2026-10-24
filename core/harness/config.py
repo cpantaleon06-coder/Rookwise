@@ -54,6 +54,9 @@ class RetryConfig:
     max_delay_s: float
     jitter: float
     max_retry_after_s: float
+    # Provider overload (HTTP 5xx, including 529): attempts and the wait before each retry.
+    overload_max_attempts: int = 0
+    overload_delays_s: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -163,6 +166,18 @@ def load_config(
         raise ConfigError("input_estimate: chars_per_token > 0 and headroom >= 0")
     if retry["max_attempts"] < 1:
         raise ConfigError("retry.max_attempts must be at least 1")
+    overload = retry.get("overload")
+    overload_attempts, overload_delays = 0, ()
+    if overload is not None:
+        overload_attempts = int(overload["max_attempts"])
+        overload_delays = tuple(float(d) for d in overload["delays_s"])
+        if overload_attempts < 1 or len(overload_delays) != overload_attempts - 1:
+            raise ConfigError(
+                "retry.overload: max_attempts >= 1 and one delay per retry "
+                "(max_attempts - 1 delays)"
+            )
+        if any(d < 0 for d in overload_delays):
+            raise ConfigError("retry.overload.delays_s must not be negative")
     loop, escalation = data["loop"], data["escalation"]
     if loop["max_steps"] < 1 or loop["max_repeats"] < 0 or loop["max_protocol_errors"] < 0:
         raise ConfigError("loop: max_steps >= 1, max_repeats >= 0, max_protocol_errors >= 0")
@@ -188,6 +203,8 @@ def load_config(
             max_delay_s=float(retry["max_delay_s"]),
             jitter=float(retry["jitter"]),
             max_retry_after_s=float(retry["max_retry_after_s"]),
+            overload_max_attempts=overload_attempts,
+            overload_delays_s=overload_delays,
         ),
         max_concurrent_requests=int(concurrency),
         mode=_choice(mode, get_args(Mode), "HARNESS_MODE"),  # type: ignore[arg-type]

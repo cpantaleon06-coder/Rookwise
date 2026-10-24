@@ -288,7 +288,7 @@ def test_retries_stop_at_the_cap_with_backoff():
     async def main():
         book = ledger()
         clock = FakeClock()
-        attempts = config().retry.max_attempts
+        attempts = config().retry.overload_max_attempts  # a 503 is provider overload
         handler = Handler([respond(b"busy", 503) for _ in range(attempts)])
         async with _harness(handler, book, clock=clock) as harness:
             with pytest.raises(ApiError) as caught:
