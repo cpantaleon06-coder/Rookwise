@@ -347,10 +347,11 @@ def _assert_allocation_events(events, book) -> None:
                 for e in events[:index]
                 if e.type == "budget_allocation" and e.payload.agent_id == manager
             ]
-            # A manager's block and its pool are open while the task runs; a baseline's
-            # operators work under the director, out of its one pool.
-            expected = 1 if hired[manager].level == "director" else 2
-            assert sum(1 if e.payload.action == "allocated" else -1 for e in before) == expected
+            # A manager's block and its pool are open while the task runs, plus the pool's
+            # top-up once the director has drawn one; a baseline's operators work under
+            # the director, out of its one pool.
+            expected = (1,) if hired[manager].level == "director" else (2, 3)
+            assert sum(1 if e.payload.action == "allocated" else -1 for e in before) in expected
     stops = {(stop.scope, stop.key) for stop in report.stops}
     for event in events:
         if event.type == "budget_exhausted":
