@@ -22,6 +22,19 @@ Modes:
   HARNESS_MODE=record). It refuses to start unless --approve-cap equals --run-usd.
 - replay: replays a recorded cassette with a transport that fails on any request.
 
+Dev-only cassette reuse, to re-record only the calls a code change made different:
+- `record --reuse-cassette OLD --cassette NEW`: a request OLD recorded as complete (same
+  request, same sequence index) is served from OLD at zero cost; every other request is
+  made live. NEW gets every call (the reused ones marked `reused`, at zero usage), so it
+  replays the run on its own; OLD is only read. NEW must not exist, the incident must be
+  on the dev split, and the reports go to `record[-<configuration>].<NEW's stem>/`, which
+  must not exist either. The report says `"replay": "partially replayed"` and counts the
+  hits and misses per role. scripts/run_benchmark.py refuses this option.
+- `reuse-check --reuse-cassette OLD`: the offline dry check. The same run with the
+  estimate stub in place of the API for the misses: it prints the hits and misses per
+  role and the predicted live cost of the misses (the ledger's prediction, plus what the
+  estimate stub charged), and writes nothing.
+
 `--plan-response-format json_schema` sends the director's plan call with the plan's schema
 (inlined) as a wrapped json_schema response_format, and `--repair-temperature X` sets the
 director's temperature from its first re-prompt on. Both are off by default
@@ -68,6 +81,7 @@ import os
 import re
 import statistics
 import sys
+import tempfile
 import time
 import zlib
 from collections import defaultdict
@@ -392,8 +406,12 @@ async def run(
     plan_response_format: str | None = None,
     repair_temperature: float | None = None,
     configuration: str = "a",
+    reuse: Path | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
-    """One run. `transport` replaces the network in record mode (tests only);
+    """One run. `reuse` (record and reuse-check modes, dev only) is a cassette whose
+    complete calls are served at zero cost (see the module docstring); in reuse-check mode
+    the misses go to the estimate stub and `cassette` is a scratch file. `transport`
+    replaces the network in record mode (tests only);
     `empty_fraction` is the estimate stub's share of claim-free slices; `stop_after`
     "plan" ends the run after the director's plan. `plan_response_format` and
     `repair_temperature` turn on the director's options for this run only (None keeps
@@ -425,8 +443,26 @@ async def run(
         if log is not None:
             log.append(attempt_entry(event))
 
+    if (reuse is not None) != (mode == "reuse-check") and mode != "record":
+        raise ValueError("reuse is for record and reuse-check modes, and reuse-check needs it")
+    reused = Cassette(reuse, "replay") if reuse is not None else None
     stub, clock = None, None
-    if mode == "estimate":
+    if mode == "reuse-check":
+        stub = stub_output_tokens()
+        clock = InstantClock()
+        harness = Harness(
+            ledger,
+            config=harness_config,
+            api_key="offline-stub",
+            clock=clock,
+            transport=stub_transport(
+                bundle, context, stub["tokens"], harness_config, empty_fraction
+            ),
+            cassette=Cassette(cassette, "record"),
+            on_attempt_error=log_attempt,
+            reuse=reused,
+        )
+    elif mode == "estimate":
         stub = stub_output_tokens()
         clock = InstantClock()
         harness = Harness(
@@ -447,6 +483,7 @@ async def run(
             transport=transport,
             cassette=Cassette(cassette, "record"),
             on_attempt_error=log_attempt,
+            reuse=reused,
         )
     else:
         harness = Harness(
@@ -473,6 +510,7 @@ async def run(
         }
         log: list[dict[str, Any]] = []
         token = attempt_log.set(log)
+        seen = len(harness.reuse_log)
         start = time.perf_counter()
         try:
             result = await complete(request, cancel)
@@ -485,6 +523,8 @@ async def run(
                 "counted": isinstance(error, StreamInterrupted),
                 "attempt_log": log,
             }
+            if reused is not None:
+                record["reused"] = any(h.hit for h in harness.reuse_log[seen:])
             calls.append(record)
             raise
         finally:
@@ -499,6 +539,8 @@ async def run(
             "attempts": result.attempts,
             "attempt_log": log,
         }
+        if reused is not None:
+            record["reused"] = any(h.hit for h in harness.reuse_log[seen:])
         calls.append(record)
         return result
 
@@ -537,7 +579,32 @@ async def run(
         report["stub_empty_slices_fraction"] = empty_fraction
     if clock is not None:
         report["estimate_rate_limit_wait_s"] = round(clock.slept_s, 3)
+    if reused is not None:
+        report["replay"] = "partially replayed"
+        report["reuse"] = reuse_summary(reuse, harness.reuse_log, ledger.report(run_id))
     return report, [e.model_dump(mode="json") for e in team.events], calls
+
+
+def reuse_role(level: str, task_id: str) -> str:
+    if level == "director":
+        return "director (diagnosis)" if task_id.startswith("diagnosis") else "director (plan)"
+    return level
+
+
+def reuse_summary(reuse: Path, log: list[Any], report: Any) -> dict[str, Any]:
+    """Hits and misses per role of a run with a reuse cassette, and what the misses cost:
+    their real cost and the ledger's prediction (a hit is charged and predicted at zero)."""
+    by_role: dict[str, dict[str, int]] = defaultdict(lambda: {"hits": 0, "misses": 0})
+    for call in log:
+        by_role[reuse_role(call.level, call.task_id)]["hits" if call.hit else "misses"] += 1
+    return {
+        "cassette": reuse.name,
+        "hits": sum(call.hit for call in log),
+        "misses": sum(not call.hit for call in log),
+        "by_role": {role: dict(counts) for role, counts in sorted(by_role.items())},
+        "misses_usd": format_usd(report.spent_usd),
+        "misses_predicted_usd": format_usd(report.predicted_usd),
+    }
 
 
 def attempt_entry(event: ErrorEvent) -> dict[str, Any]:
@@ -788,11 +855,72 @@ def _usd(value: str) -> Decimal | None:
     return amount if amount > 0 else None
 
 
+def output_folder(args: argparse.Namespace, cassette: Path, reuse: Path | None) -> str:
+    folder = f"{args.mode}-{args.stop_after}" if args.stop_after else args.mode
+    if args.configuration != "a":
+        folder = f"{args.mode}-{args.configuration}"
+    if reuse is not None:  # a partially replayed run never writes over a full one
+        folder = f"{folder}.{cassette.stem}"
+    return folder
+
+
+def reuse_problem(args: argparse.Namespace, reuse: Path, cassette: Path) -> str:
+    """Why --reuse-cassette cannot run as given, or "" when it can."""
+    if args.mode not in ("record", "reuse-check"):
+        return "--reuse-cassette is for record and reuse-check modes only"
+    if not reuse.exists():
+        return f"No cassette at {reuse}"
+    if load_ground_truth(args.incident_id).split != "dev":
+        return "--reuse-cassette is dev only: this incident is on the test split"
+    if args.mode == "record":
+        if args.cassette is None:
+            return "--reuse-cassette needs --cassette for the new cassette"
+        if cassette == reuse or cassette.exists():
+            return f"{cassette} exists: the new cassette must be a new file"
+        out = OUT_DIR / args.incident_id / output_folder(args, cassette, reuse)
+        if out.exists():
+            return f"{out} exists: a report folder is never overwritten"
+    return ""
+
+
+def reuse_check(args: argparse.Namespace, config: dict[str, Any], reuse: Path, run_usd: str) -> int:
+    """The offline dry check: hits and misses per role, and the misses' predicted cost."""
+    bundle = load_bundle(args.incident_id)
+    truth = load_ground_truth(args.incident_id)
+    with tempfile.TemporaryDirectory() as scratch:
+        report, _, _ = asyncio.run(
+            run(
+                "reuse-check",
+                args.incident_id,
+                bundle=bundle,
+                truth=truth,
+                run_usd=run_usd,
+                cassette=Path(scratch) / "check.json",
+                config=config,
+                configuration=args.configuration,
+                reuse=reuse,
+            )
+        )
+    summary = report["reuse"]
+    print(
+        f"Reuse check of {summary['cassette']} for {args.incident_id} configuration "
+        f"{args.configuration} (cap USD {run_usd}); offline, nothing written."
+    )
+    for role, counts in summary["by_role"].items():
+        print(f"  {role}: {counts['hits']} hits, {counts['misses']} misses")
+    print(f"Hits: {summary['hits']}; misses: {summary['misses']}.")
+    print(
+        f"Predicted live cost of the misses: USD {summary['misses_predicted_usd']} (the "
+        f"ledger's prediction); the estimate stub charged USD {summary['misses_usd']}."
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     config = load_benchmark_config()
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("incident_id")
-    parser.add_argument("mode", choices=("estimate", "record", "replay"))
+    parser.add_argument("mode", choices=("estimate", "record", "replay", "reuse-check"))
     parser.add_argument(
         "--configuration",
         choices=CONFIGURATIONS,
@@ -805,6 +933,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cassette", type=Path, help="default runs/cassettes/incident-<id>.json")
     parser.add_argument(
         "--approve-cap", help="record only: must equal --run-usd, or nothing is run"
+    )
+    parser.add_argument(
+        "--reuse-cassette",
+        type=Path,
+        metavar="PATH",
+        help="dev only, record or reuse-check: serve the calls this cassette recorded at "
+        "zero cost and make only the others live",
     )
     parser.add_argument(
         "--empty-slices",
@@ -844,6 +979,17 @@ def main(argv: list[str] | None = None) -> int:
         print("--run-usd must be a positive amount; nothing was run.")
         return 2
     cassette = (args.cassette or cassette_path(args.incident_id, args.configuration)).resolve()
+    reuse = args.reuse_cassette.resolve() if args.reuse_cassette is not None else None
+    if reuse is not None:
+        problem = reuse_problem(args, reuse, cassette)
+        if problem:
+            print(f"{problem}; nothing was run.")
+            return 2
+    elif args.mode == "reuse-check":
+        print("reuse-check needs --reuse-cassette; nothing was run.")
+        return 2
+    if args.mode == "reuse-check":
+        return reuse_check(args, config, reuse, str(run_usd))
     if args.mode == "record":
         approved = _usd(args.approve_cap) if args.approve_cap is not None else None
         if approved is None or approved != run_usd:
@@ -890,12 +1036,10 @@ def main(argv: list[str] | None = None) -> int:
             plan_response_format=args.plan_response_format,
             repair_temperature=args.repair_temperature,
             configuration=args.configuration,
+            reuse=reuse,
         )
     )
-    folder = f"{args.mode}-{args.stop_after}" if args.stop_after else args.mode
-    if args.configuration != "a":
-        folder = f"{args.mode}-{args.configuration}"
-    out = OUT_DIR / args.incident_id / folder
+    out = OUT_DIR / args.incident_id / output_folder(args, cassette, reuse)
     out.mkdir(parents=True, exist_ok=True)
     for name, data in (("report", report), ("events", events), ("calls", calls)):
         text = json.dumps(data, indent=2, default=str, ensure_ascii=False) + "\n"

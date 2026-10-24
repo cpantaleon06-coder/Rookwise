@@ -16,6 +16,10 @@ Resumable: a run whose result file exists is skipped, so an interrupted benchmar
 where it stopped. A result file is written only when its run finishes (atomically), and a
 run that raises stops the benchmark with nothing written for it.
 
+Never partially replayed: the dev-only cassette reuse of scripts/run_incident.py
+(`--reuse-cassette`) is refused here, and a run whose report says it was partially
+replayed stops the benchmark with nothing written for it.
+
 Dev and test: an incident's split comes from its ground truth. Test-split incidents run
 live only with `--freeze-confirmed`: tuning must end before any test run is made. Each
 result file records the commit and a hash of the config files, and the summary reports
@@ -472,6 +476,13 @@ async def benchmark(
             write_summary(results_dir)
             return 3
         spent += Decimal(report["spent_usd"])
+        if report.get("replay") == "partially replayed":
+            say(
+                f"Stopped: {run.name} was partially replayed from a reused cassette; a "
+                "benchmark result must come from a full run. Nothing was written for it."
+            )
+            write_summary(results_dir)
+            return 3
         result = metrics(report, run, {**origin, "finished_at": datetime.now(UTC).isoformat()})
         write_atomic(result_path(results_dir, run), json.dumps(result, indent=2) + "\n")
         say(
@@ -505,8 +516,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="tuning has ended: test-split incidents may run live",
     )
+    parser.add_argument(
+        "--reuse-cassette", help="refused: cassette reuse is for scripts/run_incident.py only"
+    )
     args = parser.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
+    if args.reuse_cassette is not None:
+        print(
+            "--reuse-cassette is refused: a benchmark run is never partially replayed; "
+            "nothing was run."
+        )
+        return 2
     approved = _usd(args.approve_total_usd)
     if args.approve_total_usd is not None and approved is None:
         print("--approve-total-usd must be a positive amount; nothing was run.")
