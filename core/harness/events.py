@@ -92,7 +92,8 @@ class Finish(_Event):
 
 
 class ErrorEvent(_Event):
-    """An attempt failed. `retryable` says whether another attempt follows."""
+    """An attempt failed. `retryable` says whether another attempt follows, and `delay_s`
+    how long the harness waits before it (None when none follows)."""
 
     type: Literal["error"] = "error"
     kind: ErrorKind
@@ -100,6 +101,7 @@ class ErrorEvent(_Event):
     status_code: int | None = None
     retryable: bool
     attempt: int = Field(ge=1)
+    delay_s: float | None = None
 
 
 Event = Annotated[

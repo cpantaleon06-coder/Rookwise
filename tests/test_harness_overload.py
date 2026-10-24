@@ -196,3 +196,34 @@ def test_the_overload_config_is_checked(tmp_path):
     del data["retry"]["overload"]
     path.write_text(json.dumps(data), encoding="utf-8")
     assert load_config(path, env={}).retry.overload_delays_s == ()
+
+
+def test_every_failed_attempt_reaches_the_listener_with_its_wait():
+    seen = []
+    book = ledger()
+    handler = Handler([_overloaded() for _ in range(5)])
+
+    async def main():
+        harness = Harness(
+            book,
+            config=config(),
+            api_key=TEST_KEY,
+            transport=handler.transport(),
+            clock=FakeClock(),
+            rng=random.Random(0),
+            on_attempt_error=seen.append,
+        )
+        async with harness:
+            await harness.complete(request(model=LIGHTNING))
+
+    with pytest.raises(ApiError):
+        run(main())
+    assert [(e.attempt, e.status_code, e.retryable) for e in seen] == [
+        (1, 529, True),
+        (2, 529, True),
+        (3, 529, True),
+        (4, 529, True),
+        (5, 529, False),
+    ]
+    _within_jitter([e.delay_s for e in seen[:4]], [2.0, 5.0, 15.0, 30.0])
+    assert seen[-1].delay_s is None
