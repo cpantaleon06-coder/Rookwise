@@ -689,6 +689,11 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
             "total": sum(team.trimmed_citations.values()),
             "by_task": dict(team.trimmed_citations),
         },
+        # Diagnosis claims and citations dropped by position over the diagnosis bound.
+        "diagnosis_trimmed": {
+            "claims": team.diagnosis_trimmed_claims,
+            "citations": team.diagnosis_trimmed_citations,
+        },
         "managers": [
             {
                 "block_id": b.block_id,

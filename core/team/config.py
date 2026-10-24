@@ -8,7 +8,9 @@ alias and skill ids; the role that leads a level of the hierarchy also names the
 There must be exactly one role each for `director`, `manager` and `auditor`. Every other
 role is an operator role, staffed from the operator catalog (`OperatorSpec`). Every role
 sets `max_output_tokens`, the `max_tokens` of each of its calls and so what the ledger
-reserves for the output (`rookwise.skills.role_max_output_tokens`).
+reserves for the output (`rookwise.skills.role_max_output_tokens`). The director may also
+set `diagnosis_max_output_tokens`, the ceiling of its diagnosis call and its repair (its
+plan call keeps `max_output_tokens`); the single-model baselines use it too.
 """
 
 from __future__ import annotations
@@ -39,6 +41,12 @@ class RoleSpec:
     # is the temperature from the first re-prompt on (protocol errors and repairs).
     plan_response_format: Literal["json_schema"] | None = None
     repair_temperature: float | None = None
+    # The director's diagnosis ceiling; None: `max_output_tokens`.
+    diagnosis_max_output_tokens: int | None = None
+
+    @property
+    def diagnosis_tokens(self) -> int:
+        return self.diagnosis_max_output_tokens or self.max_output_tokens
 
 
 @dataclass(frozen=True)
@@ -72,6 +80,15 @@ def load_team_roles(config: dict[str, Any] | None = None) -> TeamRoles:
             or not 0 <= temperature <= 2
         ):
             raise ValueError(f"role {role}: repair_temperature must be null or in 0..2")
+        diagnosis_tokens = spec.get("diagnosis_max_output_tokens")
+        if diagnosis_tokens is not None and (
+            isinstance(diagnosis_tokens, bool)
+            or not isinstance(diagnosis_tokens, int)
+            or diagnosis_tokens < 1
+        ):
+            raise ValueError(f"role {role}: diagnosis_max_output_tokens must be null or >= 1")
+        if diagnosis_tokens is not None and level != "director":
+            raise ValueError(f"role {role}: only the director has a diagnosis call")
         found[level] = RoleSpec(
             role,
             level,
@@ -80,6 +97,7 @@ def load_team_roles(config: dict[str, Any] | None = None) -> TeamRoles:
             role_max_output_tokens(role, config),
             plan_format,
             None if temperature is None else float(temperature),
+            diagnosis_tokens,
         )
     missing = [level for level in TEAM_LEVELS if level not in found]
     if missing:
@@ -167,6 +185,11 @@ class BudgetPolicy:
     # on the dev incidents.
     operator_max_claims: int = 4
     operator_max_citations_per_claim: int = 5
+    # The same bound on the director's diagnosis, in every configuration: said in the
+    # diagnosis prompt, and a diagnosis over it keeps its first claims and citations by
+    # position (no repair). First guesses (2026-10-24).
+    diagnosis_max_claims: int = 6
+    diagnosis_max_citations_per_claim: int = 4
     operator_deadline_s: int = 120
     # Above this estimated input a manager consolidates its findings in batches.
     manager_max_input_tokens: int = 60_000
@@ -191,6 +214,10 @@ class BudgetPolicy:
         if self.operator_max_claims < 1 or self.operator_max_citations_per_claim < 1:
             raise ValueError(
                 "operator_max_claims and operator_max_citations_per_claim must be at least 1"
+            )
+        if self.diagnosis_max_claims < 1 or self.diagnosis_max_citations_per_claim < 1:
+            raise ValueError(
+                "diagnosis_max_claims and diagnosis_max_citations_per_claim must be at least 1"
             )
         if self.manager_max_input_tokens < 1:
             raise ValueError("manager_max_input_tokens must be at least 1")

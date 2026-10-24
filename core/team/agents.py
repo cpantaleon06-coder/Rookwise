@@ -59,7 +59,9 @@ class AgentCaller:
         output_model: type[BaseModel],
         budget_id: str | None,
         response_format: JsonSchemaFormat | None = None,
+        max_tokens: int | None = None,
     ) -> EscalationResult:
+        """One call of `role`; `max_tokens` replaces the role's output ceiling."""
         composed = compose_system_prompt(
             role.role, base_prompt, config=self.skills_config, skills_dir=self.skills_dir
         )
@@ -70,7 +72,7 @@ class AgentCaller:
             run_id=self.log.run_id,
             level=level,
             task_id=task_id,
-            max_tokens=role.max_output_tokens,
+            max_tokens=max_tokens or role.max_output_tokens,
             skills=composed.skill_ids,
             budget_id=budget_id,
             response_format=response_format,

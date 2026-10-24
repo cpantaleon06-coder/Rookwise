@@ -193,6 +193,7 @@
       "level": "director",
       "model": "nemotron-3-ultra",
       "max_output_tokens": 2048,
+      "diagnosis_max_output_tokens": 4096,
       "plan_response_format": null,
       "repair_temperature": null,
       "skills": [],
