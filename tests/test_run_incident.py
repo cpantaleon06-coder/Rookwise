@@ -325,3 +325,68 @@ def test_the_report_gives_first_pass_validity_before_and_after_normalization(mod
     assert {"valid", "total", "validity"} <= set(first)
     assert {"valid_before_normalization", "validity_before_normalization"} <= set(first)
     assert first["valid_before_normalization"] <= first["valid"]
+
+
+def _baseline(module, tmp_path, configuration):
+    return asyncio.run(
+        module.run(
+            "estimate",
+            "inc-test",
+            bundle=BUNDLE,
+            truth=TRUTH,
+            run_usd="1.00",
+            cassette=tmp_path / "unused.json",
+            configuration=configuration,
+        )
+    )
+
+
+def test_baseline_c_reads_every_slice_on_lightning_and_diagnoses(module, tmp_path):
+    report, events, calls = _baseline(module, tmp_path, "c")
+    assert (report["configuration"], report["baseline_model"]) == ("c", "nemotron-3.5-lightning")
+    assert set(report["by_model"]) == {"nemotron-3.5-lightning"}
+    assert {c["level"] for c in calls} == {"operator", "director"}
+    assert [c["task_id"] for c in calls if c["level"] == "director"] == ["diagnosis"]
+    assert report["operator_tasks"]["ok"] == report["operator_tasks"]["total"]
+    assert report["unread_slices"] == [] and report["managers"][0]["block_id"] == "baseline"
+    first = report["score"]["citation_first_pass"]
+    assert {"validity", "validity_before_normalization"} <= set(first)
+    assert report["audit"]["model"] == "none"
+    assert not any(
+        e["type"] == "agent_hired" and e["payload"]["agent"]["level"] == "manager" for e in events
+    )
+
+
+def test_baseline_b_runs_on_ultra(module, tmp_path):
+    report, _, calls = _baseline(module, tmp_path, "b")
+    assert (report["configuration"], report["baseline_model"]) == ("b", "nemotron-3-ultra")
+    assert {c["model"] for c in calls} == {"nemotron-3-ultra"}
+
+
+def test_the_baselines_default_to_their_safety_cap(module):
+    config = module.load_benchmark_config()
+    assert module.default_cap(config, "b") == module.default_cap(config, "c") == "1.000000"
+    assert module.default_cap(config, "a") == "0.100000"
+
+
+def test_a_baseline_refuses_plan_options(module, capsys, monkeypatch):
+    monkeypatch.setattr(module, "load_bundle", lambda *a, **k: pytest.fail("a run started"))
+    assert module.main(["inc-01", "estimate", "--configuration", "c", "--stop-after", "plan"]) == 2
+    assert "configuration a only" in capsys.readouterr().out
+
+
+def test_a_baseline_writes_beside_the_hierarchy(module, monkeypatch, tmp_path):
+    seen = {}
+
+    async def fake_run(mode, incident_id, **kwargs):
+        seen.update(kwargs)
+        return {}, [], []
+
+    monkeypatch.setattr(module, "run", fake_run)
+    monkeypatch.setattr(module, "OUT_DIR", tmp_path)
+    monkeypatch.setattr(module, "load_bundle", lambda *a, **k: BUNDLE)
+    monkeypatch.setattr(module, "load_ground_truth", lambda *a, **k: TRUTH)
+    assert module.main(["inc-test", "estimate", "--configuration", "b"]) == 0
+    assert seen["configuration"] == "b" and seen["run_usd"] == "1.000000"
+    assert seen["cassette"].name == "incident-inc-test-b.json"
+    assert (tmp_path / "inc-test" / "estimate-b" / "report.json").exists()

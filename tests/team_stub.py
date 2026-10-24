@@ -236,6 +236,7 @@ def run_stub_team(
     ledger=None,
     store=None,
     stop_after=None,
+    baseline=None,
 ):
     book = ledger if ledger is not None else InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
@@ -266,6 +267,7 @@ def run_stub_team(
                 policy=policy,
                 clock=ticking_clock(),
                 stop_after=stop_after,
+                baseline=baseline,
             )
 
     return asyncio.run(main()), book
@@ -345,8 +347,10 @@ def _assert_allocation_events(events, book) -> None:
                 for e in events[:index]
                 if e.type == "budget_allocation" and e.payload.agent_id == manager
             ]
-            # The block and its pool are open while the task runs.
-            assert sum(1 if e.payload.action == "allocated" else -1 for e in before) == 2
+            # A manager's block and its pool are open while the task runs; a baseline's
+            # operators work under the director, out of its one pool.
+            expected = 1 if hired[manager].level == "director" else 2
+            assert sum(1 if e.payload.action == "allocated" else -1 for e in before) == expected
     stops = {(stop.scope, stop.key) for stop in report.stops}
     for event in events:
         if event.type == "budget_exhausted":

@@ -200,9 +200,13 @@ async def audit(
     goal: str,
     diagnosis: Diagnosis | None,
     bundle: EvidenceBundle,
-    budget_id: str,
+    budget_id: str | None,
     missing_reason: str = "the director produced no diagnosis",
+    model_review: bool = True,
 ) -> AuditOutcome:
+    """The deterministic check, D3's withdrawal, then the auditor model's review. With
+    `model_review` False (the single-model baselines, which have no auditor model) the
+    deterministic check and the withdrawal are the whole audit."""
     if diagnosis is None:
         return _inconclusive(role, missing_reason, None, None)
     split = split_claims(diagnosis, bundle)
@@ -212,6 +216,29 @@ async def audit(
         return _inconclusive(role, "no supported claim remains", split, check)
     if all(claim_id in withdrawn_ids for claim_id in diagnosis.root_cause_claim_ids):
         return _inconclusive(role, "every root-cause claim was withdrawn", split, check)
+    if not model_review:
+        warning = "No auditor model in this configuration: only the deterministic check ran."
+        if split.withdrawn:
+            warning += (
+                f" {len(split.withdrawn)} claims were withdrawn as unsupported and are listed."
+            )
+        verdict = AuditVerdict(
+            verdict="accepted_with_warning",
+            model="none",  # no auditor model reviewed it
+            checks=[check],
+            correction_cycles=0,
+            warning=warning,
+        )
+        return AuditOutcome(
+            verdict,
+            split.report,
+            model_reviewed=False,
+            budget_exhausted=False,
+            status="audited",
+            supported=split.supported,
+            withdrawn=split.withdrawn,
+            counts=split.counts,
+        )
 
     supported_json = json.dumps(
         [claim.model_dump() for claim in split.supported], ensure_ascii=False, indent=1
