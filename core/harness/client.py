@@ -16,6 +16,13 @@ For every attempt of a call:
      same way, since the server may already be working on it.
    A call cancelled before its request is sent is released.
 
+Reuse (dev only, record mode): with a `reuse` cassette, a call whose request (key and
+sequence index) that cassette recorded as complete is served from it instead of the API,
+at zero cost: no rate-limit permit, a reservation predicted at zero and charged zero
+usage. It is still written to the new cassette, marked `reused` with that zero usage, so
+the new cassette replays the run as it happened. Every other call goes live and is
+recorded. The reuse cassette is only read. `reuse_log` lists each call as a hit or not.
+
 Every failed attempt yields an `ErrorEvent` with its status, whether it is retried and
 the wait before the next attempt; `on_attempt_error`, when given, also receives each one
 as it happens (for reports: the events of a call that raises never reach `complete`).
@@ -159,11 +166,26 @@ class _Attempt:
 
 @dataclass(frozen=True)
 class _Call:
-    """A call's cassette slot: request key and sequence index, and in replay the recording."""
+    """A call's cassette slot: request key and sequence index, and in replay the recording
+    (or, in record mode with reuse, the recording it is served from)."""
 
     key: str
     index: int
     recording: dict[str, Any] | None = None
+    reused: bool = False
+
+
+@dataclass(frozen=True)
+class ReuseHit:
+    """One call of a run with a reuse cassette: served from it (`hit`) or live."""
+
+    level: str
+    task_id: str
+    model: str
+    hit: bool
+
+
+ZERO_USAGE = {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0, "reasoning_tokens": 0}
 
 
 class _NoPermit:
@@ -198,6 +220,7 @@ class Harness:
         rng: random.Random | None = None,
         cassette: Cassette | None = None,
         on_attempt_error: Callable[[ErrorEvent], None] | None = None,
+        reuse: Cassette | None = None,
     ) -> None:
         self._ledger = ledger
         self._on_attempt_error = on_attempt_error
@@ -216,6 +239,12 @@ class Harness:
         self._cassette = cassette
         if cassette is not None:
             cassette.add_secret(key)
+        if reuse is not None and (self._mode != "record" or reuse.mode != "replay"):
+            raise HarnessError("a reuse cassette is read in replay mode by a record harness")
+        if reuse is not None and cassette is not None and reuse.path == cassette.path:
+            raise HarnessError("the reuse cassette must not be the cassette being recorded")
+        self._reuse = reuse
+        self.reuse_log: list[ReuseHit] = []
         # Replay never calls the API, so it gets no HTTP client at all.
         self._http = (
             None
@@ -296,6 +325,15 @@ class Harness:
             # ledger refuses still uses up its slot and later keys line up on replay.
             key = request_key(built.body)
             call = _Call(key, self._cassette.next_index(key))
+            if self._reuse is not None:
+                recording = self._reuse.find_complete(key, call.index)
+                if recording is not None:
+                    zeroed = {**recording, "usage": dict(ZERO_USAGE), "running_usage": None}
+                    call = dataclasses.replace(call, recording=zeroed, reused=True)
+                request = built.request
+                self.reuse_log.append(
+                    ReuseHit(request.level, request.task_id, built.model.alias, call.reused)
+                )
         attempt = 0
         while True:
             attempt += 1
@@ -305,11 +343,12 @@ class Harness:
                 )
                 return
             permit: Permit | _NoPermit = _NoPermit()
-            if self._mode != "replay":
+            reused = call is not None and call.reused
+            if self._mode != "replay" and not reused:
                 permit = await self._limiter.acquire(built.model.alias, built.worst_case_tokens)
             used_tokens: int | None = None
             try:
-                reservation = self._reserve(built)
+                reservation = self._reserve(built, free=reused)
             except BaseException:
                 permit.release(used_tokens=0)
                 raise
@@ -364,8 +403,21 @@ class Harness:
 
     # -- one attempt -------------------------------------------------------------------
 
-    def _reserve(self, built: BuiltRequest) -> Reservation:
+    def _reserve(self, built: BuiltRequest, *, free: bool = False) -> Reservation:
+        """The attempt's reservation; `free` (a reused call) predicts zero."""
         request = built.request
+        if free:
+            return self._ledger.reserve(
+                request.run_id,
+                level=request.level,
+                task_id=request.task_id,
+                model=built.model.alias,
+                input_tokens=built.input_tokens_estimate,
+                max_output_tokens=built.max_tokens,
+                usd_predicted=ZERO_USD,
+                skills=request.skills,
+                budget_id=request.budget_id,
+            )
         return self._ledger.reserve(
             request.run_id,
             level=request.level,
@@ -474,6 +526,9 @@ class Harness:
         if self._mode == "replay":
             assert call is not None and call.recording is not None
             return self._replay_source(state, call.recording)
+        if call is not None and call.reused:
+            assert call.recording is not None
+            return self._record(self._replay_source(state, call.recording), built, state, call)
         source = self._live_source(built, state)
         if self._mode == "record":
             assert call is not None
@@ -555,6 +610,7 @@ class Harness:
                     "usage": dataclasses.asdict(final) if final else None,
                     "running_usage": dataclasses.asdict(running) if running else None,
                     "events": events,
+                    **({"reused": True} if call.reused else {}),
                 }
             )
 

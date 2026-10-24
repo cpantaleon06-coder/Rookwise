@@ -139,6 +139,14 @@ class Cassette:
         except KeyError:
             raise CassetteMiss(key, index, self.path) from None
 
+    def find_complete(self, key: str, index: int) -> dict[str, Any] | None:
+        """The recording of (key, index) when it finished without an error, else None. For
+        reuse: a call recorded as failed or cancelled is made again."""
+        recording = self._interactions.get((key, index))
+        if recording is None or recording.get("status") != "ok" or recording.get("error"):
+            return None
+        return recording
+
     def put(self, interaction: dict[str, Any]) -> None:
         """Store an interaction (replacing an earlier attempt of the same call) and write."""
         interaction = {**interaction, "request": _strip_secrets(interaction["request"])}
