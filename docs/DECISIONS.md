@@ -122,6 +122,12 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | Salvage of cut or broken operator replies (decided by the user, 2026-10-22), operators only (never the director, managers or auditor): the reply is cut at the last complete element (depth aware, outside strings), the open brackets are closed, and the result is kept only when it validates against the findings model and holds at least one claim; every citation still goes through the deterministic check. The attempt's loop status is `salvaged`; the incident report counts salvaged replies and dropped trailing elements; a salvage with no claim fails as before. Implementation choices, pending the user's review: it applies in `native_tools` to a final reply that is not valid JSON and to a reply cut at `finish_reason: "length"`, so for operators it changes D3's rule that a length reply is discarded (its complete part can now be kept); it is not used in `json_protocol`. | core/harness/salvage.py; core/harness/loop.py; core/team/flow.py; scripts/run_incident.py |
 | First-pass citation validity has two numbers (decided by the user, 2026-10-22): after the source normalization and with every citation as the model wrote it, in the incident report and the benchmark scoring fields. Baselines (b) and (c) must report the same two numbers. | core/benchmark.py; core/team/models.py; scripts/run_incident.py |
 
+## Fixes after the second full inc-01 run (2026-10-24)
+
+| Decision | Where |
+| --- | --- |
+| A failed task is not reassigned when what is left of its limit is less than the next operator's first reservation (the task's first request on that operator's model): the ledger would refuse that call before it starts, as it did for t-68.2 in the second full inc-01 run (USD 0.007381 left, USD 0.008197 needed). The task is escalated to the director with a note naming both amounts. Code bug fix. | core/team/flow.py |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
