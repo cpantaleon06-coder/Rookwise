@@ -399,3 +399,37 @@ def test_the_report_counts_diagnosis_items_trimmed_over_the_bound(module, tmp_pa
     assert diagnosis["max_tokens"] == 4096
     (plan,) = [c for c in calls if c["task_id"] == "plan"]
     assert plan["max_tokens"] == 2048
+
+
+def test_estimate_mode_never_waits_on_rate_limits(module, tmp_path, monkeypatch):
+    import dataclasses
+    import time
+
+    from rookwise.harness.config import ModelLimit
+
+    real = module.load_config
+
+    def tight(*args, **kwargs):  # one request per minute for every model
+        config = real(*args, **kwargs)
+        limits = {alias: ModelLimit(1, 10_000_000) for alias in config.limits}
+        return dataclasses.replace(config, limits=limits)
+
+    monkeypatch.setattr(module, "load_config", tight)
+    monkeypatch.setattr(module, "RECORDED_RUN", tmp_path / "none.json")
+
+    async def no_sleep(seconds):
+        raise AssertionError(f"estimate mode slept {seconds} s for real")
+
+    monkeypatch.setattr(module.asyncio, "sleep", lambda s: no_sleep(s) if s else _zero())
+    started = time.perf_counter()
+    report, _, calls = _estimate(module, tmp_path)
+    assert time.perf_counter() - started < 30
+    # At one request per minute per model, a live run would have waited at least a minute
+    # between two calls on the same model (a wait on one model also refills the others).
+    models = [c["model"] for c in calls]
+    most = max(models.count(m) for m in set(models))
+    assert most > 1 and report["estimate_rate_limit_wait_s"] >= 60 * (most - 1) * 0.9
+
+
+async def _zero():
+    return None
