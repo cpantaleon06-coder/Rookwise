@@ -13,6 +13,8 @@ Modes:
   the director's plan and the managers' outputs too). A role the recording does not have
   gets 1,000 tokens, labeled as a placeholder in the report. The ledger, the slicing and
   every budget rule run for real, so the report shows which calls the ledger refuses.
+  Rate limits never make it wait: its clock only counts the time a live run would have
+  waited (`estimate_rate_limit_wait_s` in the report), so its wall time is compute time.
   `--empty-slices FRACTION` makes that share of the slices claim-free in the stub's
   replies (chosen by a hash of the slice id, so the same slices every time); a claim-free
   reply still reports the same output tokens, so its cost is not lowered.
@@ -351,6 +353,23 @@ def _sse(text: str, prompt: int, completion: int) -> bytes:
     return ("".join(f"data: {p}\n\n" for p in payloads) + "data: [DONE]\n\n").encode()
 
 
+class InstantClock:
+    """A clock for estimate mode: `sleep` moves its time forward at once, so rate limits
+    and backoff never wait for real. `slept_s` is the time they would have waited."""
+
+    def __init__(self) -> None:
+        self.t = 0.0
+        self.slept_s = 0.0
+
+    def now(self) -> float:
+        return self.t
+
+    async def sleep(self, seconds: float) -> None:
+        self.t += seconds
+        self.slept_s += seconds
+        await asyncio.sleep(0)
+
+
 def _no_network(request: httpx.Request) -> httpx.Response:
     raise AssertionError(f"replay made a network request to {request.url.host}")
 
@@ -406,13 +425,15 @@ async def run(
         if log is not None:
             log.append(attempt_entry(event))
 
-    stub = None
+    stub, clock = None, None
     if mode == "estimate":
         stub = stub_output_tokens()
+        clock = InstantClock()
         harness = Harness(
             ledger,
             config=harness_config,
             api_key="offline-stub",
+            clock=clock,
             transport=stub_transport(
                 bundle, context, stub["tokens"], harness_config, empty_fraction
             ),
@@ -514,6 +535,8 @@ async def run(
     if stub is not None:
         report["stub_output_tokens"] = stub
         report["stub_empty_slices_fraction"] = empty_fraction
+    if clock is not None:
+        report["estimate_rate_limit_wait_s"] = round(clock.slept_s, 3)
     return report, [e.model_dump(mode="json") for e in team.events], calls
 
 

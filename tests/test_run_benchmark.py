@@ -38,7 +38,8 @@ def bench(monkeypatch, tmp_path):
     real = incident.Harness
 
     def harness(*args, **kwargs):  # rate limits and backoff never sleep for real
-        return real(*args, clock=FakeClock(), rng=random.Random(0), **kwargs)
+        kwargs.setdefault("clock", FakeClock())
+        return real(*args, rng=random.Random(0), **kwargs)
 
     monkeypatch.setattr(incident, "Harness", harness)
     return loaded
