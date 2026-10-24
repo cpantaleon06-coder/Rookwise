@@ -153,3 +153,18 @@ def plan_reply_text():
     task = {"role": "stub-operator", "source_id": "src-a", "instruction": "[stub] Read."}
     plan = {"summary": "[stub] A plan.", "blocks": [{"goal": "[stub] g", "tasks": [task]}]}
     return json.dumps({"status": "ok", "output": plan, "notes": ""})
+
+
+def test_a_reply_that_forgot_to_open_the_next_object_is_not_merged():
+    # SYNTHETIC: "},{" is missing between the claims, so c2's keys repeat c1's, and the
+    # top-level object is not closed. json.loads alone would keep only c2's values.
+    c1 = json.dumps(CLAIMS[0])[:-1]  # c1 without its closing brace
+    text = (
+        '{"status": "ok", "output": {"summary": "[stub]", "claims": ['
+        + c1
+        + ', "claim_id": "c2", "text": "[stub] It is blue.", "citations": []}]}'
+    )
+    found = salvage_json(text, _has_complete_citations)
+    assert found is not None
+    (claim,) = found.value["output"]["claims"]
+    assert claim["claim_id"] == "c1" and claim["citations"] == CITE

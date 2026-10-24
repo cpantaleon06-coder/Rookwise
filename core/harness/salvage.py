@@ -7,7 +7,10 @@ there, closes the brackets still open at that point (innermost first), parses, a
 `accept` whether the value will do. The first value accepted is returned with the number
 of trailing elements dropped (the separators after the cut, plus the cut-off element when
 there is one). Nothing else is repaired: a key without its value, a broken string or a
-wrong bracket is never patched, only cut away. The caller decides what is acceptable; the
+wrong bracket is never patched, only cut away. A candidate with a duplicate key in any
+object is rejected: `json.loads` would keep the last value silently, and a reply that
+forgot to close one object and open the next (`},{`) would merge several elements into
+one, so the cut moves back to before the duplicate. The caller decides what is acceptable; the
 team accepts only findings that validate against the operators' output model and hold at
 least one claim, and every citation still goes through the deterministic check.
 """
@@ -24,6 +27,17 @@ _CLOSERS = {"{": "}", "[": "]"}
 _FENCE = re.compile(r"^\s*```(?:json)?\s*")
 # How many cut points are tried, from the end, before giving up.
 MAX_CANDIDATES = 400
+
+
+class _DuplicateKey(ValueError):
+    pass
+
+
+def _no_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    keys = [key for key, _ in pairs]
+    if len(set(keys)) != len(keys):
+        raise _DuplicateKey(keys)
+    return dict(pairs)
 
 
 @dataclass(frozen=True)
@@ -81,8 +95,8 @@ def salvage_json(text: str, accept: Callable[[Any], bool]) -> Salvage | None:
         if kept.endswith((":", ",")):
             continue
         try:
-            value = json.loads(kept + closers)
-        except json.JSONDecodeError:
+            value = json.loads(kept + closers, object_pairs_hook=_no_duplicate_keys)
+        except (json.JSONDecodeError, _DuplicateKey):
             continue
         if accept(value):
             # The elements cut away from the container the cut is in: the one after the
