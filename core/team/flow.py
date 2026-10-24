@@ -317,6 +317,9 @@ class TeamRun:
     salvaged_replies: dict[str, list[int]] = field(default_factory=dict)
     # Operator citations whose source_id was derived from the assigned slice, by task id.
     citation_source_normalizations: dict[str, int] = field(default_factory=dict)
+    # Operator citations dropped, by position and before any check, from claims over
+    # `operator_max_citations_per_claim`, by task id (no repair is asked for them).
+    trimmed_citations: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -733,6 +736,7 @@ class _Team:
             citation_source_normalizations={
                 k: v for k, v in self.slice_assignment.by_task.items() if v
             },
+            trimmed_citations=self.citation_log.trimmed_by_task(),
         )
 
     async def _run_baseline(self, goal: str, director: AgentNode, baseline: Baseline) -> TeamRun:
@@ -856,6 +860,7 @@ class _Team:
             citation_source_normalizations={
                 k: v for k, v in self.slice_assignment.by_task.items() if v
             },
+            trimmed_citations=self.citation_log.trimmed_by_task(),
         )
 
     async def _diagnose(

@@ -603,6 +603,11 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
             "total": sum(team.citation_source_normalizations.values()),
             "by_task": dict(team.citation_source_normalizations),
         },
+        # Operator citations dropped by position from claims over the per-claim cap.
+        "trimmed_citations": {
+            "total": sum(team.trimmed_citations.values()),
+            "by_task": dict(team.trimmed_citations),
+        },
         "managers": [
             {
                 "block_id": b.block_id,
