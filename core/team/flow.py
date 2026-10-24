@@ -505,6 +505,8 @@ class _Team:
         self.expected_cost: dict[str, Decimal] = {}  # by operator task id
         self.task_limit: dict[str, Decimal] = {}  # by operator task id
         self.retry_reservation: dict[str, Decimal] = {}  # by operator task id
+        # Each operator task's first request: (input token estimate, output ceiling).
+        self.first_request: dict[str, tuple[int, int]] = {}
         # Operator replies salvaged from a cut or broken reply: the elements each dropped.
         self.salvaged: dict[str, list[int]] = {}
         self.manager_reservation: Decimal | None = None
@@ -591,7 +593,7 @@ class _Team:
                     number += 1
                     task_id = f"t-{number}"
                     items.append((task_id, task, item))
-                    reservation, expected, next_rung, retry = self._estimate(task, item)
+                    reservation, expected, next_rung, retry = self._estimate(task, item, task_id)
                     self.first_reservation[task_id] = reservation
                     self.expected_cost[task_id] = expected
                     self.retry_reservation[task_id] = retry
@@ -1021,6 +1023,15 @@ class _Team:
                 ceiling and ceiling_reassignments
             )
             following = self._reassignment(spec, candidates, tried, ceiling) if allowed else None
+            if following is not None:
+                need = self._first_reservation_on(task_id, following)
+                if limit - spent < need:
+                    # The ledger would refuse its first call: do not hire it.
+                    outcome.reason += (
+                        f"; USD {limit - spent} is left of the task's limit, less than "
+                        f"{following.operator_id}'s first call (USD {need})"
+                    )
+                    following = None
             note = outcome.reason + (
                 "; the manager reassigns the task."
                 if following is not None
@@ -1073,7 +1084,9 @@ class _Team:
             )
         return self.manager_reservation
 
-    def _estimate(self, task: PlanTask, item: Slice) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    def _estimate(
+        self, task: PlanTask, item: Slice, task_id: str = ""
+    ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
         """For the task's cheapest operator: its first reservation (its whole first request
         through the harness's calibrated estimate plus the role's output ceiling), its
         expected cost (the same input plus `expected_output_tokens_per_operator`), the
@@ -1126,6 +1139,8 @@ class _Team:
         )
         expected_output = min(self.policy.expected_output_tokens_per_operator, built.max_tokens)
         tokens = built.input_tokens_estimate
+        if task_id:
+            self.first_request[task_id] = (tokens, built.max_tokens)
         higher = config.escalation.next.get(spec.model)
         return (
             self.ledger.reservation_usd(spec.model, tokens, built.max_tokens),
@@ -1221,6 +1236,11 @@ class _Team:
             max_tokens=role_max_output_tokens(role, self.skills_config),
         )
         return build_request(request, config).input_tokens_estimate
+
+    def _first_reservation_on(self, task_id: str, spec: OperatorSpec) -> Decimal:
+        """The reservation of the task's first request on `spec`'s model."""
+        tokens, max_tokens = self.first_request.get(task_id, (0, 0))
+        return self.ledger.reservation_usd(spec.model, tokens, max_tokens)
 
     def _reassignment(
         self,
