@@ -161,8 +161,10 @@ class BudgetPolicy:
     max_tasks_per_block: int = 5
     operator_max_input_tokens: int = 50_000
     operator_max_output_tokens: int = 5_000
-    # Caps on one operator reply, said in the operator prompt and checked by the findings
-    # model. First guesses (2026-10-22), to be tuned on the dev incidents.
+    # Caps on one operator reply, said in the operator prompt. The findings model rejects
+    # a reply over the claim cap (a repair) and keeps the first citations of a claim over
+    # the citation cap, by position (no repair). First guesses (2026-10-22), to be tuned
+    # on the dev incidents.
     operator_max_claims: int = 4
     operator_max_citations_per_claim: int = 5
     operator_deadline_s: int = 120

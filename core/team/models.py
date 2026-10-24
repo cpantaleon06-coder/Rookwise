@@ -261,11 +261,13 @@ class CitationCheck:
 @dataclass(frozen=True)
 class ReplyCitations:
     """The citations of one validated reply. `index` counts the task's replies, so index
-    0 is its first reply, before any repair."""
+    0 is its first reply, before any repair. `trimmed` counts the citations dropped from
+    the reply, before any check, because a claim had more than the cap."""
 
     task_id: str
     index: int
     citations: tuple[CitationCheck, ...]
+    trimmed: int = 0
 
 
 @dataclass
@@ -276,9 +278,16 @@ class CitationLog:
     task_id: str = ""
     replies: list[ReplyCitations] = field(default_factory=list)
 
-    def record(self, data: Any, citation_model: type[BaseModel], as_written: Any = None) -> None:
+    def record(
+        self,
+        data: Any,
+        citation_model: type[BaseModel],
+        as_written: Any = None,
+        trimmed: int = 0,
+    ) -> None:
         """Check every citation of `data`; with `as_written` (the reply before its
-        sources were derived), also check each citation as the model wrote it."""
+        sources were derived), also check each citation as the model wrote it. `trimmed`
+        is how many citations were dropped from the reply over the cap."""
         checks = []
         for i, j, citation in _citations(data):
             original = _citation_at(as_written, i, j) if as_written is not None else None
@@ -288,10 +297,39 @@ class CitationLog:
             ok, problem = _valid(citation_model, citation)
             checks.append(CitationCheck(i, j, ok, problem, ok_as_written))
         index = sum(reply.task_id == self.task_id for reply in self.replies)
-        self.replies.append(ReplyCitations(self.task_id, index, tuple(checks)))
+        self.replies.append(ReplyCitations(self.task_id, index, tuple(checks), trimmed))
 
     def first_replies(self) -> list[ReplyCitations]:
         return [reply for reply in self.replies if reply.index == 0]
+
+    def trimmed_by_task(self) -> dict[str, int]:
+        """Citations trimmed over the cap, by task id, over every reply."""
+        trimmed: dict[str, int] = {}
+        for reply in self.replies:
+            if reply.trimmed:
+                trimmed[reply.task_id] = trimmed.get(reply.task_id, 0) + reply.trimmed
+        return trimmed
+
+
+def trim_citations(data: Any, cap: int | None) -> tuple[Any, int]:
+    """A copy of a reply's output where each claim keeps its first `cap` citations, by
+    position, and how many were dropped. Nothing is checked first: which citations stay
+    never depends on whether they are valid. `data` is returned as is when nothing is over
+    the cap (or `cap` is None)."""
+    claims = data.get("claims") if isinstance(data, dict) else None
+    if cap is None or not isinstance(claims, list):
+        return data, 0
+    dropped = 0
+    new_claims = []
+    for claim in claims:
+        citations = claim.get("citations") if isinstance(claim, dict) else None
+        if isinstance(citations, list) and len(citations) > cap:
+            dropped += len(citations) - cap
+            claim = {**claim, "citations": citations[:cap]}
+        new_claims.append(claim)
+    if not dropped:
+        return data, 0
+    return {**data, "claims": new_claims}, dropped
 
 
 def _citations(data: Any) -> list[tuple[int, int, Any]]:
@@ -417,9 +455,12 @@ def findings_model(
     """`Findings` for one run: same name and JSON Schema, plus the check that each quote
     sits inside a single line of `bundle` in the cited range. With `assignment`, each
     citation's source is derived from the operator's slice (see the module docstring).
-    `max_claims` and `max_citations_per_claim` (None: no limit) cap a reply; a reply over
-    either fails validation with a message the repair can act on. The JSON Schema does
-    not carry the caps, so it stays the same as `Findings`."""
+    `max_claims` and `max_citations_per_claim` (None: no limit) cap a reply. A reply with
+    more claims fails validation with a message the repair can act on. A claim with more
+    citations keeps its first `max_citations_per_claim` by position, before any check
+    (`trim_citations`), so it asks for no repair; the dropped citations are counted in
+    `log` (`ReplyCitations.trimmed`). The JSON Schema does not carry the caps, so it stays
+    the same as `Findings`."""
     citation, claim = _bound_claim(bundle, assignment)
 
     class Findings(_Findings):
@@ -433,25 +474,18 @@ def findings_model(
                     f"the reply has {len(self.claims)} claims; report at most {max_claims}, "
                     "the ones that matter most for the task"
                 )
-            for item in self.claims:
-                count = len(item.citations)
-                if max_citations_per_claim is not None and count > max_citations_per_claim:
-                    raise ValueError(
-                        f"claim {item.claim_id!r} has {count} citations; give at most "
-                        f"{max_citations_per_claim}: the first and last occurrence of a "
-                        "repeated line and any line that shows a different cause, never "
-                        "every matching line"
-                    )
             return self
 
         @model_validator(mode="wrap")
         @classmethod
         def _log_citations(cls, data: Any, handler: Any) -> Any:
+            # Trim first, by position, so the checks below never pick which citations stay.
+            data, trimmed = trim_citations(data, max_citations_per_claim)
             as_written = data
             if assignment is not None:
                 data = assignment.derive(data)
             if log is not None:
-                log.record(data, citation, as_written)
+                log.record(data, citation, as_written, trimmed)
             return handler(data)
 
     return Findings
