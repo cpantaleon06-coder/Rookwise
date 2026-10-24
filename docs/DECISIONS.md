@@ -127,6 +127,7 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | Decision | Where |
 | --- | --- |
 | A failed task is not reassigned when what is left of its limit is less than the next operator's first reservation (the task's first request on that operator's model): the ledger would refuse that call before it starts, as it did for t-68.2 in the second full inc-01 run (USD 0.007381 left, USD 0.008197 needed). The task is escalated to the director with a note naming both amounts. Code bug fix. | core/team/flow.py |
+| Salvage rejects a candidate with a duplicate key in any object and cuts back to before it. In the second full inc-01 run t-28's reply forgot `},{` between claims, so later claims' keys repeated the first claim's; `json.loads` kept the last values and the salvage returned one merged claim (c5, no citations) reporting 0 dropped elements. With the fix it keeps the real first claim with its citation. Code bug fix. | core/harness/salvage.py |
 
 ## Still open
 
