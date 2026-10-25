@@ -369,7 +369,14 @@ def _sse(text: str, prompt: int, completion: int) -> bytes:
 
 class InstantClock:
     """A clock for estimate mode: `sleep` moves its time forward at once, so rate limits
-    and backoff never wait for real. `slept_s` is the time they would have waited."""
+    and backoff never wait for real. `slept_s` is the time they would have waited.
+
+    Every sleep moves time forward by at least `MIN_STEP_S`. Without that floor, a wait
+    shorter than the float spacing at the current time (`t + wait == t`) left the time
+    where it was, and the rate limiter, seeing the same shortfall, asked for the same wait
+    forever."""
+
+    MIN_STEP_S = 0.001
 
     def __init__(self) -> None:
         self.t = 0.0
@@ -379,8 +386,9 @@ class InstantClock:
         return self.t
 
     async def sleep(self, seconds: float) -> None:
-        self.t += seconds
-        self.slept_s += seconds
+        step = max(seconds, self.MIN_STEP_S)
+        self.t += step
+        self.slept_s += step
         await asyncio.sleep(0)
 
 

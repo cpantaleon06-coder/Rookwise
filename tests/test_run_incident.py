@@ -433,3 +433,28 @@ def test_estimate_mode_never_waits_on_rate_limits(module, tmp_path, monkeypatch)
 
 async def _zero():
     return None
+
+
+def test_the_instant_clock_always_moves_forward(module):
+    clock = module.InstantClock()
+    clock.t = 1e9  # the float spacing here is about 1.2e-7 s
+    asyncio.run(clock.sleep(1e-12))
+    assert clock.t > 1e9 and clock.slept_s >= module.InstantClock.MIN_STEP_S
+
+
+def test_the_rate_limiter_does_not_stall_on_a_wait_below_the_float_spacing(module):
+    from rookwise.harness.config import ModelLimit
+    from rookwise.harness.ratelimit import RateLimiter
+
+    clock = module.InstantClock()
+    clock.t = 1e9
+    limiter = RateLimiter({"m": ModelLimit(600, 60_000)}, 8, clock)
+    _, tokens = limiter._buckets["m"]
+    tokens.level = tokens.capacity - 1e-9  # short by a wait of about 1e-9 s
+
+    async def acquire():
+        permit = await asyncio.wait_for(limiter.acquire("m", 60_000), timeout=5)
+        permit.release()
+
+    asyncio.run(acquire())  # before the floor this spun forever
+    assert clock.slept_s >= module.InstantClock.MIN_STEP_S
