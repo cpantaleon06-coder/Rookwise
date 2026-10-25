@@ -399,3 +399,22 @@ def test_no_expected_usage_and_no_prediction_records_zero():
     ledger = _ledger()
     reservation = _reserve(ledger, usd_predicted=ZERO_USD)
     assert reservation.usd_predicted == ZERO_USD
+
+
+def test_a_free_charge_records_the_tokens_at_zero_usd():
+    book = InMemoryLedger()
+    book.open_run("r-free", Caps(run_usd=Decimal("1")))
+    held = book.reserve(
+        "r-free",
+        level="operator",
+        task_id="t-1",
+        model="nemotron-3-ultra",
+        input_tokens=1000,
+        max_output_tokens=500,
+        usd_predicted=Decimal("0"),
+    )
+    entry = book.charge(held, Usage(900, 400), free=True)
+    assert (entry.input_tokens, entry.output_tokens, entry.usd_real) == (900, 400, Decimal("0"))
+    report = book.report("r-free")
+    assert report.spent_usd == 0 and report.held_usd == 0
+    assert report.by_model["nemotron-3-ultra"].output_tokens == 400

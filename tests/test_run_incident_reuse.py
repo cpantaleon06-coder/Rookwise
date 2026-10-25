@@ -83,7 +83,14 @@ def test_a_full_hit_costs_nothing_and_calls_nothing(module, tmp_path, monkeypatc
     assert _sha(old) == before  # the old cassette is only read
     new = json.loads((tmp_path / "new.json").read_text(encoding="utf-8"))
     assert all(i.get("reused") for i in new["interactions"])
-    assert all(i["usage"]["input_tokens"] == 0 for i in new["interactions"])
+    # The new cassette keeps each reused call's recorded usage, and so does the result:
+    # zero cost, but the tokens count as in the original run.
+    recorded = json.loads(old.read_text(encoding="utf-8"))["interactions"]
+    assert [i["usage"] for i in new["interactions"]] == [i["usage"] for i in recorded]
+    assert [(c["input_tokens"], c["output_tokens"]) for c in calls] == [
+        (c["input_tokens"], c["output_tokens"]) for c in first_calls
+    ]
+    assert all(c["usd"] == "0.000000" for c in calls)
 
 
 def test_only_the_missing_call_goes_out_and_is_recorded(module, tmp_path, monkeypatch):  # noqa: F811
@@ -217,3 +224,74 @@ def test_the_benchmark_refuses_reuse(capsys):
     spec.loader.exec_module(loaded)
     assert loaded.main(["--reuse-cassette", "x.json"]) == 2
     assert "--reuse-cassette is refused" in capsys.readouterr().out
+
+
+def test_a_reused_call_counts_its_tokens_so_the_next_request_is_the_same(tmp_path):
+    """The task's output budget sees a reused call's recorded tokens, as in the original
+    run, so a repair after it asks for the same max_tokens and is served from the old
+    cassette too. With the reused call counted as zero tokens, the repair asked for more
+    output and went live (inc-01 c2, task t-71)."""
+    import random
+
+    from harness_support import (
+        TEST_KEY,
+        FakeClock,
+        Handler,
+        config,
+        final_action,
+        request,
+        respond,
+        run,
+        text_reply,
+    )
+    from pydantic import BaseModel, ConfigDict
+
+    from rookwise.harness import ToolLoop
+    from rookwise.harness.escalate import run_with_escalation
+    from rookwise.harness.loop import TokenBudget
+
+    class Answer(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        sum: int
+
+    bad = text_reply(final_action({"status": "ok", "output": {"sum": "x"}}), completion=300)
+    good = text_reply(final_action({"status": "ok", "output": {"sum": 42}}), completion=20)
+
+    def go(cassette, handler, reuse=None):
+        ledger = InMemoryLedger()
+        ledger.open_run("r-1", Caps(run_usd=Decimal("1")))
+        cfg = config()
+
+        async def main():
+            harness = Harness(
+                ledger,
+                config=cfg,
+                api_key=TEST_KEY,
+                transport=handler.transport(),
+                clock=FakeClock(),
+                rng=random.Random(0),
+                cassette=Cassette(cassette, "record"),
+                reuse=reuse,
+            )
+            async with harness:
+                req = request(model="nemotron-3-nano", max_tokens=500)
+                budget = TokenBudget(max_input_tokens=100_000, max_output_tokens=700)
+                result = await run_with_escalation(
+                    ToolLoop(harness), req, Answer, config=cfg.escalation, budget=budget
+                )
+                return result, harness.reuse_log
+
+        return run(main()), ledger
+
+    original = Handler([respond(bad), respond(good)])
+    (first, _), _ = go(tmp_path / "old.json", original)
+    assert first.ok and len(original.bodies) == 2
+    assert [b["max_tokens"] for b in original.bodies] == [500, 400]  # 700 - 300 left
+
+    nothing = Handler([])  # any request that reaches the transport fails the test
+    (again, log), ledger = go(
+        tmp_path / "new.json", nothing, reuse=Cassette(tmp_path / "old.json", "replay")
+    )
+    assert again.ok and nothing.bodies == []
+    assert [hit.hit for hit in log] == [True, True]
+    assert ledger.report("r-1").spent_usd == Decimal("0")

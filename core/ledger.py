@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 import threading
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_EVEN, Decimal
 from pathlib import Path
@@ -266,6 +266,7 @@ class Ledger(Protocol):
         ts: datetime | None = None,
         *,
         usage_estimated: bool = False,
+        free: bool = False,
     ) -> LedgerEntry: ...
 
     def release(self, reservation: Reservation) -> None: ...
@@ -428,16 +429,21 @@ class InMemoryLedger:
         ts: datetime | None = None,
         *,
         usage_estimated: bool = False,
+        free: bool = False,
     ) -> LedgerEntry:
         """Charge the real cost of a finished call and release the rest of its hold.
 
         `usage_estimated` marks a charge made without reported usage (see LedgerEntry).
+        `free` records the usage at zero USD: a call served from a reuse cassette, whose
+        tokens still count toward its task's token budget.
         """
         with self._lock:
             run = self._run(reservation.run_id)
             if run.held.pop(reservation.id, None) is None:
                 raise ValueError(f"reservation {reservation.id} is not held")
             cost = call_cost(self._price(reservation.model), usage)
+            if free:
+                cost = replace(cost, usd=ZERO_USD, usd_exact=ZERO_USD, cached_price_fallback=False)
             entry = LedgerEntry(
                 run_id=reservation.run_id,
                 level=reservation.level,

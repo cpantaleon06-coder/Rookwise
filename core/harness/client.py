@@ -18,10 +18,12 @@ For every attempt of a call:
 
 Reuse (dev only, record mode): with a `reuse` cassette, a call whose request (key and
 sequence index) that cassette recorded as complete is served from it instead of the API,
-at zero cost: no rate-limit permit, a reservation predicted at zero and charged zero
-usage. It is still written to the new cassette, marked `reused` with that zero usage, so
-the new cassette replays the run as it happened. Every other call goes live and is
-recorded. The reuse cassette is only read. `reuse_log` lists each call as a hit or not.
+at zero cost: no rate-limit permit, a reservation predicted at zero and a ledger charge
+of zero tokens. Its result still carries the recorded usage, so token budgets and output
+ceilings count it as the original run did, and later requests match the recording. It is
+written to the new cassette with its recorded usage, marked `reused`, and a replay of
+that cassette charges it zero the same way. Every other call goes live and is recorded.
+The reuse cassette is only read. `reuse_log` lists each call as a hit or not.
 
 Every failed attempt yields an `ErrorEvent` with its status, whether it is retried and
 the wait before the next attempt; `on_attempt_error`, when given, also receives each one
@@ -154,6 +156,7 @@ class _Attempt:
 
     number: int
     reservation: Reservation
+    free: bool = False  # a reused call: charged zero, its recorded usage still reported
     outcome: StreamOutcome = field(default_factory=StreamOutcome)
     in_flight: bool = False  # the request may have reached the server
     started: bool = False  # HTTP 200 received
@@ -183,9 +186,6 @@ class ReuseHit:
     task_id: str
     model: str
     hit: bool
-
-
-ZERO_USAGE = {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0, "reasoning_tokens": 0}
 
 
 class _NoPermit:
@@ -325,11 +325,14 @@ class Harness:
             # ledger refuses still uses up its slot and later keys line up on replay.
             key = request_key(built.body)
             call = _Call(key, self._cassette.next_index(key))
+            if self._mode == "replay":
+                # A call the recording run served from a reuse cassette replays at zero cost.
+                recorded = self._cassette.peek(key, call.index)
+                call = dataclasses.replace(call, reused=bool(recorded and recorded.get("reused")))
             if self._reuse is not None:
                 recording = self._reuse.find_complete(key, call.index)
                 if recording is not None:
-                    zeroed = {**recording, "usage": dict(ZERO_USAGE), "running_usage": None}
-                    call = dataclasses.replace(call, recording=zeroed, reused=True)
+                    call = dataclasses.replace(call, recording=recording, reused=True)
                 request = built.request
                 self.reuse_log.append(
                     ReuseHit(request.level, request.task_id, built.model.alias, call.reused)
@@ -357,7 +360,7 @@ class Harness:
             except BaseException:
                 self._ledger.release(reservation)
                 raise
-            state = _Attempt(attempt, reservation)
+            state = _Attempt(attempt, reservation, free=reused)
             try:
                 # aclosing: if our consumer stops early, the attempt settles right away.
                 async with aclosing(self._run_attempt(built, state, cancel, call)) as events:
@@ -647,6 +650,9 @@ class Harness:
         """Charge or release the attempt's reservation, exactly once."""
         state.settled = True
         final = state.outcome.final_usage()
+        if final is not None and state.free:
+            self._ledger.charge(state.reservation, final, free=True)
+            return _Settlement(final, False, ZERO_USD)
         if final is not None:
             entry = self._ledger.charge(state.reservation, final)
             return _Settlement(final, False, entry.usd_real)

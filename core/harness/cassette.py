@@ -139,6 +139,10 @@ class Cassette:
         except KeyError:
             raise CassetteMiss(key, index, self.path) from None
 
+    def peek(self, key: str, index: int) -> dict[str, Any] | None:
+        """The recording of (key, index), or None; unlike `lookup`, a miss is not an error."""
+        return self._interactions.get((key, index))
+
     def find_complete(self, key: str, index: int) -> dict[str, Any] | None:
         """The recording of (key, index) when it finished without an error, else None. For
         reuse: a call recorded as failed or cancelled is made again."""
