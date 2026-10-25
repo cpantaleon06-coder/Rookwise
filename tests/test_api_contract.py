@@ -127,7 +127,7 @@ def test_the_replay_covers_the_required_cases():
     )
     assert next(e for e in events if e["type"] == "run_finished")["payload"]["partial"] is True
     audit = next(e for e in events if e["type"] == "audit_result")["payload"]["audit"]
-    assert audit["verdict"] == "accepted"
+    assert audit["verdict"] == "accepted_with_warning"
     assert any(
         e["type"] == "budget_update" and e["payload"]["entry"]["usage_estimated"] for e in events
     )
@@ -267,6 +267,35 @@ def test_fixtures_are_labelled_synthetic_and_carry_nothing_secret():
         assert message["text"].startswith("[synthetic]")
     for deliverable in bundle["package"]["deliverables"]:
         assert deliverable["title"].startswith("[synthetic]")
+
+
+def test_the_evidence_check_matches_the_diagnosis():
+    package = SCHEMA_MODELS["DeliveryPackage"].model_validate(_load("recorded_run.json")["package"])
+    diagnosis, check = package.diagnosis, package.evidence_check
+    assert [c.claim_id for c in diagnosis.claims] == [c.claim_id for c in check.claims]
+    assert set(diagnosis.root_cause_claim_ids) <= {c.claim_id for c in diagnosis.claims}
+    for claim, result in zip(diagnosis.claims, check.claims, strict=True):
+        assert len(claim.citations) == len(result.citation_reasons)
+        all_ok = bool(result.citation_reasons) and set(result.citation_reasons) == {"ok"}
+        assert result.supported is all_ok and (result.reason == "ok") is all_ok
+    assert check.supported == sum(c.supported for c in check.claims)
+    assert check.withdrawn == len(check.claims) - check.supported
+    assert sum(check.withdrawn_by_reason.values()) == check.withdrawn
+    assert package.diagnosis_status.status == "audited"
+    assert package.audit.verdict == "accepted_with_warning"
+
+
+def test_the_new_package_fields_are_optional():
+    package = _load("recorded_run.json")["package"]
+    for field in ("diagnosis", "evidence_check", "diagnosis_status", "coverage"):
+        package.pop(field)
+    SCHEMA_MODELS["DeliveryPackage"].model_validate(package)
+    recording = _load("recorded_run.json")["modes"]["recordings"][0]
+    for field in ("recorded_at", "incident_id", "category"):
+        recording.pop(field)
+    SCHEMA_MODELS["ModesView"].model_validate(
+        {**_load("recorded_run.json")["modes"], "recordings": [recording]}
+    )
 
 
 def _section(text: str, start: str, end: str) -> str:

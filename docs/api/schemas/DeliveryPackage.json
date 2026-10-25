@@ -74,6 +74,59 @@
       "title": "AuditVerdict",
       "type": "object"
     },
+    "ClaimCheck": {
+      "additionalProperties": false,
+      "description": "The deterministic evidence check of one claim (`rookwise.evidence.ClaimResult`).\n`reason` is \"ok\" for a supported claim, else the claim's reason code;\n`citation_reasons` has one reason per citation, in the claim's citation order, and is\nnull only in an exported recording whose run folder did not keep them.",
+      "properties": {
+        "citation_reasons": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "ok",
+                  "source_missing",
+                  "line_out_of_range",
+                  "quote_not_found"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation Reasons"
+        },
+        "claim_id": {
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "ok",
+            "no_citations",
+            "source_missing",
+            "line_out_of_range",
+            "quote_not_found"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "supported": {
+          "title": "Supported",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "claim_id",
+        "supported",
+        "reason"
+      ],
+      "title": "ClaimCheck",
+      "type": "object"
+    },
     "ContractRecord": {
       "additionalProperties": false,
       "properties": {
@@ -150,6 +203,50 @@
       "title": "CostReport",
       "type": "object"
     },
+    "Coverage": {
+      "additionalProperties": false,
+      "description": "What the operators read. `slices_read` and `empty_slices` are summed over the\nmanagers' blocks; `unread_slices` are the line ranges no completed task read\n(`TeamRun.unread_slices`); `empty_sources` are sources with no lines\n(`TeamRun.empty_sources`), null only in an exported recording that did not keep them.",
+      "properties": {
+        "empty_slices": {
+          "minimum": 0,
+          "title": "Empty Slices",
+          "type": "integer"
+        },
+        "empty_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Empty Sources"
+        },
+        "slices_read": {
+          "minimum": 0,
+          "title": "Slices Read",
+          "type": "integer"
+        },
+        "unread_slices": {
+          "items": {
+            "$ref": "#/$defs/LineRange"
+          },
+          "title": "Unread Slices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slices_read",
+        "empty_slices"
+      ],
+      "title": "Coverage",
+      "type": "object"
+    },
     "Deliverable": {
       "additionalProperties": false,
       "properties": {
@@ -176,6 +273,263 @@
         "content"
       ],
       "title": "Deliverable",
+      "type": "object"
+    },
+    "Diagnosis": {
+      "additionalProperties": false,
+      "description": "The director's diagnosis (`rookwise.team.models.Diagnosis`). `category` is a plain\nstring (today the incident categories of `rookwise.incidents.Category`). `root_cause`,\n`root_cause_claim_ids` and `remediation_plan` are null only in an exported recording\nwhose run folder did not keep them; `claims` keeps the order the run reported.",
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/DiagnosisClaim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "remediation_plan": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RemediationStep"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remediation Plan"
+        },
+        "root_cause": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Root Cause"
+        },
+        "root_cause_claim_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Root Cause Claim Ids"
+        }
+      },
+      "required": [
+        "category",
+        "claims"
+      ],
+      "title": "Diagnosis",
+      "type": "object"
+    },
+    "DiagnosisCitation": {
+      "additionalProperties": false,
+      "description": "One citation, with the fields of `rookwise.team.models.SourceCitation`.",
+      "properties": {
+        "line_end": {
+          "title": "Line End",
+          "type": "integer"
+        },
+        "line_start": {
+          "title": "Line Start",
+          "type": "integer"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "line_start",
+        "line_end",
+        "quote"
+      ],
+      "title": "DiagnosisCitation",
+      "type": "object"
+    },
+    "DiagnosisClaim": {
+      "additionalProperties": false,
+      "description": "A claim of the diagnosis (`rookwise.team.models.FindingClaim`). `citations` is null\nonly in an exported recording whose run folder did not keep them.",
+      "properties": {
+        "citations": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/DiagnosisCitation"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citations"
+        },
+        "claim_id": {
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "text"
+      ],
+      "title": "DiagnosisClaim",
+      "type": "object"
+    },
+    "DiagnosisStatus": {
+      "additionalProperties": false,
+      "description": "`TeamRun.diagnosis_status`: `audited` (the auditor reviewed the supported claims)\nor `inconclusive` (nothing the root cause rests on survived the check; the auditor\nmade no model call). `reason` says why it is inconclusive and is empty otherwise.",
+      "properties": {
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "audited",
+            "inconclusive"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "DiagnosisStatus",
+      "type": "object"
+    },
+    "EvidenceCheck": {
+      "additionalProperties": false,
+      "description": "D3: every claim of the diagnosis checked by code, and the counts\n(`rookwise.team.auditor.ClaimCounts`). Withdrawn claims stay listed.",
+      "properties": {
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/ClaimCheck"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "supported": {
+          "minimum": 0,
+          "title": "Supported",
+          "type": "integer"
+        },
+        "withdrawn": {
+          "minimum": 0,
+          "title": "Withdrawn",
+          "type": "integer"
+        },
+        "withdrawn_by_reason": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "propertyNames": {
+            "enum": [
+              "ok",
+              "no_citations",
+              "source_missing",
+              "line_out_of_range",
+              "quote_not_found"
+            ]
+          },
+          "title": "Withdrawn By Reason",
+          "type": "object"
+        }
+      },
+      "required": [
+        "claims",
+        "supported",
+        "withdrawn"
+      ],
+      "title": "EvidenceCheck",
+      "type": "object"
+    },
+    "LineRange": {
+      "additionalProperties": false,
+      "properties": {
+        "line_end": {
+          "minimum": 1,
+          "title": "Line End",
+          "type": "integer"
+        },
+        "line_start": {
+          "minimum": 1,
+          "title": "Line Start",
+          "type": "integer"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "line_start",
+        "line_end"
+      ],
+      "title": "LineRange",
+      "type": "object"
+    },
+    "RemediationStep": {
+      "additionalProperties": false,
+      "description": "`rookwise.team.models.RemediationStep`. Approving it records a decision only.",
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "reversible": {
+          "title": "Reversible",
+          "type": "boolean"
+        },
+        "risk": {
+          "title": "Risk",
+          "type": "string"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "why",
+        "risk",
+        "reversible"
+      ],
+      "title": "RemediationStep",
       "type": "object"
     },
     "ResultUsage": {
@@ -338,7 +692,7 @@
   "$id": "https://github.com/cpantaleon06-coder/Rookwise/blob/main/docs/api/schemas/DeliveryPackage.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "GET /api/v1/runs/{run_id}/package.",
+  "description": "GET /api/v1/runs/{run_id}/package. Added on 2026-10-25 (optional, null when the\nrun has none, for example a run that failed at its plan): `diagnosis`,\n`evidence_check`, `diagnosis_status` and `coverage`.",
   "properties": {
     "audit": {
       "$ref": "#/$defs/AuditVerdict"
@@ -353,6 +707,17 @@
     "cost_report": {
       "$ref": "#/$defs/CostReport"
     },
+    "coverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Coverage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "decisions": {
       "items": {
         "type": "string"
@@ -366,6 +731,39 @@
       },
       "title": "Deliverables",
       "type": "array"
+    },
+    "diagnosis": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Diagnosis"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "diagnosis_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiagnosisStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence_check": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceCheck"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "mode": {
       "enum": [

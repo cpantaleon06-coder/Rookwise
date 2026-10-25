@@ -639,14 +639,22 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
         budget_id=auditor_budget.id,
     )
     audit = api.AuditVerdict(
-        verdict="accepted",
+        verdict="accepted_with_warning",
         model=ULTRA,
         correction_cycles=0,
         checks=[
+            api.AuditCheck(
+                criterion="[synthetic] Every claim quotes the lines it cites",
+                passed=False,
+                note="[synthetic] 2 of 3 citations verified; 2 claims supported, 1 "
+                "withdrawn: c3 (quote_not_found)",
+            ),
             api.AuditCheck(criterion="[synthetic] Covers the goal", passed=True),
             api.AuditCheck(criterion="[synthetic] Plain, specific prose", passed=True),
             api.AuditCheck(criterion="[synthetic] Sources listed", passed=True),
         ],
+        warning="[synthetic] 1 claim was withdrawn as unsupported and is listed; the audit "
+        "covers the supported rest.",
     )
     t.emit(1_500, "audit_result", {"audit": _dump(audit)})
     t.budget(50, audit_entry)
@@ -656,7 +664,8 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
     say(
         100,
         "director",
-        "[synthetic] Done: research notes and website copy, audited and accepted. The menu "
+        "[synthetic] Done: research notes and website copy, audited and accepted with a "
+        "warning (one claim withdrawn). The menu "
         "is missing: its second operator's first call did not fit the task budget. See the "
         "delivery package.",
     )
@@ -818,6 +827,80 @@ def recorded_run() -> tuple[dict[str, Any], dict[str, Any]]:
             "USD 0.003 allocation, so the menu is missing.",
         ],
         audit=audit,
+        diagnosis=api.Diagnosis(
+            root_cause="[synthetic] The menu task t-3.2 stopped on its USD 0.003000 "
+            "allocation before it wrote the menu.",
+            category="capacity_exhaustion",
+            claims=[
+                api.DiagnosisClaim(
+                    claim_id="c1",
+                    text="[synthetic] The ledger refused the first Ultra call of t-3.2.",
+                    citations=[
+                        api.DiagnosisCitation(
+                            source_id="ledger.log",
+                            line_start=12,
+                            line_end=12,
+                            quote="[synthetic] refused t-3.2 requested=0.005100 cap=0.003000",
+                        )
+                    ],
+                ),
+                api.DiagnosisClaim(
+                    claim_id="c2",
+                    text="[synthetic] The first menu operator failed on Super and on Ultra.",
+                    citations=[
+                        api.DiagnosisCitation(
+                            source_id="tasks.log",
+                            line_start=9,
+                            line_end=9,
+                            quote="[synthetic] t-3 failed top_of_ladder",
+                        )
+                    ],
+                ),
+                api.DiagnosisClaim(
+                    claim_id="c3",
+                    text="[synthetic] The menu brief asked for twelve items.",
+                    citations=[
+                        api.DiagnosisCitation(
+                            source_id="tasks.log",
+                            line_start=3,
+                            line_end=3,
+                            quote="[synthetic] menu: 12 items",
+                        )
+                    ],
+                ),
+            ],
+            root_cause_claim_ids=["c1", "c2"],
+            remediation_plan=[
+                api.RemediationStep(
+                    action="[synthetic] Rerun the menu task with a USD 0.006000 allocation.",
+                    why="[synthetic] One Ultra call of t-3.2 needed USD 0.005100.",
+                    risk="[synthetic] The rerun spends up to USD 0.006000 more.",
+                    reversible=True,
+                )
+            ],
+        ),
+        evidence_check=api.EvidenceCheck(
+            claims=[
+                api.ClaimCheck(claim_id="c1", supported=True, reason="ok", citation_reasons=["ok"]),
+                api.ClaimCheck(claim_id="c2", supported=True, reason="ok", citation_reasons=["ok"]),
+                api.ClaimCheck(
+                    claim_id="c3",
+                    supported=False,
+                    reason="quote_not_found",
+                    citation_reasons=["quote_not_found"],
+                ),
+            ],
+            supported=2,
+            withdrawn=1,
+            withdrawn_by_reason={"quote_not_found": 1},
+        ),
+        diagnosis_status=api.DiagnosisStatus(status="audited"),
+        coverage=api.Coverage(
+            slices_read=2,
+            empty_slices=0,
+            unread_slices=[api.LineRange(source_id="tasks.log", line_start=20, line_end=34)],
+            empty_sources=["notes.md"],
+        ),
     )
     modes = _modes(live_available=True)
     bundle = {
@@ -871,6 +954,9 @@ def _modes(
                 goal=GOAL,
                 simulated_case=True,
                 spent_usd=ZERO_USD,
+                recorded_at=START,
+                incident_id="[synthetic] bakery-01",
+                category="capacity_exhaustion",
             )
         ],
     )

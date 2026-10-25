@@ -91,10 +91,48 @@
     },
     "RecordingSummary": {
       "additionalProperties": false,
+      "description": "A recorded run the UI can replay. Added on 2026-10-25 (optional, null when not\nknown): `recorded_at` is when the original run started, `incident_id` the incident it\nran on, and `category` that incident's category as the corpus defines it (its ground\ntruth, not the run's diagnosis).",
       "properties": {
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
         "goal": {
           "title": "Goal",
           "type": "string"
+        },
+        "incident_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Incident Id"
+        },
+        "recorded_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recorded At"
         },
         "recording_id": {
           "title": "Recording Id",
