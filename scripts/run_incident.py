@@ -791,6 +791,8 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
         "notes_hoisted": team.notes_hoisted,
         # 1 when the plan was over the size limits and the director got one repair.
         "plan_repairs": team.plan_repairs,
+        # Plan tasks dropped because they repeated an earlier task's role and source.
+        "duplicate_tasks_dropped": team.duplicate_tasks_dropped,
         # Diagnosis claims and citations dropped by position over the diagnosis bound.
         "diagnosis_trimmed": {
             "claims": team.diagnosis_trimmed_claims,

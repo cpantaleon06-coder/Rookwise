@@ -68,7 +68,7 @@ def test_a_large_manager_input_is_consolidated_in_batches():
         auditor=[judgment_reply()],
     )
     # Too small for two findings at once: each finding gets a batch of its own.
-    policy = BudgetPolicy(manager_max_input_tokens=1)
+    policy = BudgetPolicy(manager_max_input_tokens=1, drop_duplicate_plan_tasks=False)
     team, book = run_stub_team(handler, run_usd="0.5", policy=policy)
     (outcome,) = team.blocks
     assert outcome.batches == 3 and handler.calls["manager"] == 3

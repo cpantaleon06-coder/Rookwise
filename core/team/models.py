@@ -316,6 +316,29 @@ class CitationLog:
         return trimmed
 
 
+def dedupe_plan(plan: Plan) -> tuple[Plan, int]:
+    """`plan` without the tasks that repeat the (role, source_id) of an earlier task, in
+    any block, and without the blocks that leaves empty; and how many tasks were dropped.
+    The first task of each pair stays, so every source the plan read is still read."""
+    seen: set[tuple[str, str]] = set()
+    blocks = []
+    dropped = 0
+    for block in plan.blocks:
+        kept = []
+        for task in block.tasks:
+            pair = (task.role, task.source_id)
+            if pair in seen:
+                dropped += 1
+                continue
+            seen.add(pair)
+            kept.append(task)
+        if kept:
+            blocks.append(block.model_copy(update={"tasks": kept}))
+    if not dropped:
+        return plan, 0
+    return plan.model_copy(update={"blocks": blocks}), dropped
+
+
 def hoist_notes(value: Any) -> tuple[Any, bool]:
     """A final result `{"status", "output", "notes"}` whose `output` holds a `notes` field,
     with that field moved to the envelope's `notes`, and whether it moved. Nothing else

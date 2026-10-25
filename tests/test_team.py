@@ -597,7 +597,8 @@ def test_the_budget_policy_takes_decimal_shares_only():
 
 def test_an_empty_operator_pool_refuses_every_operator():
     handler = TeamHandler(director=[plan_reply(block(2))], auditor=[judgment_reply()])
-    team, book = run_stub_team(handler, run_usd="0.5", policy=BudgetPolicy(manager_share=D("1")))
+    policy = BudgetPolicy(manager_share=D("1"), drop_duplicate_plan_tasks=False)
+    team, book = run_stub_team(handler, run_usd="0.5", policy=policy)
     (outcome,) = team.blocks
     assert [t.status for t in outcome.tasks] == ["failed", "failed"]
     assert all("ran out of its budget" in note for note in team.notes[:2])
@@ -613,7 +614,8 @@ def test_an_empty_operator_pool_refuses_every_operator():
 def test_a_plan_larger_than_the_policy_fails_the_run_after_one_repair():
     too_large = plan_reply(block(1), block(1))
     handler = TeamHandler(director=[too_large, too_large])
-    team, book = run_stub_team(handler, run_usd="0.5", policy=BudgetPolicy(max_blocks=1))
+    policy = BudgetPolicy(max_blocks=1, drop_duplicate_plan_tasks=False)
+    team, book = run_stub_team(handler, run_usd="0.5", policy=policy)
     assert team.status == "failed" and _types(team)[-1] == "run_failed"
     assert handler.calls["director"] == 2 and team.plan_repairs == 1
     failed = _payloads(team, "run_failed")[0]

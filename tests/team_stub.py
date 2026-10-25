@@ -23,7 +23,7 @@ from rookwise.harness import Harness, load_config
 from rookwise.ledger import Caps, InMemoryLedger
 from rookwise.runner import OperatorSpec
 from rookwise.store import InMemoryStore
-from rookwise.team import run_team
+from rookwise.team import BudgetPolicy, run_team
 from rookwise.team.auditor import AUDITOR_PROMPT
 from rookwise.team.flow import DIAGNOSIS_PROMPT, DIRECTOR_PROMPT, MANAGER_PROMPT, OPERATOR_PROMPT
 
@@ -238,6 +238,10 @@ def run_stub_team(
     stop_after=None,
     baseline=None,
 ):
+    if policy is None:
+        # The stub plans repeat a task on purpose (block(n) gives n tasks on one source),
+        # so the stub runs keep them; tests of the dedupe pass their own policy.
+        policy = BudgetPolicy(drop_duplicate_plan_tasks=False)
     book = ledger if ledger is not None else InMemoryLedger()
     book.open_run(RUN_ID, Caps(run_usd=Decimal(run_usd)))
     replay = cassette is not None and cassette.mode == "replay"

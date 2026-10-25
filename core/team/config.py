@@ -174,6 +174,10 @@ class BudgetPolicy:
     # inc-01 run, where pool b-3 ran dry with USD 0.24 of the cap unspent.
     pool_top_up: bool = True
     pool_top_up_max_ratio: Decimal = Decimal("1.0")
+    # Drop plan tasks that repeat an earlier task's (role, source_id). Off only to replay
+    # runs recorded before the dedupe (2026-10-25) and for stub plans that repeat a task on
+    # purpose.
+    drop_duplicate_plan_tasks: bool = True
     max_reassignments: int = 1
     max_blocks: int = 5
     max_tasks_per_block: int = 5

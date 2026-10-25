@@ -176,6 +176,7 @@ from rookwise.team.models import (
     PlanTask,
     ReplyCitations,
     SliceAssignment,
+    dedupe_plan,
     diagnosis_model,
     findings_model,
     hoist_notes,
@@ -346,6 +347,8 @@ class TeamRun:
     notes_hoisted: int = 0
     # 1 when the plan was over the size limits and the director got its one repair.
     plan_repairs: int = 0
+    # Plan tasks dropped because they repeated an earlier task's role and source.
+    duplicate_tasks_dropped: int = 0
 
 
 @dataclass(frozen=True)
@@ -575,6 +578,7 @@ class _Team:
         self.manager_reservation: Decimal | None = None
         self.notes_hoisted = 0
         self.plan_repairs = 0
+        self.duplicate_tasks_dropped = 0
         self._check_config(slicing)
 
     # -- director ------------------------------------------------------------------------
@@ -626,7 +630,7 @@ class _Team:
                 f"The director produced no valid plan ({result.stop_reason}).",
                 {"level": "director", "stop_reason": result.stop_reason},
             )
-        plan: Plan = result.validation.payload.output  # type: ignore[attr-defined]
+        plan = self._dedupe(result.validation.payload.output)  # type: ignore[attr-defined]
         self.plan = plan
         limits = (self.policy.max_blocks, self.policy.max_tasks_per_block)
         if self._too_large(plan):
@@ -789,6 +793,7 @@ class _Team:
             ),
             notes_hoisted=self.notes_hoisted,
             plan_repairs=self.plan_repairs,
+            duplicate_tasks_dropped=self.duplicate_tasks_dropped,
         )
 
     async def _run_baseline(self, goal: str, director: AgentNode, baseline: Baseline) -> TeamRun:
@@ -923,6 +928,7 @@ class _Team:
             ),
             notes_hoisted=self.notes_hoisted,
             plan_repairs=self.plan_repairs,
+            duplicate_tasks_dropped=self.duplicate_tasks_dropped,
         )
 
     async def _diagnose(
@@ -1696,6 +1702,20 @@ class _Team:
             }
         return self._fail("budget_exhausted", message, details)
 
+    def _dedupe(self, plan: Plan) -> Plan:
+        """The plan without tasks that repeat an earlier (role, source) (`dedupe_plan`);
+        the dropped tasks are noted and counted in `TeamRun.duplicate_tasks_dropped`."""
+        if not self.policy.drop_duplicate_plan_tasks:
+            return plan
+        plan, dropped = dedupe_plan(plan)
+        if dropped:
+            self.duplicate_tasks_dropped += dropped
+            self.notes.append(
+                f"The plan repeated the role and source of an earlier task {dropped} "
+                "time(s); those tasks were dropped."
+            )
+        return plan
+
     def _too_large(self, plan: Plan) -> bool:
         return len(plan.blocks) > self.policy.max_blocks or any(
             len(b.tasks) > self.policy.max_tasks_per_block for b in plan.blocks
@@ -1732,7 +1752,7 @@ class _Team:
             prepare=self._hoist_notes,
         )
         if result.ok and result.validation is not None:
-            return result.validation.payload.output  # type: ignore[attr-defined]
+            return self._dedupe(result.validation.payload.output)  # type: ignore[attr-defined]
         self.notes.append(f"The plan repair produced no valid plan ({result.stop_reason}).")
         return None
 
@@ -1780,6 +1800,7 @@ class _Team:
             empty_sources=list(self.slices.empty_sources),
             notes_hoisted=self.notes_hoisted,
             plan_repairs=self.plan_repairs,
+            duplicate_tasks_dropped=self.duplicate_tasks_dropped,
         )
 
     def _fail(self, code: str, message: str, details: dict[str, Any]) -> TeamRun:
@@ -1807,6 +1828,7 @@ class _Team:
             empty_sources=list(self.slices.empty_sources),
             notes_hoisted=self.notes_hoisted,
             plan_repairs=self.plan_repairs,
+            duplicate_tasks_dropped=self.duplicate_tasks_dropped,
         )
 
     def _unread(self, blocks: list[BlockOutcome]) -> list[UnreadRange]:

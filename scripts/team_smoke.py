@@ -62,7 +62,7 @@ from rookwise.runner import OperatorSpec  # noqa: E402
 from rookwise.store import InMemoryStore  # noqa: E402
 from rookwise.team import run_team  # noqa: E402
 from rookwise.team.auditor import AUDITOR_PROMPT  # noqa: E402
-from rookwise.team.config import load_team_roles  # noqa: E402
+from rookwise.team.config import load_budget_policy, load_team_roles  # noqa: E402
 from rookwise.team.flow import (  # noqa: E402
     DIAGNOSIS_PROMPT,
     DIRECTOR_PROMPT,
@@ -329,6 +329,9 @@ async def run(
                 evidence=EvidenceBundle(sources=scenario["texts"]),
                 mode="recorded" if mode == "replay" else "live",
                 context_sources=tuple(scenario.get("context_sources", ())),
+                # The stub plan and the recorded smoke runs repeat a task's role and source
+                # and predate the dedupe, so the smoke run keeps them.
+                policy=dataclasses.replace(load_budget_policy(), drop_duplicate_plan_tasks=False),
             )
     finally:
         sse_module.parse_usage = parse_usage
