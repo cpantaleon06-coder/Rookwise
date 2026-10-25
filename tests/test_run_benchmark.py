@@ -190,6 +190,9 @@ def test_a_live_dev_run_writes_metrics_only_results_and_the_summary(bench, tmp_p
         assert secret.strip().splitlines()[0] not in text
     dev_csv = (tmp_path / "results" / "summary-dev.csv").read_text().splitlines()
     assert dev_csv[0].startswith("split,configuration,runs,incidents,")
+    # Coverage is a scoring field of each result and of the summary.
+    assert result["score"]["coverage"] == result["coverage"]["fraction"]
+    assert "coverage_mean" in dev_csv[0].split(",")
     assert [row.split(",")[:3] for row in dev_csv[1:]] == [["dev", "a", "2"], ["dev", "c", "2"]]
     assert (tmp_path / "results" / "summary-test.csv").read_text().count("\n") == 1  # header
     summary = (tmp_path / "results" / "summary.md").read_text()

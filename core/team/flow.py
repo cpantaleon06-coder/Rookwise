@@ -290,6 +290,23 @@ class BlockOutcome:
 
 
 @dataclass(frozen=True)
+class Coverage:
+    """How much of the planned reading was done: operator slices read (completed tasks) of
+    those planned (one per slice of each task of the plan, after the dedupe), the fraction,
+    and whether it is below `BudgetPolicy.low_coverage_threshold`."""
+
+    slices_read: int
+    slices_total: int
+    fraction: float | None
+    threshold: float
+    low: bool
+
+    @property
+    def warning(self) -> str:
+        return f"low coverage: {self.slices_read} of {self.slices_total} slices read"
+
+
+@dataclass(frozen=True)
 class UnreadRange:
     """Lines of a source that no completed operator task read."""
 
@@ -349,6 +366,8 @@ class TeamRun:
     plan_repairs: int = 0
     # Plan tasks dropped because they repeated an earlier task's role and source.
     duplicate_tasks_dropped: int = 0
+    # Planned operator slices read (None when no operator task was planned or run).
+    coverage: Coverage | None = None
 
 
 @dataclass(frozen=True)
@@ -737,6 +756,8 @@ class _Team:
         if outcome.budget_exhausted:
             self._exhausted(auditor, self._stop_of("auditor", "audit", auditor_budget.id))
             self.notes.append("The auditor ran out of budget: only the deterministic check ran.")
+        coverage = self._coverage(blocks)
+        outcome = self._warn_on_coverage(outcome, coverage)
         self.log.emit("audit_result", AuditResultPayload(audit=outcome.verdict))
         self._close(auditor_budget, auditor, director)
         partial = outcome.budget_exhausted or any(b.status != "ok" for b in blocks)
@@ -794,6 +815,7 @@ class _Team:
             notes_hoisted=self.notes_hoisted,
             plan_repairs=self.plan_repairs,
             duplicate_tasks_dropped=self.duplicate_tasks_dropped,
+            coverage=coverage,
         )
 
     async def _run_baseline(self, goal: str, director: AgentNode, baseline: Baseline) -> TeamRun:
@@ -873,6 +895,8 @@ class _Team:
             missing_reason=missing,
             model_review=False,
         )
+        coverage = self._coverage(blocks)
+        outcome = self._warn_on_coverage(outcome, coverage)
         self.log.emit("audit_result", AuditResultPayload(audit=outcome.verdict))
         partial = block.status != "ok"
         self._say(self._closing_message(blocks, outcome))
@@ -929,6 +953,7 @@ class _Team:
             notes_hoisted=self.notes_hoisted,
             plan_repairs=self.plan_repairs,
             duplicate_tasks_dropped=self.duplicate_tasks_dropped,
+            coverage=coverage,
         )
 
     async def _diagnose(
@@ -1701,6 +1726,24 @@ class _Team:
                 "requested_usd": format_usd(stop.requested_usd),
             }
         return self._fail("budget_exhausted", message, details)
+
+    def _coverage(self, blocks: list[BlockOutcome]) -> Coverage | None:
+        """Operator slices read of those planned; None when none was planned."""
+        total = sum(len(block.tasks) for block in blocks)
+        if total == 0:
+            return None
+        read = sum(task.status == "ok" for block in blocks for task in block.tasks)
+        threshold = self.policy.low_coverage_threshold
+        return Coverage(read, total, read / total, float(threshold), read < threshold * total)
+
+    def _warn_on_coverage(self, outcome: Any, coverage: Coverage | None) -> Any:
+        """The audit outcome with "low coverage: X of Y slices read" first in its warning
+        when coverage is low; the verdict is left as it is."""
+        if coverage is None or not coverage.low:
+            return outcome
+        verdict = outcome.verdict
+        warning = coverage.warning + (f". {verdict.warning}" if verdict.warning else ".")
+        return replace(outcome, verdict=verdict.model_copy(update={"warning": warning}))
 
     def _dedupe(self, plan: Plan) -> Plan:
         """The plan without tasks that repeat an earlier (role, source) (`dedupe_plan`);

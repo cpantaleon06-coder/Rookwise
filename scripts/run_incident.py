@@ -793,6 +793,8 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
         "plan_repairs": team.plan_repairs,
         # Plan tasks dropped because they repeated an earlier task's role and source.
         "duplicate_tasks_dropped": team.duplicate_tasks_dropped,
+        # Planned operator slices read; `low` puts "low coverage" first in the audit warning.
+        "coverage": dataclasses.asdict(team.coverage) if team.coverage else None,
         # Diagnosis claims and citations dropped by position over the diagnosis bound.
         "diagnosis_trimmed": {
             "claims": team.diagnosis_trimmed_claims,
@@ -852,6 +854,7 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
                     scored.citation_first_pass_validity_before_normalization
                 ),
             },
+            "coverage": scored.coverage,
             "citation_repairs": scored.citation_repairs,
             "withdrawn_claims": scored.withdrawn_claims,
         },

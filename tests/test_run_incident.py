@@ -468,3 +468,11 @@ def test_the_report_counts_hoisted_notes(module, tmp_path):
 def test_the_report_counts_dropped_duplicate_tasks(module, tmp_path):
     report, _, _ = _estimate(module, tmp_path)
     assert report["duplicate_tasks_dropped"] == 0
+
+
+def test_the_report_and_the_score_carry_coverage(module, tmp_path):
+    report, _, _ = _estimate(module, tmp_path)
+    coverage = report["coverage"]
+    assert set(coverage) == {"slices_read", "slices_total", "fraction", "threshold", "low"}
+    assert coverage["slices_total"] > 0
+    assert report["score"]["coverage"] == coverage["fraction"]

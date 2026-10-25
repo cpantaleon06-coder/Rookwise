@@ -24,7 +24,14 @@ steps in `rookwise.team.auditor`.
 
 from rookwise.team.config import BudgetPolicy, RoleSpec, TeamRoles, load_team_roles
 from rookwise.team.events import EventLog
-from rookwise.team.flow import BlockOutcome, TaskOutcome, TeamRun, UnreadRange, run_team
+from rookwise.team.flow import (
+    BlockOutcome,
+    Coverage,
+    TaskOutcome,
+    TeamRun,
+    UnreadRange,
+    run_team,
+)
 from rookwise.team.models import (
     AuditJudgment,
     AuditPoint,
@@ -41,6 +48,7 @@ __all__ = [
     "AuditJudgment",
     "AuditPoint",
     "BlockOutcome",
+    "Coverage",
     "BlockSummary",
     "BudgetPolicy",
     "EventLog",

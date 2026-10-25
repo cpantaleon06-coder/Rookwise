@@ -23,7 +23,7 @@ even when one of its citations points at an essential line. It also returns:
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from rookwise.evidence import EvidenceBundle
@@ -47,6 +47,10 @@ class DiagnosisScore:
     # The same first replies, every citation as the model wrote it.
     first_pass_valid_before_normalization: int = 0
     citation_first_pass_validity_before_normalization: float | None = None
+    # Planned operator slices read (`TeamRun.coverage`); None without a team run.
+    slices_read: int | None = None
+    slices_total: int | None = None
+    coverage: float | None = None
 
     @property
     def diagnosis_correct(self) -> bool:
@@ -114,10 +118,19 @@ def score_run(
     team: TeamRun, truth: GroundTruth, *, bundle: EvidenceBundle | None = None
 ) -> DiagnosisScore:
     attempts = [e.payload.attempt for e in team.events if e.type == "attempt_recorded"]
-    return score_diagnosis(
+    scored = score_diagnosis(
         team.diagnosis,
         truth,
         bundle=bundle,
         citation_log=team.citation_log,
         attempts=attempts,
+    )
+    coverage = team.coverage
+    if coverage is None:
+        return scored
+    return replace(
+        scored,
+        slices_read=coverage.slices_read,
+        slices_total=coverage.slices_total,
+        coverage=coverage.fraction,
     )

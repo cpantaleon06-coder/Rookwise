@@ -207,6 +207,7 @@ def metrics(report: dict[str, Any], run: PlannedRun, provenance: dict[str, Any])
         "ledger_refusals": len(report["ledger_refusals"]),
         "operator_tasks": tasks,
         "unread_slices": len(report["unread_slices"]),
+        "coverage": report.get("coverage"),
         "trimmed_citations": report["trimmed_citations"]["total"],
         "salvaged_replies": report["salvaged_replies"]["replies"],
         "top_up_usd": format_usd(
@@ -222,6 +223,7 @@ def metrics(report: dict[str, Any], run: PlannedRun, provenance: dict[str, Any])
             "evidence_recall": score["evidence_recall"],
             "citation_verified_rate": score["citation_verified_rate"],
             "citation_first_pass_validity": first_pass["validity"],
+            "coverage": score.get("coverage"),
             "citation_repairs": score["citation_repairs"],
             "withdrawn_claims": score["withdrawn_claims"],
         },
@@ -272,6 +274,7 @@ SUMMARY_COLUMNS = (
     "evidence_recall_mean",
     "citation_verified_rate_mean",
     "citation_first_pass_validity_mean",
+    "coverage_mean",
     "spent_usd_mean",
     "spent_usd_total",
     "wall_clock_s_mean",
@@ -315,6 +318,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
                     "citation_first_pass_validity_mean": _mean(
                         [s["citation_first_pass_validity"] for s in scores]
                     ),
+                    "coverage_mean": _mean([s.get("coverage") for s in scores]),
                     "spent_usd_mean": format_usd(sum(spent, ZERO_USD) / len(spent)),
                     "spent_usd_total": format_usd(sum(spent, ZERO_USD)),
                     "wall_clock_s_mean": _mean([r["wall_clock_s"] for r in group]),

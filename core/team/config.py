@@ -197,6 +197,9 @@ class BudgetPolicy:
     operator_deadline_s: int = 120
     # Above this estimated input a manager consolidates its findings in batches.
     manager_max_input_tokens: int = 60_000
+    # Below this fraction of planned operator slices read, the audit warns "low coverage"
+    # (the verdict is not changed). A first guess (2026-10-25).
+    low_coverage_threshold: Decimal = Decimal("0.70")
 
     def __post_init__(self) -> None:
         for name in ("auditor_share", "director_share", "manager_share"):
@@ -223,6 +226,9 @@ class BudgetPolicy:
             raise ValueError(
                 "diagnosis_max_claims and diagnosis_max_citations_per_claim must be at least 1"
             )
+        threshold = require_decimal(self.low_coverage_threshold, "low_coverage_threshold")
+        if not 0 <= threshold <= 1:
+            raise ValueError("low_coverage_threshold must be between 0 and 1")
         if self.manager_max_input_tokens < 1:
             raise ValueError("manager_max_input_tokens must be at least 1")
         if self.task_limit_first_rung_reservations < 1:
@@ -237,7 +243,7 @@ def load_budget_policy(path: Path = BUDGET_PATH) -> BudgetPolicy:
     values = {k: v for k, v in data.items() if not k.startswith("_")}
     for name in ("auditor_share", "director_share", "manager_share"):
         values[name] = Decimal(values[name])
-    for name in ("retry_reply_chars_per_token", "pool_top_up_max_ratio"):
+    for name in ("retry_reply_chars_per_token", "pool_top_up_max_ratio", "low_coverage_threshold"):
         if name in values:
             values[name] = Decimal(values[name])
     return BudgetPolicy(**values)
