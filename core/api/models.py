@@ -24,6 +24,11 @@ are exact. `CostReport.prediction_error` is a ratio, not money, and stays a numb
 
 Added on 2026-10-17 (part of v1) for the team hierarchy: the events `budget_allocation`,
 `budget_exhausted` and `escalation`, and the `CapStop` scope "budget" (an allocation).
+
+Added on 2026-10-25 for the evidence view (web/DESIGN.md M1, M2, M3, M13, M15), all
+optional so earlier payloads stay valid: `diagnosis`, `evidence_check`,
+`diagnosis_status` and `coverage` on `DeliveryPackage`, and `recorded_at`, `incident_id`
+and `category` on `RecordingSummary`. No endpoint or event changed.
 """
 
 from __future__ import annotations
@@ -40,6 +45,7 @@ from pydantic import (
     model_validator,
 )
 
+from rookwise.evidence import CitationReason, ClaimReason
 from rookwise.harness.escalate import AttemptRecord, OutcomeLabel
 from rookwise.money import PositiveUsd, Usd
 from rookwise.schemas import LedgerEntry, Level, ResultV1, TaskV1
@@ -65,6 +71,7 @@ AgentStatus = Literal["hired", "working", "idle", "done", "failed"]
 TaskStatus = Literal["assigned", "running", "ok", "failed"]
 CapScope = Literal["run", "level", "task", "budget"]
 AllocationAction = Literal["allocated", "released"]
+DiagnosisState = Literal["audited", "inconclusive"]
 
 
 class _Api(BaseModel):
@@ -111,11 +118,19 @@ class ModeAvailability(_Api):
 
 
 class RecordingSummary(_Api):
+    """A recorded run the UI can replay. Added on 2026-10-25 (optional, null when not
+    known): `recorded_at` is when the original run started, `incident_id` the incident it
+    ran on, and `category` that incident's category as the corpus defines it (its ground
+    truth, not the run's diagnosis)."""
+
     recording_id: str
     title: str
     goal: str
     simulated_case: bool
     spent_usd: Usd
+    recorded_at: datetime | None = None
+    incident_id: str | None = None
+    category: str | None = None
 
 
 class ModesView(_Api):
@@ -331,8 +346,99 @@ class AuditVerdict(_Api):
     warning: str | None = None
 
 
+class DiagnosisCitation(_Api):
+    """One citation, with the fields of `rookwise.team.models.SourceCitation`."""
+
+    source_id: str
+    line_start: int
+    line_end: int
+    quote: str
+
+
+class DiagnosisClaim(_Api):
+    """A claim of the diagnosis (`rookwise.team.models.FindingClaim`). `citations` is null
+    only in an exported recording whose run folder did not keep them."""
+
+    claim_id: str
+    text: str
+    citations: list[DiagnosisCitation] | None = None
+
+
+class RemediationStep(_Api):
+    """`rookwise.team.models.RemediationStep`. Approving it records a decision only."""
+
+    action: str
+    why: str
+    risk: str
+    reversible: bool
+
+
+class Diagnosis(_Api):
+    """The director's diagnosis (`rookwise.team.models.Diagnosis`). `category` is a plain
+    string (today the incident categories of `rookwise.incidents.Category`). `root_cause`,
+    `root_cause_claim_ids` and `remediation_plan` are null only in an exported recording
+    whose run folder did not keep them; `claims` keeps the order the run reported."""
+
+    root_cause: str | None = None
+    category: str
+    claims: list[DiagnosisClaim]
+    root_cause_claim_ids: list[str] | None = None
+    remediation_plan: list[RemediationStep] | None = None
+
+
+class ClaimCheck(_Api):
+    """The deterministic evidence check of one claim (`rookwise.evidence.ClaimResult`).
+    `reason` is "ok" for a supported claim, else the claim's reason code;
+    `citation_reasons` has one reason per citation, in the claim's citation order, and is
+    null only in an exported recording whose run folder did not keep them."""
+
+    claim_id: str
+    supported: bool
+    reason: ClaimReason
+    citation_reasons: list[CitationReason] | None = None
+
+
+class EvidenceCheck(_Api):
+    """D3: every claim of the diagnosis checked by code, and the counts
+    (`rookwise.team.auditor.ClaimCounts`). Withdrawn claims stay listed."""
+
+    claims: list[ClaimCheck]
+    supported: NonNegativeInt
+    withdrawn: NonNegativeInt
+    withdrawn_by_reason: dict[ClaimReason, NonNegativeInt] = Field(default_factory=dict)
+
+
+class DiagnosisStatus(_Api):
+    """`TeamRun.diagnosis_status`: `audited` (the auditor reviewed the supported claims)
+    or `inconclusive` (nothing the root cause rests on survived the check; the auditor
+    made no model call). `reason` says why it is inconclusive and is empty otherwise."""
+
+    status: DiagnosisState
+    reason: str = ""
+
+
+class LineRange(_Api):
+    source_id: str
+    line_start: int = Field(ge=1)
+    line_end: int = Field(ge=1)
+
+
+class Coverage(_Api):
+    """What the operators read. `slices_read` and `empty_slices` are summed over the
+    managers' blocks; `unread_slices` are the line ranges no completed task read
+    (`TeamRun.unread_slices`); `empty_sources` are sources with no lines
+    (`TeamRun.empty_sources`), null only in an exported recording that did not keep them."""
+
+    slices_read: NonNegativeInt
+    empty_slices: NonNegativeInt
+    unread_slices: list[LineRange] = Field(default_factory=list)
+    empty_sources: list[str] | None = None
+
+
 class DeliveryPackage(_Api):
-    """GET /api/v1/runs/{run_id}/package."""
+    """GET /api/v1/runs/{run_id}/package. Added on 2026-10-25 (optional, null when the
+    run has none, for example a run that failed at its plan): `diagnosis`,
+    `evidence_check`, `diagnosis_status` and `coverage`."""
 
     run_id: str
     mode: Mode
@@ -343,6 +449,10 @@ class DeliveryPackage(_Api):
     contracts: list[ContractRecord]
     decisions: list[str]
     audit: AuditVerdict
+    diagnosis: Diagnosis | None = None
+    evidence_check: EvidenceCheck | None = None
+    diagnosis_status: DiagnosisStatus | None = None
+    coverage: Coverage | None = None
 
 
 # -- SSE events ---------------------------------------------------------------------------

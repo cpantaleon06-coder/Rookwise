@@ -1534,9 +1534,14 @@
         "type": "audit_result",
         "payload": {
           "audit": {
-            "verdict": "accepted",
+            "verdict": "accepted_with_warning",
             "model": "nemotron-3-ultra",
             "checks": [
+              {
+                "criterion": "[synthetic] Every claim quotes the lines it cites",
+                "passed": false,
+                "note": "[synthetic] 2 of 3 citations verified; 2 claims supported, 1 withdrawn: c3 (quote_not_found)"
+              },
               {
                 "criterion": "[synthetic] Covers the goal",
                 "passed": true,
@@ -1554,7 +1559,7 @@
               }
             ],
             "correction_cycles": 0,
-            "warning": null
+            "warning": "[synthetic] 1 claim was withdrawn as unsupported and is listed; the audit covers the supported rest."
           }
         }
       }
@@ -1671,7 +1676,7 @@
             "message_id": "m-3",
             "run_id": "run_8f2c1a7d4b",
             "sender": "director",
-            "text": "[synthetic] Done: research notes and website copy, audited and accepted. The menu is missing: its second operator's first call did not fit the task budget. See the delivery package.",
+            "text": "[synthetic] Done: research notes and website copy, audited and accepted with a warning (one claim withdrawn). The menu is missing: its second operator's first call did not fit the task budget. See the delivery package.",
             "ts": "2026-10-20T15:00:20.150000Z"
           }
         }

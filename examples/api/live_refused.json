@@ -55,7 +55,10 @@
         "title": "[synthetic] Corner bakery website",
         "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
         "simulated_case": true,
-        "spent_usd": "0.000000"
+        "spent_usd": "0.000000",
+        "recorded_at": "2026-10-20T15:00:00Z",
+        "incident_id": "[synthetic] bakery-01",
+        "category": "capacity_exhaustion"
       }
     ]
   },
@@ -148,7 +151,10 @@
           "title": "[synthetic] Corner bakery website",
           "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
           "simulated_case": true,
-          "spent_usd": "0.000000"
+          "spent_usd": "0.000000",
+          "recorded_at": "2026-10-20T15:00:00Z",
+          "incident_id": "[synthetic] bakery-01",
+          "category": "capacity_exhaustion"
         }
       ]
     }

@@ -34,7 +34,10 @@
         "title": "[synthetic] Corner bakery website",
         "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
         "simulated_case": true,
-        "spent_usd": "0.000000"
+        "spent_usd": "0.000000",
+        "recorded_at": "2026-10-20T15:00:00Z",
+        "incident_id": "[synthetic] bakery-01",
+        "category": "capacity_exhaustion"
       }
     ]
   },
@@ -438,7 +441,7 @@
         "message_id": "m-3",
         "run_id": "run_8f2c1a7d4b",
         "sender": "director",
-        "text": "[synthetic] Done: research notes and website copy, audited and accepted. The menu is missing: its second operator's first call did not fit the task budget. See the delivery package.",
+        "text": "[synthetic] Done: research notes and website copy, audited and accepted with a warning (one claim withdrawn). The menu is missing: its second operator's first call did not fit the task budget. See the delivery package.",
         "ts": "2026-10-20T15:00:20.150000Z"
       }
     ]
@@ -941,9 +944,14 @@
       "[synthetic] t-3.2 stopped on its budget: one Ultra call did not fit its USD 0.003 allocation, so the menu is missing."
     ],
     "audit": {
-      "verdict": "accepted",
+      "verdict": "accepted_with_warning",
       "model": "nemotron-3-ultra",
       "checks": [
+        {
+          "criterion": "[synthetic] Every claim quotes the lines it cites",
+          "passed": false,
+          "note": "[synthetic] 2 of 3 citations verified; 2 claims supported, 1 withdrawn: c3 (quote_not_found)"
+        },
         {
           "criterion": "[synthetic] Covers the goal",
           "passed": true,
@@ -961,7 +969,112 @@
         }
       ],
       "correction_cycles": 0,
-      "warning": null
+      "warning": "[synthetic] 1 claim was withdrawn as unsupported and is listed; the audit covers the supported rest."
+    },
+    "diagnosis": {
+      "root_cause": "[synthetic] The menu task t-3.2 stopped on its USD 0.003000 allocation before it wrote the menu.",
+      "category": "capacity_exhaustion",
+      "claims": [
+        {
+          "claim_id": "c1",
+          "text": "[synthetic] The ledger refused the first Ultra call of t-3.2.",
+          "citations": [
+            {
+              "source_id": "ledger.log",
+              "line_start": 12,
+              "line_end": 12,
+              "quote": "[synthetic] refused t-3.2 requested=0.005100 cap=0.003000"
+            }
+          ]
+        },
+        {
+          "claim_id": "c2",
+          "text": "[synthetic] The first menu operator failed on Super and on Ultra.",
+          "citations": [
+            {
+              "source_id": "tasks.log",
+              "line_start": 9,
+              "line_end": 9,
+              "quote": "[synthetic] t-3 failed top_of_ladder"
+            }
+          ]
+        },
+        {
+          "claim_id": "c3",
+          "text": "[synthetic] The menu brief asked for twelve items.",
+          "citations": [
+            {
+              "source_id": "tasks.log",
+              "line_start": 3,
+              "line_end": 3,
+              "quote": "[synthetic] menu: 12 items"
+            }
+          ]
+        }
+      ],
+      "root_cause_claim_ids": [
+        "c1",
+        "c2"
+      ],
+      "remediation_plan": [
+        {
+          "action": "[synthetic] Rerun the menu task with a USD 0.006000 allocation.",
+          "why": "[synthetic] One Ultra call of t-3.2 needed USD 0.005100.",
+          "risk": "[synthetic] The rerun spends up to USD 0.006000 more.",
+          "reversible": true
+        }
+      ]
+    },
+    "evidence_check": {
+      "claims": [
+        {
+          "claim_id": "c1",
+          "supported": true,
+          "reason": "ok",
+          "citation_reasons": [
+            "ok"
+          ]
+        },
+        {
+          "claim_id": "c2",
+          "supported": true,
+          "reason": "ok",
+          "citation_reasons": [
+            "ok"
+          ]
+        },
+        {
+          "claim_id": "c3",
+          "supported": false,
+          "reason": "quote_not_found",
+          "citation_reasons": [
+            "quote_not_found"
+          ]
+        }
+      ],
+      "supported": 2,
+      "withdrawn": 1,
+      "withdrawn_by_reason": {
+        "quote_not_found": 1
+      }
+    },
+    "diagnosis_status": {
+      "status": "audited",
+      "reason": ""
+    },
+    "coverage": {
+      "slices_read": 2,
+      "empty_slices": 0,
+      "unread_slices": [
+        {
+          "source_id": "tasks.log",
+          "line_start": 20,
+          "line_end": 34
+        }
+      ],
+      "empty_sources": [
+        "notes.md"
+      ]
     }
   }
 }

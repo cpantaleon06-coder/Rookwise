@@ -76,7 +76,7 @@ Decided 2026-10-16: the web app runs on Vercel; the run executor and the live ev
 | `POST /api/v1/runs/{run_id}/pause` | | 501 `not_implemented` | Reserved: core cannot pause yet. The UI shows no pause control |
 | `POST /api/v1/runs/{run_id}/resume` | | 501 `not_implemented` | Reserved, as pause |
 | `POST /api/v1/runs/{run_id}/cancel` | | 202 `RunView` | Live runs only; see "Cancellation". The only brake the UI shows |
-| `GET /api/v1/runs/{run_id}/package` | | 200 `DeliveryPackage`, or 409 `package_not_ready` | Summary, deliverables, cost report, contracts, decisions, audit verdict |
+| `GET /api/v1/runs/{run_id}/package` | | 200 `DeliveryPackage`, or 409 `package_not_ready` | Summary, deliverables, cost report, contracts, decisions, audit verdict; since 2026-10-25 the diagnosis, its evidence check, its status and the coverage |
 
 Run `status` values: `queued`, `planning`, `awaiting_approval`, `running`, `paused` (reserved until core supports pause), `finished`, `failed`, `cancelled`. A recorded run keeps the `run_id` and status of the run it was recorded from; `POST /runs` with `mode: "recorded"` returns it. In a recorded run, `POST /messages`, `/approval` and `/cancel` return 409 `recorded_run` (the replay cannot change; to stop watching, close the stream).
 
@@ -563,9 +563,14 @@ A task leaves an agent that could not finish it. When a manager reassigns a fail
   "type": "audit_result",
   "payload": {
     "audit": {
-      "verdict": "accepted",
+      "verdict": "accepted_with_warning",
       "model": "nemotron-3-ultra",
       "checks": [
+        {
+          "criterion": "[synthetic] Every claim quotes the lines it cites",
+          "passed": false,
+          "note": "[synthetic] 2 of 3 citations verified; 2 claims supported, 1 withdrawn: c3 (quote_not_found)"
+        },
         {
           "criterion": "[synthetic] Covers the goal",
           "passed": true,
@@ -583,7 +588,7 @@ A task leaves an agent that could not finish it. When a manager reassigns a fail
         }
       ],
       "correction_cycles": 0,
-      "warning": null
+      "warning": "[synthetic] 1 claim was withdrawn as unsupported and is listed; the audit covers the supported rest."
     }
   }
 }
@@ -714,9 +719,31 @@ Since 2026-10-17 the team skeleton (`core/team`) emits a run's events in these t
 - Org chart: `OrgChart` and `as_of_event_id`, and agent statuses other than `hired`. (`level` is `rookwise.schemas.Level`; `role`, `model`, `operator_id`, `skills` and `tools` are catalog fields of `OperatorSpec` or team roles.)
 - Chat: user messages, `POST /messages` and the approval request; the team does not wait for approval.
 - Tasks: `TaskView` and `TaskList`. (`label`, `attempts` and `tool_calls` come from the runner.)
-- Delivery package: `summary`, `Deliverable`, `CostReport` (the `prediction_error` metric is defined in docs/ARCHITECTURE.md but not computed in code), `ContractRecord`, `decisions`, and the `DeliveryPackage` itself. The auditor never sends `correction_cycles` above 0 yet.
+- Delivery package: `summary`, `Deliverable`, `CostReport` (the `prediction_error` metric is defined in docs/ARCHITECTURE.md but not computed in code), `ContractRecord`, `decisions`, and the `DeliveryPackage` itself. The auditor never sends `correction_cycles` above 0 yet. The fields added on 2026-10-25 have their data in `TeamRun` (see "Changes on 2026-10-25"), but no code builds them for a live run; only `scripts/export_recorded_run.py` fills them, from a run folder.
 - Events: `mode_notice`, and per-call `tool_called` events: the tool loop keeps a trace (`kind`, `tool`, `ok`) and a count per tool, but not `error_type` or `truncated` per call, and `run_tool_count` would be a run-wide counter. `task_started.attempt_index` is the `AttemptRecord.attempt_index`.
 - Errors: the HTTP side of `ErrorBody` and its codes; approval; the debug flag; the visitor cookie and the per-visitor count (decided, not built); pause and resume (reserved, 501).
+
+## Changes on 2026-10-25
+
+Status: **draft, frontend may start**. Purpose: let the web show a real recorded run in the evidence view (web/DESIGN.md 3.2.3, 3.3, 3.4.3). It closes M1, M2, M3, M13 and M15 of web/DESIGN.md section 3.5, only by adding optional fields to `DeliveryPackage` and `RecordingSummary`. No endpoint, event or existing field changed, so every earlier payload stays valid. M4 (the diagnosis during the run) stays open: the package still answers 409 `package_not_ready` until the end, and a recorded run has its package from the start.
+
+New fields of `DeliveryPackage` (each `null` when the run has none, for example a run that failed at its plan):
+
+| Field | Model | Closes | Source in core |
+|---|---|---|---|
+| `diagnosis` | `Diagnosis`: `root_cause`, `category` (a plain string), `claims[]` (`DiagnosisClaim`: `claim_id`, `text`, `citations[]` with `source_id`, `line_start`, `line_end`, `quote`), `root_cause_claim_ids`, `remediation_plan[]` (`action`, `why`, `risk`, `reversible`) | M1 | `rookwise.team.models.Diagnosis` |
+| `evidence_check` | `EvidenceCheck`: `claims[]` (`ClaimCheck`: `claim_id`, `supported`, `reason`, `citation_reasons[]`), `supported`, `withdrawn`, `withdrawn_by_reason` | M2 | `rookwise.evidence.ClaimResult`, `rookwise.team.auditor.ClaimCounts` |
+| `diagnosis_status` | `DiagnosisStatus`: `status` (`audited` or `inconclusive`), `reason` (empty when audited) | M3 | `TeamRun.diagnosis_status`, `TeamRun.inconclusive_reason` |
+| `coverage` | `Coverage`: `slices_read`, `empty_slices`, `unread_slices[]` (`source_id`, `line_start`, `line_end`), `empty_sources[]` | M13 | the managers' blocks, `TeamRun.unread_slices`, `TeamRun.empty_sources` |
+
+New fields of `RecordingSummary` (each `null` when not known): `recorded_at` (when the original run started, the `ts` of its `run_started`), `incident_id`, and `category`, the incident's category as the corpus defines it (its ground truth, not what the run diagnosed). Closes M15.
+
+Rules:
+
+- `ClaimCheck.reason` is `ok` for a supported claim, otherwise the claim's reason code (`no_citations`, `source_missing`, `line_out_of_range`, `quote_not_found`). `citation_reasons[i]` is the check of `DiagnosisClaim.citations[i]` (`ok`, `source_missing`, `line_out_of_range`, `quote_not_found`). Claims are matched by `claim_id`, and both lists keep the order the run reported. Withdrawn claims stay listed.
+- An inconclusive diagnosis is now typed: `diagnosis_status.status == "inconclusive"`. The audit verdict stays as before (`rejected` with a warning that starts with "Inconclusive"), so the UI no longer needs to match that string.
+- `unread_slices` are merged line ranges, not slice ids; an empty list means every line of every non-empty source was read by a completed task.
+- Exported recordings (`scripts/export_recorded_run.py`) are built from a run folder that does not keep everything. There, and only there, these may be `null`: `Diagnosis.root_cause`, `root_cause_claim_ids`, `remediation_plan`, `DiagnosisClaim.citations`, `ClaimCheck.citation_reasons` and `Coverage.empty_sources`. The UI shows "Not recorded" for a null, never an empty list. A server built on `TeamRun` fills all of them.
 
 ## Open points
 
