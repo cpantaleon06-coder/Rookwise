@@ -458,3 +458,8 @@ def test_the_rate_limiter_does_not_stall_on_a_wait_below_the_float_spacing(modul
 
     asyncio.run(acquire())  # before the floor this spun forever
     assert clock.slept_s >= module.InstantClock.MIN_STEP_S
+
+
+def test_the_report_counts_hoisted_notes(module, tmp_path):
+    report, _, _ = _estimate(module, tmp_path)
+    assert report["notes_hoisted"] == 0

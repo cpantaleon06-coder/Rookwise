@@ -787,6 +787,8 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
             "total": sum(team.trimmed_citations.values()),
             "by_task": dict(team.trimmed_citations),
         },
+        # Director replies whose `notes` was moved out of `output` to the envelope.
+        "notes_hoisted": team.notes_hoisted,
         # Diagnosis claims and citations dropped by position over the diagnosis bound.
         "diagnosis_trimmed": {
             "claims": team.diagnosis_trimmed_claims,

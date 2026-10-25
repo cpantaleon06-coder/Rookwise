@@ -11,7 +11,7 @@ when the call returns.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -60,8 +60,10 @@ class AgentCaller:
         budget_id: str | None,
         response_format: JsonSchemaFormat | None = None,
         max_tokens: int | None = None,
+        prepare: Callable[[Any], Any] | None = None,
     ) -> EscalationResult:
-        """One call of `role`; `max_tokens` replaces the role's output ceiling."""
+        """One call of `role`; `max_tokens` replaces the role's output ceiling and
+        `prepare` adjusts each final result before validation (`run_with_escalation`)."""
         composed = compose_system_prompt(
             role.role, base_prompt, config=self.skills_config, skills_dir=self.skills_dir
         )
@@ -83,6 +85,7 @@ class AgentCaller:
             output_model,
             config=self.harness.config.escalation,
             repair_temperature=role.repair_temperature,
+            prepare=prepare,
         )
         self.emit_attempts(agent.agent_id, result.attempts, self.entries(task_id))
         return result

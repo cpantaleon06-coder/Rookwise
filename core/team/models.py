@@ -316,6 +316,30 @@ class CitationLog:
         return trimmed
 
 
+def hoist_notes(value: Any) -> tuple[Any, bool]:
+    """A final result `{"status", "output", "notes"}` whose `output` holds a `notes` field,
+    with that field moved to the envelope's `notes`, and whether it moved. Nothing else
+    moves. When both are non-empty strings they are joined, the envelope's first, on a
+    new line; a non-string `output.notes` beside non-empty envelope notes is left in
+    place for validation to report."""
+    if not isinstance(value, dict):
+        return value, False
+    output = value.get("output")
+    if not isinstance(output, dict) or "notes" not in output:
+        return value, False
+    inner, outer = output["notes"], value.get("notes", "")
+    if outer in ("", None):
+        notes = inner
+    elif inner in ("", None):
+        notes = outer
+    elif isinstance(inner, str) and isinstance(outer, str):
+        notes = f"{outer}\n{inner}"
+    else:
+        return value, False
+    rest = {k: v for k, v in output.items() if k != "notes"}
+    return {**value, "output": rest, "notes": "" if notes is None else notes}, True
+
+
 def trim_citations(data: Any, cap: int | None) -> tuple[Any, int]:
     """A copy of a reply's output where each claim keeps its first `cap` citations, by
     position, and how many were dropped. Nothing is checked first: which citations stay
