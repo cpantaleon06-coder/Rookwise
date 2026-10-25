@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -109,9 +110,11 @@ async def run_with_escalation(
     budget: TokenBudget | None = None,
     cancel: CancelHandle | None = None,
     repair_temperature: float | None = None,
+    prepare: Callable[[Any], Any] | None = None,
 ) -> EscalationResult:
     """`repair_temperature` (None: unchanged) is the loop's sampling from the first
-    re-prompt on, in every attempt."""
+    re-prompt on, in every attempt. `prepare` (None: nothing) turns each final result
+    into the value that is validated, before validation."""
     cancel = cancel or CancelHandle()
     attempts: list[AttemptRecord] = []
     tool_calls: Counter[str] = Counter()
@@ -130,7 +133,8 @@ async def run_with_escalation(
         )
         tool_calls += outcome.tool_calls
         if outcome.status in FINAL_STATUSES:
-            validation = validate_final(outcome.final, output_model)
+            final = outcome.final if prepare is None else prepare(outcome.final)
+            validation = validate_final(final, output_model)
         else:
             detail = f"{outcome.status}: {outcome.detail}" if outcome.detail else outcome.status
             validation = Validation(False, None, (f"(loop): ended with {detail}",))

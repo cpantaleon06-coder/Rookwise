@@ -178,6 +178,7 @@ from rookwise.team.models import (
     SliceAssignment,
     diagnosis_model,
     findings_model,
+    hoist_notes,
     plan_model,
 )
 
@@ -332,6 +333,8 @@ class TeamRun:
     # The same for the director's diagnosis (and its repair), over the diagnosis bound.
     diagnosis_trimmed_claims: int = 0
     diagnosis_trimmed_citations: int = 0
+    # Director replies (plan or diagnosis) whose `notes` was moved out of `output`.
+    notes_hoisted: int = 0
 
 
 @dataclass(frozen=True)
@@ -558,6 +561,7 @@ class _Team:
         # Operator replies salvaged from a cut or broken reply: the elements each dropped.
         self.salvaged: dict[str, list[int]] = {}
         self.manager_reservation: Decimal | None = None
+        self.notes_hoisted = 0
         self._check_config(slicing)
 
     # -- director ------------------------------------------------------------------------
@@ -597,6 +601,7 @@ class _Team:
             output_model=self.plan_model,
             budget_id=None,
             response_format=self._plan_format(),
+            prepare=self._hoist_notes,
         )
         if not result.ok or result.validation is None:
             if result.stop_reason == "budget_exhausted":
@@ -763,6 +768,7 @@ class _Team:
             diagnosis_trimmed_citations=sum(
                 r.trimmed for r in self.citation_log.replies if r.task_id == "diagnosis"
             ),
+            notes_hoisted=self.notes_hoisted,
         )
 
     async def _run_baseline(self, goal: str, director: AgentNode, baseline: Baseline) -> TeamRun:
@@ -895,6 +901,7 @@ class _Team:
             diagnosis_trimmed_citations=sum(
                 r.trimmed for r in self.citation_log.replies if r.task_id == "diagnosis"
             ),
+            notes_hoisted=self.notes_hoisted,
         )
 
     async def _diagnose(
@@ -912,6 +919,7 @@ class _Team:
             output_model=self.diagnosis_model,
             budget_id=None,
             max_tokens=self.roles.director.diagnosis_tokens,
+            prepare=self._hoist_notes,
         )
         if result.ok and result.validation is not None:
             return result.validation.payload.output, ""  # type: ignore[attr-defined]
@@ -973,6 +981,7 @@ class _Team:
             output_model=self.diagnosis_model,
             budget_id=None,
             max_tokens=self.roles.director.diagnosis_tokens,
+            prepare=self._hoist_notes,
         )
         if result.ok and result.validation is not None:
             return result.validation.payload.output  # type: ignore[attr-defined]
@@ -1666,6 +1675,13 @@ class _Team:
             }
         return self._fail("budget_exhausted", message, details)
 
+    def _hoist_notes(self, value: Any) -> Any:
+        """The director's final result with a `notes` misplaced inside `output` moved to
+        the envelope (`hoist_notes`), counted in `TeamRun.notes_hoisted`."""
+        value, moved = hoist_notes(value)
+        self.notes_hoisted += moved
+        return value
+
     def _plan_format(self) -> JsonSchemaFormat | None:
         """The plan's schema as a wrapped json_schema response_format, inlined (no $ref),
         when the director's role turns it on; None (nothing sent) otherwise."""
@@ -1701,6 +1717,7 @@ class _Team:
             report=report,
             unread_slices=self._unread([]),
             empty_sources=list(self.slices.empty_sources),
+            notes_hoisted=self.notes_hoisted,
         )
 
     def _fail(self, code: str, message: str, details: dict[str, Any]) -> TeamRun:
@@ -1726,6 +1743,7 @@ class _Team:
             report=report,
             unread_slices=self._unread([]),
             empty_sources=list(self.slices.empty_sources),
+            notes_hoisted=self.notes_hoisted,
         )
 
     def _unread(self, blocks: list[BlockOutcome]) -> list[UnreadRange]:
