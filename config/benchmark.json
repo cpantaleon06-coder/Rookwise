@@ -1,9 +1,9 @@
 {
-  "_note": "Settings for running a corpus incident (scripts/run_incident.py). caps_usd are the per-configuration caps per incident (D2 in docs/DECISIONS.md): 0.10 for the hierarchy is unmeasured and revisited after the first approved run on a dev incident; the single-model baselines run with a safety cap of 1.00. context_sources are the sources the director reads in full for its diagnosis. The catalog is data for these runs only; prices and latencies are placeholders, not measured.",
+  "_note": "Settings for running a corpus incident (scripts/run_incident.py). caps_usd are the per-configuration caps per incident: since 2026-10-25 an equal hard cap of USD 0.50 for the hierarchy and both single-model baselines, which supersedes D2's 0.10 and 1.00 (docs/DECISIONS.md, Equal benchmark caps). context_sources are the sources the director reads in full for its diagnosis. The catalog is data for these runs only; prices and latencies are placeholders, not measured.",
   "caps_usd": {
-    "hierarchy": "0.100000",
-    "single_large": "1.000000",
-    "single_small": "1.000000"
+    "hierarchy": "0.500000",
+    "single_large": "0.500000",
+    "single_small": "0.500000"
   },
   "baselines": {
     "_note": "The single-model baselines (docs/ARCHITECTURE.md, Benchmark design): (b) on Ultra and (c) on Lightning. Each reads every slice with the operators' prompt, skills and findings model, then writes the diagnosis; no plan, no managers, no auditor model, no escalation ladder and no reassignment. roles_by_source picks the operator role (and so its skill) for a source; every other source uses default_role. cap names the entry of caps_usd.",
@@ -14,11 +14,11 @@
     "instruction": "Report what this slice shows about the incident in the goal: errors, changes and anything that points to its root cause, citing single lines."
   },
   "benchmark": {
-    "_note": "The benchmark plan for scripts/run_benchmark.py: every (incident, configuration, repeat) runs once, one after another. configurations: a the hierarchy, b and c the single-model baselines above. caps_usd is each configuration's run cap for the benchmark (the same values as caps_usd above for now; 0.10 for a is D2's unmeasured cap, the third inc-01 run used 0.50). An incident's split comes from its ground_truth.json: test-split incidents run live only with --freeze-confirmed, once tuning has ended. Results (metrics only, no prompt text) go to results_dir, cassettes (with prompt text, gitignored) to cassette_dir.",
+    "_note": "The benchmark plan for scripts/run_benchmark.py: every (incident, configuration, repeat) runs once, one after another. configurations: a the hierarchy, b and c the single-model baselines above. caps_usd is each configuration's run cap for the benchmark: USD 0.50 for a, b and c alike (2026-10-25, the same as caps_usd above). An incident's split comes from its ground_truth.json: test-split incidents run live only with --freeze-confirmed, once tuning has ended. Results (metrics only, no prompt text) go to results_dir, cassettes (with prompt text, gitignored) to cassette_dir.",
     "incidents": ["inc-01", "inc-02", "inc-03", "inc-04", "inc-05", "inc-06"],
     "configurations": ["a", "b", "c"],
     "repeats": 2,
-    "caps_usd": {"a": "0.100000", "b": "1.000000", "c": "1.000000"},
+    "caps_usd": {"a": "0.500000", "b": "0.500000", "c": "0.500000"},
     "results_dir": "benchmarks/results",
     "cassette_dir": "runs/cassettes/benchmark"
   },

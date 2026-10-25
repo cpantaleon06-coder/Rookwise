@@ -130,6 +130,18 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | Salvage rejects a candidate with a duplicate key in any object and cuts back to before it. In the second full inc-01 run t-28's reply forgot `},{` between claims, so later claims' keys repeated the first claim's; `json.loads` kept the last values and the salvage returned one merged claim (c5, no citations) reporting 0 dropped elements. With the fix it keeps the real first claim with its citation. Code bug fix. | core/harness/salvage.py |
 | Single-model baselines (b) and (c) (requested by the user, 2026-10-24). Implementation choices, pending the user's review: no plan call (code makes one task per slice, so every slice is read, as D1 requires the same slicer); no managers, since a single model has nobody to consolidate for, so the diagnosis request lists the model's own findings by reference, claims only, like (a)'s; no auditor model, since the architecture asks (b) and (c) for the same evidence check, not the same auditor, so the deterministic check and D3 are the whole verification and the verdict is `accepted_with_warning` with model `none`; D3's one targeted repair is kept so a fabricated root cause is treated as in (a); no escalation ladder and no reassignment, so every call is on the one model; the context sources (ticket, runbook) are read as slices too, as in (a)'s plans; the operator role per source is config (`roles_by_source`: deploy.diff and metrics.csv get their own readers, everything else the log reader), and every task gets one fixed instruction from config/benchmark.json. | core/team/flow.py; core/team/auditor.py; scripts/run_incident.py; config/benchmark.json |
 
+## Equal benchmark caps (decided by the user, 2026-10-25)
+
+| Decision | Reason | Where |
+| --- | --- | --- |
+| The benchmark cap per incident is USD 0.50 for every configuration, (a), (b) and (c) alike: an equal hard cap. It supersedes D2's USD 0.10 for (a) and USD 1.00 for (b) and (c). | Run costs measured on the dev incidents with the hierarchy (a): inc-01 USD 0.260218 (run3), inc-03 USD 0.188152 (run2), inc-05 USD 0.307019 (run2). All fit under USD 0.50, and one equal cap makes the configurations comparable on what each reaches for the same money. | config/benchmark.json (`caps_usd` and `benchmark.caps_usd`) |
+
+## Engine freeze (decided by the user, 2026-10-25)
+
+| Decision | Where |
+| --- | --- |
+| The engine is frozen for the benchmark at the commit tagged `freeze-1` (local tag, not pushed): the commit that adds this entry, on top of `3af9c96` ("team: warn when too few slices were read"). Frozen: the code (`core/`, `scripts/`), the prompts, the skills (`skills/`), and the config (`config/`). After the freeze only bug fixes that do not change behavior are allowed, and each must be documented here with its date, commit and why it does not change behavior. Anything else waits until the benchmark results are reported. | git tag `freeze-1`; this file |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.

@@ -268,7 +268,7 @@ The benchmark measures accuracy against known root causes and cost against the p
 
 - Incidents: 6, split 3 dev and 3 test. Each split has three different root-cause categories, so the test set does not repeat a dev category. Prompts, skills and `BudgetPolicy` are tuned on dev only and frozen before the test runs.
 - Configurations: (a) the full hierarchy (director, managers, operators, auditor, a model per level); (b) a single large model (Ultra) doing the whole investigation; (c) a single small model (Lightning) doing the whole investigation. (b) and (c) get the same evidence, the same output schema and the same evidence check, and read the evidence in slices made by the same slicer as (a) (D1, docs/DECISIONS.md).
-- Caps per incident are config values per configuration (D2): USD 0.10 for (a), unmeasured and revisited after the first approved run on a dev incident; (b) and (c) run with a safety cap of USD 1.00 and report what it cost them to reach an answer.
+- Caps per incident are config values per configuration (D2): USD 0.10 for (a), unmeasured and revisited after the first approved run on a dev incident; (b) and (c) run with a safety cap of USD 1.00 and report what it cost them to reach an answer. Superseded on 2026-10-25: one equal hard cap of USD 0.50 for (a), (b) and (c) (docs/DECISIONS.md, Equal benchmark caps).
 - Repeats: 2 per incident and configuration, so 6 x 3 x 2 = 36 runs.
 - Reporting: TEST incidents are reported separately from DEV. Dev numbers show tuning, not generalization.
 

@@ -87,7 +87,7 @@ def _estimate(module, tmp_path, run_usd="0.50"):
 
 def test_the_default_cap_is_the_hierarchy_cap_in_config(module):
     config = module.load_benchmark_config()
-    assert module.default_cap(config) == "0.100000"
+    assert module.default_cap(config) == "0.500000"
     assert config["context_sources"] == ["ticket.md", "runbook.md"]
 
 
@@ -195,8 +195,8 @@ def test_record_writes_a_cassette_that_replays_offline(module, tmp_path, monkeyp
 @pytest.mark.parametrize(
     ("argv", "message"),
     [
-        (["inc-01", "record"], "pass --approve-cap 0.100000"),
-        (["inc-01", "record", "--approve-cap", "0.50"], "pass --approve-cap 0.100000"),
+        (["inc-01", "record"], "pass --approve-cap 0.500000"),
+        (["inc-01", "record", "--approve-cap", "0.10"], "pass --approve-cap 0.500000"),
         (["inc-01", "record", "--run-usd", "0.50", "--approve-cap", "0.10"], "--approve-cap 0.50"),
         (["inc-01", "estimate", "--approve-cap", "0.10"], "for record mode only"),
         (["inc-01", "estimate", "--run-usd", "-1"], "positive amount"),
@@ -212,7 +212,7 @@ def test_the_cli_never_starts_a_live_run_by_accident(module, monkeypatch, capsys
 def test_an_approved_record_run_still_needs_the_record_mode(module, monkeypatch, capsys):
     monkeypatch.delenv("HARNESS_MODE", raising=False)
     monkeypatch.setattr(module, "load_bundle", lambda *a, **k: pytest.fail("a run started"))
-    assert module.main(["inc-01", "record", "--approve-cap", "0.10"]) == 2
+    assert module.main(["inc-01", "record", "--approve-cap", "0.50"]) == 2
     assert "HARNESS_MODE=record" in capsys.readouterr().out
 
 
@@ -363,10 +363,11 @@ def test_baseline_b_runs_on_ultra(module, tmp_path):
     assert {c["model"] for c in calls} == {"nemotron-3-ultra"}
 
 
-def test_the_baselines_default_to_their_safety_cap(module):
+def test_every_configuration_has_the_same_cap(module):
     config = module.load_benchmark_config()
-    assert module.default_cap(config, "b") == module.default_cap(config, "c") == "1.000000"
-    assert module.default_cap(config, "a") == "0.100000"
+    caps = {c: module.default_cap(config, c) for c in ("a", "b", "c")}
+    assert caps == {"a": "0.500000", "b": "0.500000", "c": "0.500000"}
+    assert config["benchmark"]["caps_usd"] == caps
 
 
 def test_a_baseline_refuses_plan_options(module, capsys, monkeypatch):
@@ -387,7 +388,7 @@ def test_a_baseline_writes_beside_the_hierarchy(module, monkeypatch, tmp_path):
     monkeypatch.setattr(module, "load_bundle", lambda *a, **k: BUNDLE)
     monkeypatch.setattr(module, "load_ground_truth", lambda *a, **k: TRUTH)
     assert module.main(["inc-test", "estimate", "--configuration", "b"]) == 0
-    assert seen["configuration"] == "b" and seen["run_usd"] == "1.000000"
+    assert seen["configuration"] == "b" and seen["run_usd"] == "0.500000"
     assert seen["cassette"].name == "incident-inc-test-b.json"
     assert (tmp_path / "inc-test" / "estimate-b" / "report.json").exists()
 
