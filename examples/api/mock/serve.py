@@ -7,8 +7,12 @@ standard library only.
     python examples/api/mock/serve.py                # http://127.0.0.1:8787
     python examples/api/mock/serve.py --speed 4      # replay four times faster
     python examples/api/mock/serve.py --speed 0      # no delays at all
+    python examples/api/mock/serve.py --recording examples/api/recordings/inc-03-run2
 
-Everything it returns is synthetic (see `_fixture` in each fixture file).
+Everything it returns is synthetic (see `_fixture` in each fixture file), except a
+recording passed with --recording: a real run on a synthetic incident, exported by
+scripts/export_recorded_run.py (see `_recording` in its files). It is listed first in
+GET /modes and served next to the synthetic run.
 """
 
 from __future__ import annotations
@@ -17,6 +21,8 @@ import argparse
 import json
 import time
 import uuid
+from collections.abc import Sequence
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -29,22 +35,54 @@ HEARTBEAT_S = 15.0
 TERMINAL = ("run_finished", "run_failed")
 
 
-def _read(name: str) -> dict[str, Any]:
-    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+RUN_SECTIONS = ("run", "org", "ledger", "messages", "tasks", "package")
+
+
+def _read(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _created(run: dict[str, Any]) -> datetime:
+    return datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
 
 
 class Fixtures:
-    def __init__(self) -> None:
-        self.bundle = _read("recorded_run.json")
-        replay = _read("recorded_run.events.json")
-        self.refused = _read("live_refused.json")
+    """The synthetic fixtures, plus any exported recordings (scripts/export_recorded_run.py).
+    Run-scoped routes are looked up by run_id, so two recordings must not share one."""
+
+    def __init__(self, recordings: Sequence[Path] = ()) -> None:
+        self.bundle = _read(FIXTURES / "recorded_run.json")
+        replay = _read(FIXTURES / "recorded_run.events.json")
+        self.refused = _read(FIXTURES / "live_refused.json")
         self.run_id = self.bundle["run"]["run_id"]
         refused_run = self.refused["refused_after_creation"]
         self.streams = {
             self.run_id: replay["events"],
             refused_run["run_id"]: refused_run["events"],
         }
-        self.recording_ids = {r["recording_id"] for r in self.bundle["modes"]["recordings"]}
+        self.runs = {self.run_id: self.bundle}  # recorded runs: run_id -> bundle
+        self.recordings = {
+            r["recording_id"]: self.run_id for r in self.bundle["modes"]["recordings"]
+        }
+        summaries = []
+        for folder in recordings:
+            bundle = _read(Path(folder) / "recorded_run.json")
+            events = _read(Path(folder) / "recorded_run.events.json")["events"]
+            missing = [s for s in ("_recording", "recording", *RUN_SECTIONS) if s not in bundle]
+            if missing:
+                raise ValueError(f"{folder} is not an exported recording (missing {missing})")
+            run_id = bundle["run"]["run_id"]
+            recording_id = bundle["recording"]["recording_id"]
+            if run_id in self.streams or recording_id in self.recordings:
+                raise ValueError(f"{folder}: run {run_id} or {recording_id} is already served")
+            self.runs[run_id] = bundle
+            self.streams[run_id] = events
+            self.recordings[recording_id] = run_id
+            summaries.append(bundle["recording"])
+        modes = self.bundle["modes"]
+        self.modes = {**modes, "recordings": summaries + modes["recordings"]}
+        newest_first = sorted((b["run"] for b in self.runs.values()), key=_created, reverse=True)
+        self.run_list = {"items": newest_first, "next_cursor": None}
 
 
 def make_handler(fixtures: Fixtures, speed: float) -> type[BaseHTTPRequestHandler]:
@@ -104,16 +142,16 @@ def make_handler(fixtures: Fixtures, speed: float) -> type[BaseHTTPRequestHandle
         def do_GET(self) -> None:  # noqa: N802
             self.request_id = f"req-{uuid.uuid4().hex[:12]}"
             parts = self._route()
-            bundle = fixtures.bundle
             if parts == ["modes"]:
-                return self._json(200, bundle["modes"])
+                return self._json(200, fixtures.modes)
             if parts == ["runs"]:
-                return self._json(200, bundle["runs"])
+                return self._json(200, fixtures.run_list)
             if len(parts) >= 2 and parts[0] == "runs":
                 run_id = parts[1]
                 if len(parts) == 3 and parts[2] == "events" and run_id in fixtures.streams:
                     return self._events(run_id)
-                if run_id == fixtures.run_id:
+                bundle = fixtures.runs.get(run_id)
+                if bundle is not None:
                     views = {
                         (): "run",
                         ("org",): "org",
@@ -123,6 +161,10 @@ def make_handler(fixtures: Fixtures, speed: float) -> type[BaseHTTPRequestHandle
                         ("package",): "package",
                     }
                     section = views.get(tuple(parts[2:]))
+                    if section is not None and bundle[section] is None:
+                        return self._error(
+                            409, "package_not_ready", "this run has no delivery package"
+                        )
                     if section is not None:
                         return self._json(200, bundle[section])
             return self._error(404, "not_found", f"no mock route for GET {self.path}")
@@ -144,10 +186,9 @@ def make_handler(fixtures: Fixtures, speed: float) -> type[BaseHTTPRequestHandle
                     return self._json(
                         refused["status"], refused["response"], {"Retry-After": "3600"}
                     )
-                if body.get("mode") == "recorded" and body.get("recording_id") in (
-                    fixtures.recording_ids
-                ):
-                    return self._json(201, fixtures.bundle["run"])
+                run_id = fixtures.recordings.get(body.get("recording_id"))
+                if body.get("mode") == "recorded" and run_id is not None:
+                    return self._json(201, fixtures.runs[run_id]["run"])
                 return self._error(
                     422,
                     "validation_failed",
@@ -159,7 +200,7 @@ def make_handler(fixtures: Fixtures, speed: float) -> type[BaseHTTPRequestHandle
                     return self._error(
                         501, "not_implemented", f"{parts[2]} is reserved until core supports it"
                     )
-                if parts[1] == fixtures.run_id and parts[2] in ("messages", "approval", "cancel"):
+                if parts[1] in fixtures.runs and parts[2] in ("messages", "approval", "cancel"):
                     return self._error(
                         409, "recorded_run", "a recorded run cannot be changed; close the stream"
                     )
@@ -230,8 +271,13 @@ def make_handler(fixtures: Fixtures, speed: float) -> type[BaseHTTPRequestHandle
     return Handler
 
 
-def make_server(host: str = "127.0.0.1", port: int = 8787, speed: float = 1.0):
-    return ThreadingHTTPServer((host, port), make_handler(Fixtures(), speed))
+def make_server(
+    host: str = "127.0.0.1",
+    port: int = 8787,
+    speed: float = 1.0,
+    recordings: Sequence[Path] = (),
+):
+    return ThreadingHTTPServer((host, port), make_handler(Fixtures(recordings), speed))
 
 
 def main() -> None:
@@ -241,9 +287,19 @@ def main() -> None:
     parser.add_argument(
         "--speed", type=float, default=1.0, help="replay speed factor; 0 sends every event at once"
     )
+    parser.add_argument(
+        "--recording",
+        type=Path,
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="an exported recording folder (scripts/export_recorded_run.py); repeatable",
+    )
     args = parser.parse_args()
-    server = make_server(args.host, args.port, args.speed)
+    server = make_server(args.host, args.port, args.speed, args.recording)
     print(f"Rookwise API v1 mock (synthetic fixtures) on http://{args.host}:{args.port}{PREFIX}")
+    for folder in args.recording:
+        print(f"  also serving the recording in {folder}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
