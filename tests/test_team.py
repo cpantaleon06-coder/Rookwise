@@ -610,12 +610,14 @@ def test_an_empty_operator_pool_refuses_every_operator():
     assert_budget_tree(book)
 
 
-def test_a_plan_larger_than_the_policy_fails_the_run():
-    handler = TeamHandler(director=[plan_reply(block(1), block(1))])
+def test_a_plan_larger_than_the_policy_fails_the_run_after_one_repair():
+    too_large = plan_reply(block(1), block(1))
+    handler = TeamHandler(director=[too_large, too_large])
     team, book = run_stub_team(handler, run_usd="0.5", policy=BudgetPolicy(max_blocks=1))
     assert team.status == "failed" and _types(team)[-1] == "run_failed"
+    assert handler.calls["director"] == 2 and team.plan_repairs == 1
     failed = _payloads(team, "run_failed")[0]
-    assert failed.error.code == "plan_too_large"
+    assert failed.error.code == "plan_too_large" and failed.error.details["repaired"] is True
     assert failed.spent_usd == book.report(RUN_ID).spent_usd > 0  # the plan call was paid
     assert book.report(RUN_ID).allocations == ()
     assert _allocations(team) == [] and "agent_hired" not in _types(team)[2:]

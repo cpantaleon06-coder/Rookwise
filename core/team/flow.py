@@ -220,6 +220,15 @@ OPERATOR_PROMPT = (
 )
 
 
+def plan_prompt(policy: BudgetPolicy) -> str:
+    """`DIRECTOR_PROMPT` with the plan's size limits of `policy` (config/budget.json)."""
+    return (
+        f"{DIRECTOR_PROMPT} The plan has at most {policy.max_blocks} blocks, each with at "
+        f"most {policy.max_tasks_per_block} tasks; one block may hold tasks for several "
+        "sources."
+    )
+
+
 def diagnosis_prompt(policy: BudgetPolicy) -> str:
     """`DIAGNOSIS_PROMPT` with the diagnosis size bound of `policy` (config/budget.json)."""
     return (
@@ -335,6 +344,8 @@ class TeamRun:
     diagnosis_trimmed_citations: int = 0
     # Director replies (plan or diagnosis) whose `notes` was moved out of `output`.
     notes_hoisted: int = 0
+    # 1 when the plan was over the size limits and the director got its one repair.
+    plan_repairs: int = 0
 
 
 @dataclass(frozen=True)
@@ -541,6 +552,7 @@ class _Team:
             max_citations_per_claim=self.policy.diagnosis_max_citations_per_claim,
         )
         self.diagnosis_prompt = diagnosis_prompt(self.policy)
+        self.plan_prompt = plan_prompt(self.policy)
         self.context_sources = context_sources
         self.slices = slice_bundle(evidence.sources, slicing)
         self.slices_of: dict[str, list[Slice]] = {source_id: [] for source_id in evidence.sources}
@@ -562,6 +574,7 @@ class _Team:
         self.salvaged: dict[str, list[int]] = {}
         self.manager_reservation: Decimal | None = None
         self.notes_hoisted = 0
+        self.plan_repairs = 0
         self._check_config(slicing)
 
     # -- director ------------------------------------------------------------------------
@@ -596,7 +609,7 @@ class _Team:
             self.roles.director,
             level="director",
             task_id="plan",
-            base_prompt=DIRECTOR_PROMPT,
+            base_prompt=self.plan_prompt,
             user=self._plan_request(goal),
             output_model=self.plan_model,
             budget_id=None,
@@ -616,12 +629,18 @@ class _Team:
         plan: Plan = result.validation.payload.output  # type: ignore[attr-defined]
         self.plan = plan
         limits = (self.policy.max_blocks, self.policy.max_tasks_per_block)
-        if len(plan.blocks) > limits[0] or any(len(b.tasks) > limits[1] for b in plan.blocks):
-            return self._fail(
-                "plan_too_large",
-                f"The plan has more than {limits[0]} blocks or {limits[1]} tasks in a block.",
-                {"max_blocks": limits[0], "max_tasks_per_block": limits[1]},
-            )
+        if self._too_large(plan):
+            # One targeted repair, then fail as before.
+            self.plan_repairs = 1
+            repaired = await self._repair_plan(goal, director, plan)
+            if repaired is None or self._too_large(repaired):
+                return self._fail(
+                    "plan_too_large",
+                    f"The plan has more than {limits[0]} blocks or {limits[1]} tasks in a "
+                    "block, also after one repair.",
+                    {"max_blocks": limits[0], "max_tasks_per_block": limits[1], "repaired": True},
+                )
+            plan = self.plan = repaired
         tasks = sum(len(block.tasks) for block in plan.blocks)
         work = sum(len(self.slices_of[t.source_id]) for b in plan.blocks for t in b.tasks)
         self._say(f"{plan.summary} ({len(plan.blocks)} blocks, {tasks} tasks over {work} slices.)")
@@ -769,6 +788,7 @@ class _Team:
                 r.trimmed for r in self.citation_log.replies if r.task_id == "diagnosis"
             ),
             notes_hoisted=self.notes_hoisted,
+            plan_repairs=self.plan_repairs,
         )
 
     async def _run_baseline(self, goal: str, director: AgentNode, baseline: Baseline) -> TeamRun:
@@ -902,6 +922,7 @@ class _Team:
                 r.trimmed for r in self.citation_log.replies if r.task_id == "diagnosis"
             ),
             notes_hoisted=self.notes_hoisted,
+            plan_repairs=self.plan_repairs,
         )
 
     async def _diagnose(
@@ -1675,6 +1696,46 @@ class _Team:
             }
         return self._fail("budget_exhausted", message, details)
 
+    def _too_large(self, plan: Plan) -> bool:
+        return len(plan.blocks) > self.policy.max_blocks or any(
+            len(b.tasks) > self.policy.max_tasks_per_block for b in plan.blocks
+        )
+
+    async def _repair_plan(self, goal: str, director: AgentNode, plan: Plan) -> Plan | None:
+        """The one targeted repair of a plan over the size limits (ledger task
+        `plan-repair`): the limits, the plan's size and the plan itself, with the request
+        to merge sources into fewer blocks. None when the call gives no valid plan."""
+        sizes = ", ".join(str(len(b.tasks)) for b in plan.blocks)
+        self.notes.append(
+            f"The plan has {len(plan.blocks)} blocks (tasks per block: {sizes}), over the "
+            f"limit of {self.policy.max_blocks} blocks of at most "
+            f"{self.policy.max_tasks_per_block} tasks; the director gets one targeted repair."
+        )
+        user = (
+            f"{self._plan_request(goal)}\n\nYour plan:\n{plan.model_dump_json()}\n\n"
+            f"PLAN TOO LARGE: it has {len(plan.blocks)} blocks (tasks per block: {sizes}). A "
+            f"plan has at most {self.policy.max_blocks} blocks, each with at most "
+            f"{self.policy.max_tasks_per_block} tasks. Merge sources into fewer blocks: one "
+            "block may hold tasks for several sources. Every source that is not empty must "
+            "still be read by at least one task. Reply with the whole plan again."
+        )
+        result = await self.caller.call(
+            director,
+            self.roles.director,
+            level="director",
+            task_id="plan-repair",
+            base_prompt=self.plan_prompt,
+            user=user,
+            output_model=self.plan_model,
+            budget_id=None,
+            response_format=self._plan_format(),
+            prepare=self._hoist_notes,
+        )
+        if result.ok and result.validation is not None:
+            return result.validation.payload.output  # type: ignore[attr-defined]
+        self.notes.append(f"The plan repair produced no valid plan ({result.stop_reason}).")
+        return None
+
     def _hoist_notes(self, value: Any) -> Any:
         """The director's final result with a `notes` misplaced inside `output` moved to
         the envelope (`hoist_notes`), counted in `TeamRun.notes_hoisted`."""
@@ -1718,6 +1779,7 @@ class _Team:
             unread_slices=self._unread([]),
             empty_sources=list(self.slices.empty_sources),
             notes_hoisted=self.notes_hoisted,
+            plan_repairs=self.plan_repairs,
         )
 
     def _fail(self, code: str, message: str, details: dict[str, Any]) -> TeamRun:
@@ -1744,6 +1806,7 @@ class _Team:
             unread_slices=self._unread([]),
             empty_sources=list(self.slices.empty_sources),
             notes_hoisted=self.notes_hoisted,
+            plan_repairs=self.plan_repairs,
         )
 
     def _unread(self, blocks: list[BlockOutcome]) -> list[UnreadRange]:

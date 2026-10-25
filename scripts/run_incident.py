@@ -789,6 +789,8 @@ def build_report(mode, incident_id, team, report, calls, total_s, scored) -> dic
         },
         # Director replies whose `notes` was moved out of `output` to the envelope.
         "notes_hoisted": team.notes_hoisted,
+        # 1 when the plan was over the size limits and the director got one repair.
+        "plan_repairs": team.plan_repairs,
         # Diagnosis claims and citations dropped by position over the diagnosis bound.
         "diagnosis_trimmed": {
             "claims": team.diagnosis_trimmed_claims,
