@@ -6,7 +6,7 @@ import { microsToString, sumMoney } from "./money";
 import { prepareEvents } from "./replay";
 import { applyEvents, initialRunState, runStatusLabel } from "./runState";
 
-const DEMO = resolve(__dirname, "../../public/recordings/demo/recorded_run.events.json");
+const DEMO = resolve(__dirname, "../../test-fixtures/recordings/demo/recorded_run.events.json");
 const events = prepareEvents(JSON.parse(readFileSync(DEMO, "utf8"))).map((e) => e.event);
 
 describe("applyEvents on the demo recording", () => {

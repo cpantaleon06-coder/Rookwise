@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectiveDelay, MAX_DELAY_MS, prepareEvents, Replayer, totalDuration } from "./replay";
 import type { RunEvent, TimedEvent } from "./types";
 
-const DEMO = resolve(__dirname, "../../public/recordings/demo/recorded_run.events.json");
+const DEMO = resolve(__dirname, "../../test-fixtures/recordings/demo/recorded_run.events.json");
 
 function ev(seq: number, delay: number, type = "tool_called"): TimedEvent {
   return {

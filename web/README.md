@@ -32,7 +32,7 @@ A recording is a folder under `public/recordings/` with two files:
 - `recorded_run.json`: the bundle (sections `run`, `org`, `ledger`, `messages`, `tasks`, `package`, and either `modes` for the synthetic fixture or `recording` for an exported real run).
 - `recorded_run.events.json`: `{"run_id", "events": [{"delay_ms", "event"}]}`.
 
-`public/recordings/demo/` is the synthetic fixture from `examples/api/` (not model output; it says so). To add a recording, add a folder with those two files. The build lists every such folder in `recordings/index.json` (a Vite plugin in `vite.config.ts` writes it; the dev server serves it live), real model output first, then the newest. A recording opens at `#/run/<folder>`. Folder names use letters, digits, dots, dashes and underscores.
+`public/recordings/` holds two real recorded runs, `inc-03-run2` and `inc-01-run3` (real model output on synthetic dev incidents, copied from `examples/api/recordings/`); the landing opens the newest real one by default. The synthetic fixture from `examples/api/` (not model output; it says so) lives in `test-fixtures/recordings/demo/` and is used by the tests only, so the build does not publish it. To add a recording, add a folder with those two files. The build lists every such folder in `recordings/index.json` (a Vite plugin in `vite.config.ts` writes it; the dev server serves it live), real model output first, then the newest. A recording opens at `#/run/<folder>`. Folder names use letters, digits, dots, dashes and underscores.
 
 How the replay reads a recording:
 
@@ -52,7 +52,7 @@ After the replay ends, the run view offers "Approve recommendation" and "Reject"
 3. Framework preset: **Vite**. Build command: `npm run build`. Output directory: `dist`.
 4. No environment variables are needed.
 
-`vercel.json` repeats the preset, build command and output directory, and sets security headers, including a Content Security Policy that only allows the app's own origin. The app uses hash routes (`#/run/demo`), so no rewrites are needed, and it builds with a relative base, so any static host works.
+`vercel.json` repeats the preset, build command and output directory, and sets security headers, including a Content Security Policy that only allows the app's own origin. The app uses hash routes (`#/run/inc-03-run2`), so no rewrites are needed, and it builds with a relative base, so any static host works.
 
 ## Privacy
 

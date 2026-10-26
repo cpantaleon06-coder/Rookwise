@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { runHref } from "../App";
 import { LiveRunsControl, REPO_URL, SiteFooter, SkipLink, ThemeToggle } from "../components/chrome";
 import { buttonClass, Chip, Label, Placeholder, Skeleton, Usd } from "../components/ui";
+import { splitOf, SPLIT_CHIP } from "../lib/incidents";
 import { formatDate, reasonWords } from "../lib/labels";
 import {
   loadIndex,
@@ -141,11 +142,13 @@ function HeroExcerpt({ entry }: { entry: IndexEntry | null }) {
 function RecordingCard({ entry }: { entry: IndexEntry }) {
   const s = entry.summary;
   const recorded = formatDate(s.recorded_at);
+  const split = splitOf(s.incident_id);
   return (
     <li className="flex min-w-0 flex-col gap-3 rounded-[10px] border border-line bg-surface p-4 sm:p-6">
       <div className="flex flex-wrap gap-2">
         {provenanceChip(entry)}
         {s.simulated_case && <Chip tone="neutral">Synthetic incident</Chip>}
+        {split && <Chip tone="neutral">{SPLIT_CHIP[split]}</Chip>}
       </div>
       <h3 className="wrap-anywhere text-xl/7 font-semibold">{s.title}</h3>
       <p className="wrap-anywhere text-sm text-muted">{s.goal}</p>

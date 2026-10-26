@@ -13,7 +13,7 @@ import {
 } from "./recording";
 import type { RecordedBundle } from "./types";
 
-const ROOT = resolve(__dirname, "../../public/recordings/demo");
+const ROOT = resolve(__dirname, "../../test-fixtures/recordings/demo");
 const bundleText = readFileSync(resolve(ROOT, "recorded_run.json"), "utf8");
 const eventsText = readFileSync(resolve(ROOT, "recorded_run.events.json"), "utf8");
 const demo = JSON.parse(bundleText) as RecordedBundle;

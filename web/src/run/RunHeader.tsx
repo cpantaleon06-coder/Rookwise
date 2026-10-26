@@ -1,5 +1,6 @@
 import { LiveRunsControl } from "../components/chrome";
 import { Button, Chip, Label, Meter, type Tone } from "../components/ui";
+import { splitOf, SPLIT_WORDS } from "../lib/incidents";
 import { formatDate } from "../lib/labels";
 import { formatMicros, formatUsd, type Micros } from "../lib/money";
 import type { Provenance } from "../lib/recording";
@@ -24,6 +25,7 @@ export function RecordedBanner({
   notice: string | null;
 }) {
   const recorded = formatDate(summary?.recorded_at);
+  const split = splitOf(summary?.incident_id);
   return (
     <div
       role="note"
@@ -37,6 +39,7 @@ export function RecordedBanner({
             {notice ?? "Replaying a saved run with its original timing. It costs nothing and cannot be changed."}
             {provenance === "synthetic_fixture" && " The run is a synthetic fixture: its texts and numbers are not model output."}
             {provenance === "real_model_output" && " The model output is real; the incident it investigated is synthetic."}
+            {split && ` ${SPLIT_WORDS[split]}`}
           </p>
           {summary && (
             <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
