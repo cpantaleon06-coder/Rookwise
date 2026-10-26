@@ -162,6 +162,8 @@ The hashes cited in earlier entries were rewritten before the push (the rewrite 
 
 The local tag `freeze-1` still points at the rewritten `06b5a26`, which is not in the published history; it is left as it is. The frozen engine is `f4853ea` in the published history.
 
+The local tag `freeze-1-published` (2026-10-26, not pushed) points at `f4853ea`, the published commit of the freeze; `freeze-1` is not moved.
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
