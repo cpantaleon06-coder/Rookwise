@@ -328,3 +328,48 @@ def test_the_cli_never_starts_a_live_run_by_accident(bench, monkeypatch, capsys)
     assert "Set HARNESS_MODE=record" in capsys.readouterr().out
     assert bench.main(["--approve-total-usd", "lots"]) == 2
     assert "must be a positive amount" in capsys.readouterr().out
+
+
+def test_repeats_limits_the_plan_to_the_first_repeats(bench, tmp_path):
+    lines, spy = [], Spy(bench)
+    code = _go(
+        bench,
+        tmp_path,
+        _config(bench),
+        runner=spy,
+        lines=lines,
+        live=True,
+        approve_total_usd=Decimal("10"),
+        repeats=1,
+    )
+    assert code == 0 and spy.modes.count("record") == 2
+    assert lines[0] == "Planned runs: 2 (dev split); done: 0; to run: 2."
+    assert _results(tmp_path) == [f"{DEV}__a__r1.json", f"{DEV}__c__r1.json"]
+    # A later run with the configured repeats adds only the second repeat.
+    lines, spy = [], Spy(bench)
+    _go(
+        bench,
+        tmp_path,
+        _config(bench),
+        runner=spy,
+        lines=lines,
+        live=True,
+        approve_total_usd=Decimal("10"),
+    )
+    assert lines[0] == "Planned runs: 4 (dev split); done: 2; to run: 2."
+    assert spy.modes.count("record") == 2
+
+
+def test_repeats_must_stay_within_the_configured_number(bench):
+    config = _config(bench, repeats=2)
+    for bad in (0, 3):
+        with pytest.raises(ValueError, match="between 1 and the configured 2"):
+            bench.planned_runs(config, "dev", TRUTHS.__getitem__, bad)
+    assert len(bench.planned_runs(config, "dev", TRUTHS.__getitem__, 2)) == 4
+
+
+def test_the_cli_refuses_repeats_out_of_range(bench, capsys):
+    configured = bench.load_plan(bench.run_incident.load_benchmark_config())["repeats"]
+    for bad in ("0", str(configured + 1)):
+        assert bench.main(["--repeats", bad]) == 2
+        assert "--repeats must be between 1 and the configured" in capsys.readouterr().out

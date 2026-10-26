@@ -32,9 +32,13 @@ Outputs, under `results_dir` (benchmarks/results/): one metrics-only JSON file p
 prompt text, go to `cassette_dir` (runs/cassettes/benchmark/, gitignored). Nothing from
 .env and no request header is printed or written.
 
+`--repeats N` runs only repeats 1 to N of each (incident, configuration), N at most the
+configured `repeats`; the others are not planned (a later run with a larger N adds them).
+
 Usage:
     python scripts/run_benchmark.py
     python scripts/run_benchmark.py --split all
+    python scripts/run_benchmark.py --repeats 1
     HARNESS_MODE=record python scripts/run_benchmark.py --live --approve-total-usd 5.00
     HARNESS_MODE=record python scripts/run_benchmark.py --live --approve-total-usd 9.00 \\
         --split test --freeze-confirmed
@@ -124,18 +128,28 @@ def default_loader(incident_id: str) -> tuple[EvidenceBundle, GroundTruth]:
 
 
 def planned_runs(
-    config: dict[str, Any], split: str, truth_loader: TruthLoader = load_ground_truth
+    config: dict[str, Any],
+    split: str,
+    truth_loader: TruthLoader = load_ground_truth,
+    repeats: int | None = None,
 ) -> list[PlannedRun]:
     """Every (incident, configuration, repeat) of the plan whose incident is in `split`
-    ("dev", "test" or "all"), incident by incident. The split is the ground truth's."""
+    ("dev", "test" or "all"), incident by incident. The split is the ground truth's.
+    `repeats` (None: the configured number) keeps repeats 1 to `repeats` only; it must be
+    between 1 and the configured number."""
     plan = load_plan(config)
+    configured = int(plan["repeats"])
+    if repeats is None:
+        repeats = configured
+    if not 1 <= repeats <= configured:
+        raise ValueError(f"repeats must be between 1 and the configured {configured}")
     runs = []
     for incident_id in plan["incidents"]:
         truth = truth_loader(incident_id)
         if split != "all" and truth.split != split:
             continue
         for configuration in plan["configurations"]:
-            for repeat in range(1, int(plan["repeats"]) + 1):
+            for repeat in range(1, repeats + 1):
                 cap = Decimal(cap_for(config, configuration))
                 runs.append(PlannedRun(incident_id, truth.split, configuration, repeat, cap))
     return runs
@@ -409,10 +423,11 @@ async def benchmark(
     runner: Runner = run_incident.run,
     transport: Any = None,
     say: Callable[[str], None] = print,
+    repeats: int | None = None,
 ) -> int:
     """Estimate, then (with `live`) run what is left of the plan. Returns an exit code:
     0 done, 2 refused before any run, 3 stopped part way (budget or an error)."""
-    runs = planned_runs(config, split, truth_loader)
+    runs = planned_runs(config, split, truth_loader, repeats)
     todo = [run for run in runs if not result_path(results_dir, run).exists()]
     say(
         f"Planned runs: {len(runs)} ({split} split); done: {len(runs) - len(todo)}; "
@@ -513,6 +528,12 @@ def main(argv: list[str] | None = None) -> int:
     plan = load_plan(config)
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--split", choices=(*SPLITS, "all"), default="dev")
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        metavar="N",
+        help=f"run repeats 1 to N only (at most the configured {plan['repeats']})",
+    )
     parser.add_argument("--live", action="store_true", help="record runs (costs credits)")
     parser.add_argument("--approve-total-usd", help="live only: at least the predicted total")
     parser.add_argument(
@@ -530,6 +551,9 @@ def main(argv: list[str] | None = None) -> int:
             "--reuse-cassette is refused: a benchmark run is never partially replayed; "
             "nothing was run."
         )
+        return 2
+    if args.repeats is not None and not 1 <= args.repeats <= int(plan["repeats"]):
+        print(f"--repeats must be between 1 and the configured {plan['repeats']}; nothing was run.")
         return 2
     approved = _usd(args.approve_total_usd)
     if args.approve_total_usd is not None and approved is None:
@@ -549,6 +573,7 @@ def main(argv: list[str] | None = None) -> int:
         benchmark(
             config,
             split=args.split,
+            repeats=args.repeats,
             live=args.live,
             approve_total_usd=approved,
             freeze_confirmed=args.freeze_confirmed,
