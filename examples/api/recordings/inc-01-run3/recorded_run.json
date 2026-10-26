@@ -7,19 +7,18 @@
     "run_folder": "inc-01/record",
     "exported_by": "scripts/export_recorded_run.py",
     "max_delay_ms": 1500,
+    "diagnosis_source": {
+      "tool": "tools/recover_diagnosis.py",
+      "how": "an offline replay of the run's cassette at the recording commit, checked against the run folder",
+      "commit": "1891b44",
+      "verified_events": 707
+    },
     "changes": [
       "mode is \"recorded\" in every envelope and in run_started (with recording_id)",
       "run_finished.package_url points at the package",
       "tool_called.args is null"
     ],
     "not_filled": [
-      "package.diagnosis.root_cause: report.json does not keep the root cause text",
-      "package.diagnosis.root_cause_claim_ids: not in report.json",
-      "package.diagnosis.remediation_plan: not in report.json",
-      "package.diagnosis.claims[].citations (source, lines, quote): report.json keeps no citation of any claim",
-      "package.evidence_check.claims[].citation_reasons of supported claims: report.json keeps citation reasons for withdrawn claims only",
-      "package.diagnosis.claims order: report.json lists supported and withdrawn claims apart, so the original order across them is lost; exported supported first, then withdrawn, each in its own order",
-      "package.coverage.empty_sources: not in report.json",
       "package.deliverables: the run's store:// outputs are not in the run folder; sent empty (package.summary is the director's last message)",
       "events: no mode_notice (recorded_mode) at the start, as docs/api.md asks of a recorded stream: the run did not emit one and adding it would change the original ids",
       "org.nodes[].status of agents with no task_result or budget_exhausted (the director, managers and auditor): no event records it; kept as hired"
@@ -12231,27 +12230,107 @@
       "warning": null
     },
     "diagnosis": {
-      "root_cause": null,
+      "root_cause": "TLS client certificate for pay-gw.example.net expired at 2026-05-04T03:40:00Z, causing billing-api to fail payment gateway calls with tls_handshake_failed, which cascaded into sustained 502 errors on POST /v1/invoices/pay across edge-proxy and invoice-worker.",
       "category": "certificate_expiry",
       "claims": [
         {
           "claim_id": "c1",
           "text": "billing-api logs show a TLS client certificate for pay-gw.example.net expiring at 2026-05-04T03:40:00Z, with warnings starting at 00:43:30Z (2.9 hours left).",
-          "citations": null
+          "citations": [
+            {
+              "source_id": "logs/billing-api.log",
+              "line_start": 447,
+              "line_end": 447,
+              "quote": "2026-05-04T00:43:30.836Z WARN  billing-api[billing-1] tls: client certificate expires soon peer=pay-gw.example.net cert=pay-gw-client not_after=2026-05-04T03:40:00Z hours_left=2.9"
+            }
+          ]
         },
         {
           "claim_id": "c2",
           "text": "After the certificate expiry, billing-api logs show repeated ERROR entries for charge failures with reason=tls_handshake_failed on pay-gw.example.net, starting at 03:41:00Z and continuing at high frequency.",
-          "citations": null
+          "citations": [
+            {
+              "source_id": "logs/billing-api.log",
+              "line_start": 2311,
+              "line_end": 2311,
+              "quote": "2026-05-04T03:41:00.950Z ERROR billing-api[billing-1] payments: charge failed upstream=pay-gw.example.net status=502 reason=tls_handshake_failed"
+            },
+            {
+              "source_id": "logs/billing-api.log",
+              "line_start": 2317,
+              "line_end": 2317,
+              "quote": "2026-05-04T03:41:46.345Z ERROR billing-api[billing-2] payments: charge failed upstream=pay-gw.example.net status=502 reason=tls_handshake_failed"
+            },
+            {
+              "source_id": "logs/billing-api.log",
+              "line_start": 2321,
+              "line_end": 2321,
+              "quote": "2026-05-04T03:42:02.079Z ERROR billing-api[billing-3] payments: charge failed upstream=pay-gw.example.net status=502 reason=tls_handshake_failed"
+            },
+            {
+              "source_id": "logs/billing-api.log",
+              "line_start": 2400,
+              "line_end": 2400,
+              "quote": "2026-05-04T03:48:33.417Z ERROR billing-api[billing-1] payments: charge failed upstream=pay-gw.example.net status=502 reason=tls_handshake_failed"
+            }
+          ]
         },
         {
           "claim_id": "c3",
           "text": "edge-proxy logs show sustained 502 responses on POST /v1/invoices/pay with upstream=billing-api from 03:40:25Z onward, and invoice-worker logs show repeated charge failed errors with reason=billing-api 502, confirming the cascade.",
-          "citations": null
+          "citations": [
+            {
+              "source_id": "logs/edge-proxy.log",
+              "line_start": 2371,
+              "line_end": 2371,
+              "quote": "2026-05-04T03:40:25.987Z INFO  edge-proxy[edge-2] proxy: POST /v1/invoices/pay status=502 dur_ms=53 upstream=billing-api req=a88c9e01 ip=192.0.2.30"
+            },
+            {
+              "source_id": "logs/edge-proxy.log",
+              "line_start": 2386,
+              "line_end": 2386,
+              "quote": "2026-05-04T03:41:28.051Z INFO  edge-proxy[edge-1] proxy: POST /v1/invoices/pay status=502 dur_ms=55 upstream=billing-api req=f67f0527 ip=192.0.2.250"
+            },
+            {
+              "source_id": "logs/invoice-worker.jsonl",
+              "line_start": 985,
+              "line_end": 985,
+              "quote": "{\"ts\":\"2026-05-04T03:40:25.318Z\",\"level\":\"error\",\"service\":\"invoice-worker\",\"host\":\"worker-2\",\"component\":\"jobs\",\"msg\":\"charge failed\",\"job\":\"collect-payment\",\"invoice\":\"inv-572289\",\"reason\":\"billing-api 502\"}"
+            },
+            {
+              "source_id": "logs/invoice-worker.jsonl",
+              "line_start": 990,
+              "line_end": 990,
+              "quote": "{\"ts\":\"2026-05-04T03:41:12.340Z\",\"level\":\"error\",\"service\":\"invoice-worker\",\"host\":\"worker-1\",\"component\":\"jobs\",\"msg\":\"charge failed\",\"job\":\"collect-payment\",\"invoice\":\"inv-402117\",\"reason\":\"billing-api 502\"}"
+            }
+          ]
         }
       ],
-      "root_cause_claim_ids": null,
-      "remediation_plan": null
+      "root_cause_claim_ids": [
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "remediation_plan": [
+        {
+          "action": "Renew the TLS client certificate for pay-gw.example.net (cert=pay-gw-client) and deploy it to all billing-api instances.",
+          "why": "The certificate expired at 2026-05-04T03:40:00Z, causing TLS handshake failures on every payment gateway call; renewing it restores the trust chain.",
+          "risk": "If the new certificate is misconfigured or not rolled out to all billing-api pods, payment failures will persist.",
+          "reversible": true
+        },
+        {
+          "action": "Add a certificate expiry monitoring alert (e.g., 30-day and 7-day warnings) for pay-gw-client to prevent recurrence.",
+          "why": "The incident began with a WARN at 2.9 hours left, which was too late to prevent outage; earlier alerts give time to rotate certificates.",
+          "risk": "Alert fatigue if thresholds are not tuned; false positives if monitoring reads wrong certificate store.",
+          "reversible": true
+        },
+        {
+          "action": "Restart billing-api pods after certificate deployment to ensure they pick up the renewed certificate immediately.",
+          "why": "Some runtimes cache TLS credentials at startup; a rolling restart guarantees the new certificate is used without waiting for natural pod turnover.",
+          "risk": "Brief capacity dip during rolling restart; mitigate by draining connections first.",
+          "reversible": true
+        }
+      ]
     },
     "evidence_check": {
       "claims": [
@@ -12259,19 +12338,31 @@
           "claim_id": "c1",
           "supported": true,
           "reason": "ok",
-          "citation_reasons": null
+          "citation_reasons": [
+            "ok"
+          ]
         },
         {
           "claim_id": "c2",
           "supported": true,
           "reason": "ok",
-          "citation_reasons": null
+          "citation_reasons": [
+            "ok",
+            "ok",
+            "ok",
+            "ok"
+          ]
         },
         {
           "claim_id": "c3",
           "supported": true,
           "reason": "ok",
-          "citation_reasons": null
+          "citation_reasons": [
+            "ok",
+            "ok",
+            "ok",
+            "ok"
+          ]
         }
       ],
       "supported": 3,
@@ -12317,7 +12408,7 @@
           "line_end": 362
         }
       ],
-      "empty_sources": null
+      "empty_sources": []
     }
   }
 }
