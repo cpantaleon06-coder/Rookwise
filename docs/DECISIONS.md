@@ -142,6 +142,12 @@ The first live smoke run (USD 0.010667, 14 calls) showed six `length` finishes, 
 | --- | --- |
 | The engine is frozen for the benchmark at the commit tagged `freeze-1` (local tag, not pushed): the commit that adds this entry, on top of `3af9c96` ("team: warn when too few slices were read"). Frozen: the code (`core/`, `scripts/`), the prompts, the skills (`skills/`), and the config (`config/`). After the freeze only bug fixes that do not change behavior are allowed, and each must be documented here with its date, commit and why it does not change behavior. Anything else waits until the benchmark results are reported. | git tag `freeze-1`; this file |
 
+Changes after the freeze:
+
+| Date | Commit | Change | Why it does not change behavior |
+| --- | --- | --- | --- |
+| 2026-10-25 | `75a3f7c` | `scripts/run_benchmark.py --repeats N` runs only repeats 1 to N of each (incident, configuration), N at most the configured `repeats` (2). Requested by the user so Phase 1 can run the dev split with one repeat (9 runs) without editing the frozen config. | It only chooses which planned runs the runner starts. Without the option the plan is the same as at `freeze-1`; each run still goes through `run_incident.run` with the same code, prompts, skills, config and caps, and its result file keeps the same name and fields. `core/`, the prompts, the skills and `config/` are unchanged. |
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
