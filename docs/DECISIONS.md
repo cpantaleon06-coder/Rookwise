@@ -148,6 +148,19 @@ Changes after the freeze:
 | --- | --- | --- | --- |
 | 2026-10-25 | `75a3f7c` | `scripts/run_benchmark.py --repeats N` runs only repeats 1 to N of each (incident, configuration), N at most the configured `repeats` (2). Requested by the user so Phase 1 can run the dev split with one repeat (9 runs) without editing the frozen config. | It only chooses which planned runs the runner starts. Without the option the plan is the same as at `freeze-1`; each run still goes through `run_incident.run` with the same code, prompts, skills, config and caps, and its result file keeps the same name and fields. `core/`, the prompts, the skills and `config/` are unchanged. |
 
+## Commit hash note (2026-10-25)
+
+The hashes cited in earlier entries were rewritten before the push (the rewrite changed `README.md` across the history; every other file is the same). Each one is mapped to its published commit by its commit message, and the two trees were compared: they differ in `README.md` only.
+
+| Cited hash | Published hash | Commit message |
+| --- | --- | --- |
+| `3af9c96` | `2fda6f3` | team: warn when too few slices were read |
+| `75a3f7c` | `e4c8f3d` | benchmarks: let the runner limit a phase to its first repeats |
+| `b3aedd4` | `5818abb` | docs: record the runner repeats option as a post-freeze change |
+| `06b5a26` (the local tag `freeze-1`) | `f4853ea` | docs: equal benchmark caps and engine freeze |
+
+The local tag `freeze-1` still points at the rewritten `06b5a26`, which is not in the published history; it is left as it is. The frozen engine is `f4853ea` in the published history.
+
 ## Still open
 
 - **Executor host**: which host runs the run executor and the live event stream. Chosen after measuring how long a real run takes.
