@@ -7,19 +7,18 @@
     "run_folder": "inc-03/record",
     "exported_by": "scripts/export_recorded_run.py",
     "max_delay_ms": 1500,
+    "diagnosis_source": {
+      "tool": "tools/recover_diagnosis.py",
+      "how": "an offline replay of the run's cassette at the recording commit, checked against the run folder",
+      "commit": "3a8879e",
+      "verified_events": 527
+    },
     "changes": [
       "mode is \"recorded\" in every envelope and in run_started (with recording_id)",
       "run_finished.package_url points at the package",
       "tool_called.args is null"
     ],
     "not_filled": [
-      "package.diagnosis.root_cause: report.json does not keep the root cause text",
-      "package.diagnosis.root_cause_claim_ids: not in report.json",
-      "package.diagnosis.remediation_plan: not in report.json",
-      "package.diagnosis.claims[].citations (source, lines, quote): report.json keeps no citation of any claim",
-      "package.evidence_check.claims[].citation_reasons of supported claims: report.json keeps citation reasons for withdrawn claims only",
-      "package.diagnosis.claims order: report.json lists supported and withdrawn claims apart, so the original order across them is lost; exported supported first, then withdrawn, each in its own order",
-      "package.coverage.empty_sources: not in report.json",
       "package.deliverables: the run's store:// outputs are not in the run folder; sent empty (package.summary is the director's last message)",
       "events: no mode_notice (recorded_mode) at the start, as docs/api.md asks of a recorded stream: the run did not emit one and adding it would change the original ids",
       "org.nodes[].status of agents with no task_result or budget_exhausted (the director, managers and auditor): no event records it; kept as hired"
@@ -9229,32 +9228,120 @@
       "warning": "2 claims were withdrawn as unsupported and are listed; the audit covers the supported rest."
     },
     "diagnosis": {
-      "root_cause": null,
+      "root_cause": "The storefront-api 5xx incident was caused by a configuration regression in deploy.diff that reduced cart_client timeout_ms from 3000 ms to 30 ms, causing storefront-api calls to cart-svc to time out prematurely and return HTTP 503 to clients.",
       "category": "bad_config",
       "claims": [
         {
           "claim_id": "c1",
           "text": "A recent deployment changed cart_client timeout_ms from 3000 to 30, a 100x reduction that is likely too aggressive.",
-          "citations": null
-        },
-        {
-          "claim_id": "c4",
-          "text": "The 5xx rate spiked from ~0.1-0.5% to 33-38% at 02:11 UTC and remained elevated through 03:18 UTC, correlating with the onset of 503 errors on cart endpoints.",
-          "citations": null
+          "citations": [
+            {
+              "source_id": "deploy.diff",
+              "line_start": 9,
+              "line_end": 9,
+              "quote": "-  timeout_ms: 3000"
+            },
+            {
+              "source_id": "deploy.diff",
+              "line_start": 10,
+              "line_end": 10,
+              "quote": "+  timeout_ms: 30"
+            }
+          ]
         },
         {
           "claim_id": "c2",
           "text": "storefront-api logs show sustained HTTP 503 errors on cart endpoints (/api/v2/cart and /api/v2/cart/items) starting at 02:10:59 UTC, with durations of 30-32 ms that match the new timeout value.",
-          "citations": null
+          "citations": [
+            {
+              "source_id": "logs/storefront-api.log",
+              "line_start": 1736,
+              "line_end": 1736,
+              "quote": "2026-05-20T02:10:59.156Z INFO storefront-api[shop-3] http: POST /api/v2/cart/items status=503 dur_ms=32 req=1db63b8c client=web-spa"
+            },
+            {
+              "source_id": "logs/storefront-api.log",
+              "line_start": 1740,
+              "line_end": 1740,
+              "quote": "2026-05-20T02:11:03.117Z INFO storefront-api[shop-2] http: POST /api/v2/cart/items status=503 dur_ms=31 upstream=cart-svc req=c0ffee03"
+            },
+            {
+              "source_id": "logs/storefront-api.log",
+              "line_start": 1744,
+              "line_end": 1744,
+              "quote": "2026-05-20T02:11:31.159Z INFO storefront-api[shop-1] http: POST /api/v2/cart/items status=503 dur_ms=31 req=190c9a67"
+            }
+          ]
         },
         {
           "claim_id": "c3",
           "text": "cart-svc logs show no internal errors, exceptions, or failed requests; all requests complete with status 200 and latencies of 38-66 ms, confirming the upstream service is healthy.",
-          "citations": null
+          "citations": [
+            {
+              "source_id": "logs/cart-svc.jsonl",
+              "line_start": 188,
+              "line_end": 188,
+              "quote": "{\"ts\":\"2026-05-20T00:33:26.407Z\",\"level\":\"info\",\"service\":\"cart-svc\",\"host\":\"cart-1\",\"component\":\"jobs\",\"msg\":\"request finished\",\"path\":\"/v1/cart\",\"status\":200,\"dur_ms\":46}"
+            },
+            {
+              "source_id": "logs/cart-svc.jsonl",
+              "line_start": 290,
+              "line_end": 290,
+              "quote": "{\"ts\":\"2026-05-20T00:48:57.884Z\",\"level\":\"info\",\"service\":\"cart-svc\",\"host\":\"cart-2\",\"component\":\"jobs\",\"msg\":\"request finished\",\"path\":\"/v1/cart\",\"status\":200,\"dur_ms\":45}"
+            },
+            {
+              "source_id": "logs/cart-svc.jsonl",
+              "line_start": 940,
+              "line_end": 940,
+              "quote": "{\"ts\":\"2026-05-20T02:27:30.857Z\",\"level\":\"info\",\"service\":\"cart-svc\",\"host\":\"cart-1\",\"component\":\"jobs\",\"msg\":\"request finished\",\"path\":\"/v1/cart/items\",\"status\":200,\"dur_ms\":39}"
+            }
+          ]
+        },
+        {
+          "claim_id": "c4",
+          "text": "The 5xx rate spiked from ~0.1-0.5% to 33-38% at 02:11 UTC and remained elevated through 03:18 UTC, correlating with the onset of 503 errors on cart endpoints.",
+          "citations": [
+            {
+              "source_id": "metrics.csv",
+              "line_start": 134,
+              "line_end": 134,
+              "quote": "37.0,143,49,77"
+            },
+            {
+              "source_id": "metrics.csv",
+              "line_start": 135,
+              "line_end": 135,
+              "quote": "34.3,161,50,72"
+            },
+            {
+              "source_id": "metrics.csv",
+              "line_start": 159,
+              "line_end": 159,
+              "quote": "33.6,189,53,79"
+            }
+          ]
         }
       ],
-      "root_cause_claim_ids": null,
-      "remediation_plan": null
+      "root_cause_claim_ids": [
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ],
+      "remediation_plan": [
+        {
+          "action": "Roll back the cart_client timeout_ms change in the configuration to restore the previous value of 3000 ms.",
+          "why": "The timeout reduction from 3000 ms to 30 ms is the root cause; restoring the original value will allow storefront-api to wait long enough for cart-svc responses (which take 38-66 ms).",
+          "risk": "If the original timeout was masking a genuine cart-svc latency problem, rolling back could hide that issue. However, cart-svc logs show consistent healthy latencies, so this risk is low.",
+          "reversible": true
+        },
+        {
+          "action": "Deploy the rolled-back configuration and monitor storefront_5xx_pct and cart endpoint 503 rates for at least 15 minutes.",
+          "why": "Validate that the 5xx rate returns to baseline (<1%) and cart 503 errors cease, confirming the fix.",
+          "risk": "If the rollback does not resolve the issue, further investigation is needed, but the evidence strongly points to this config change.",
+          "reversible": true
+        }
+      ]
     },
     "evidence_check": {
       "claims": [
@@ -9262,13 +9349,10 @@
           "claim_id": "c1",
           "supported": true,
           "reason": "ok",
-          "citation_reasons": null
-        },
-        {
-          "claim_id": "c4",
-          "supported": true,
-          "reason": "ok",
-          "citation_reasons": null
+          "citation_reasons": [
+            "ok",
+            "ok"
+          ]
         },
         {
           "claim_id": "c2",
@@ -9288,6 +9372,16 @@
             "ok",
             "ok",
             "quote_not_found"
+          ]
+        },
+        {
+          "claim_id": "c4",
+          "supported": true,
+          "reason": "ok",
+          "citation_reasons": [
+            "ok",
+            "ok",
+            "ok"
           ]
         }
       ],
@@ -9305,7 +9399,7 @@
       "slices_read": 60,
       "empty_slices": 4,
       "unread_slices": [],
-      "empty_sources": null
+      "empty_sources": []
     }
   }
 }

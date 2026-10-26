@@ -7,19 +7,18 @@
     "run_folder": "inc-01/record",
     "exported_by": "scripts/export_recorded_run.py",
     "max_delay_ms": 1500,
+    "diagnosis_source": {
+      "tool": "tools/recover_diagnosis.py",
+      "how": "an offline replay of the run's cassette at the recording commit, checked against the run folder",
+      "commit": "1891b44",
+      "verified_events": 707
+    },
     "changes": [
       "mode is \"recorded\" in every envelope and in run_started (with recording_id)",
       "run_finished.package_url points at the package",
       "tool_called.args is null"
     ],
     "not_filled": [
-      "package.diagnosis.root_cause: report.json does not keep the root cause text",
-      "package.diagnosis.root_cause_claim_ids: not in report.json",
-      "package.diagnosis.remediation_plan: not in report.json",
-      "package.diagnosis.claims[].citations (source, lines, quote): report.json keeps no citation of any claim",
-      "package.evidence_check.claims[].citation_reasons of supported claims: report.json keeps citation reasons for withdrawn claims only",
-      "package.diagnosis.claims order: report.json lists supported and withdrawn claims apart, so the original order across them is lost; exported supported first, then withdrawn, each in its own order",
-      "package.coverage.empty_sources: not in report.json",
       "package.deliverables: the run's store:// outputs are not in the run folder; sent empty (package.summary is the director's last message)",
       "events: no mode_notice (recorded_mode) at the start, as docs/api.md asks of a recorded stream: the run did not emit one and adding it would change the original ids",
       "org.nodes[].status of agents with no task_result or budget_exhausted (the director, managers and auditor): no event records it; kept as hired"
