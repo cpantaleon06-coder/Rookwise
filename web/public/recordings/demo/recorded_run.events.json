@@ -1,0 +1,1699 @@
+{
+  "_fixture": {
+    "synthetic": true,
+    "api_version": "v1",
+    "note": "SYNTHETIC FIXTURE written by scripts/gen_api_fixtures.py. It is not real model output and not a measured run; texts are marked [synthetic] and numbers are arithmetic on config/prices.json. The demo case itself is simulated."
+  },
+  "run_id": "run_8f2c1a7d4b",
+  "events": [
+    {
+      "delay_ms": 0,
+      "event": {
+        "id": "run_8f2c1a7d4b:1",
+        "seq": 1,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:00Z",
+        "type": "run_started",
+        "payload": {
+          "goal": "[synthetic] Plan a one-page website for a simulated corner bakery.",
+          "mode": "recorded",
+          "recording_id": "rec-demo-bakery-001",
+          "budget_usd": "0.250000",
+          "board": false,
+          "simulated_case": true
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:2",
+        "seq": 2,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:00.050000Z",
+        "type": "mode_notice",
+        "payload": {
+          "notice": "recorded_mode",
+          "mode": "recorded",
+          "refusal": null,
+          "detail": "Replaying a saved synthetic run. It costs nothing."
+        }
+      }
+    },
+    {
+      "delay_ms": 300,
+      "event": {
+        "id": "run_8f2c1a7d4b:3",
+        "seq": 3,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:00.350000Z",
+        "type": "agent_hired",
+        "payload": {
+          "agent": {
+            "agent_id": "a-director",
+            "level": "director",
+            "role": "director",
+            "model": "nemotron-3-ultra",
+            "operator_id": null,
+            "parent_id": null,
+            "skills": [],
+            "tools": [],
+            "status": "hired"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 1800,
+      "event": {
+        "id": "run_8f2c1a7d4b:4",
+        "seq": 4,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:02.150000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.004800",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.005000",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "director",
+            "task_id": "plan",
+            "model": "nemotron-3-ultra",
+            "input_tokens": 3000,
+            "cached_tokens": 0,
+            "output_tokens": 600,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.004800",
+            "usd_predicted": "0.005000",
+            "ts": "2026-10-20T15:00:00.350000Z",
+            "skills": [],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:5",
+        "seq": 5,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:02.250000Z",
+        "type": "message",
+        "payload": {
+          "message": {
+            "message_id": "m-1",
+            "run_id": "run_8f2c1a7d4b",
+            "sender": "director",
+            "text": "[synthetic] Plan: one manager with a research task and two copywriting tasks (page copy and menu), within the USD 0.25 cap. Approve?",
+            "ts": "2026-10-20T15:00:02.250000Z"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 2000,
+      "event": {
+        "id": "run_8f2c1a7d4b:6",
+        "seq": 6,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:04.250000Z",
+        "type": "message",
+        "payload": {
+          "message": {
+            "message_id": "m-2",
+            "run_id": "run_8f2c1a7d4b",
+            "sender": "user",
+            "text": "[synthetic] Approved.",
+            "ts": "2026-10-20T15:00:04.250000Z"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 200,
+      "event": {
+        "id": "run_8f2c1a7d4b:7",
+        "seq": 7,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:04.450000Z",
+        "type": "agent_hired",
+        "payload": {
+          "agent": {
+            "agent_id": "a-auditor",
+            "level": "auditor",
+            "role": "auditor",
+            "model": "nemotron-3-ultra",
+            "operator_id": null,
+            "parent_id": null,
+            "skills": [
+              "prose-style"
+            ],
+            "tools": [],
+            "status": "hired"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:8",
+        "seq": 8,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:04.500000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "allocated",
+          "agent_id": "a-auditor",
+          "parent_agent_id": "a-director",
+          "usd": "0.010000",
+          "parent_free_usd": "0.235200"
+        }
+      }
+    },
+    {
+      "delay_ms": 200,
+      "event": {
+        "id": "run_8f2c1a7d4b:9",
+        "seq": 9,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:04.700000Z",
+        "type": "agent_hired",
+        "payload": {
+          "agent": {
+            "agent_id": "a-manager-1",
+            "level": "manager",
+            "role": "manager",
+            "model": "nemotron-3-super",
+            "operator_id": null,
+            "parent_id": "a-director",
+            "skills": [],
+            "tools": [],
+            "status": "hired"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:10",
+        "seq": 10,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:04.750000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "allocated",
+          "agent_id": "a-manager-1",
+          "parent_agent_id": "a-director",
+          "usd": "0.015000",
+          "parent_free_usd": "0.220200"
+        }
+      }
+    },
+    {
+      "delay_ms": 1200,
+      "event": {
+        "id": "run_8f2c1a7d4b:11",
+        "seq": 11,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:05.950000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.005760",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006000",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "manager",
+            "task_id": "manage-1",
+            "model": "nemotron-3-super",
+            "input_tokens": 2000,
+            "cached_tokens": 0,
+            "output_tokens": 400,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.000960",
+            "usd_predicted": "0.001000",
+            "ts": "2026-10-20T15:00:04.750000Z",
+            "skills": [],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 200,
+      "event": {
+        "id": "run_8f2c1a7d4b:12",
+        "seq": 12,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:06.150000Z",
+        "type": "agent_hired",
+        "payload": {
+          "agent": {
+            "agent_id": "a-op-research",
+            "level": "operator",
+            "role": "researcher",
+            "model": "nemotron-3.5-lightning",
+            "operator_id": "researcher-lightning-01",
+            "parent_id": "a-manager-1",
+            "skills": [
+              "prose-style"
+            ],
+            "tools": [
+              "tavily_search"
+            ],
+            "status": "hired"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:13",
+        "seq": 13,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:06.200000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "allocated",
+          "agent_id": "a-op-research",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.003000",
+          "parent_free_usd": "0.011040"
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:14",
+        "seq": 14,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:06.300000Z",
+        "type": "task_assigned",
+        "payload": {
+          "task": {
+            "task_id": "t-1",
+            "run_id": "run_8f2c1a7d4b",
+            "role": "researcher",
+            "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-1",
+            "inputs": [],
+            "budget": {
+              "max_input_tokens": 20000,
+              "max_output_tokens": 4000,
+              "max_usd": "0.003000"
+            },
+            "deadline_s": 120
+          },
+          "agent_id": "a-op-research",
+          "operator_id": "researcher-lightning-01"
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:15",
+        "seq": 15,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:06.400000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-1",
+          "agent_id": "a-op-research",
+          "model": "nemotron-3.5-lightning",
+          "attempt_index": 0
+        }
+      }
+    },
+    {
+      "delay_ms": 700,
+      "event": {
+        "id": "run_8f2c1a7d4b:16",
+        "seq": 16,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:07.100000Z",
+        "type": "tool_called",
+        "payload": {
+          "task_id": "t-1",
+          "agent_id": "a-op-research",
+          "tool": "search",
+          "ok": true,
+          "error_type": null,
+          "truncated": false,
+          "run_tool_count": 1,
+          "args": null
+        }
+      }
+    },
+    {
+      "delay_ms": 900,
+      "event": {
+        "id": "run_8f2c1a7d4b:17",
+        "seq": 17,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-research",
+          "attempt": {
+            "task_id": "t-1",
+            "attempt_index": 0,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "final",
+            "ok": true,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 2,
+            "model_calls": 2,
+            "tool_calls": {
+              "search": 1
+            },
+            "usd": "0.000174",
+            "input_tokens": 2000,
+            "output_tokens": 220,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:18",
+        "seq": 18,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08.050000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.005934",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006200",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000174"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "operator",
+            "task_id": "t-1",
+            "model": "nemotron-3.5-lightning",
+            "input_tokens": 1100,
+            "cached_tokens": 0,
+            "output_tokens": 180,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.000110",
+            "usd_predicted": "0.000100",
+            "ts": "2026-10-20T15:00:07.100000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:19",
+        "seq": 19,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08.100000Z",
+        "type": "task_result",
+        "payload": {
+          "agent_id": "a-op-research",
+          "result": {
+            "task_id": "t-1",
+            "status": "ok",
+            "output_ref": "store://run_8f2c1a7d4b/results/t-1",
+            "usage": {
+              "input_tokens": 2000,
+              "output_tokens": 220,
+              "usd": "0.000174"
+            },
+            "self_check": {
+              "schema_valid": true,
+              "notes": "first_pass_ok"
+            }
+          },
+          "label": "first_pass_ok"
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:20",
+        "seq": 20,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08.150000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "released",
+          "agent_id": "a-op-research",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.002826",
+          "parent_free_usd": "0.013866"
+        }
+      }
+    },
+    {
+      "delay_ms": 200,
+      "event": {
+        "id": "run_8f2c1a7d4b:21",
+        "seq": 21,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08.350000Z",
+        "type": "agent_hired",
+        "payload": {
+          "agent": {
+            "agent_id": "a-op-copy",
+            "level": "operator",
+            "role": "copywriter",
+            "model": "nemotron-3.5-lightning",
+            "operator_id": "copywriter-lightning-01",
+            "parent_id": "a-manager-1",
+            "skills": [
+              "prose-style"
+            ],
+            "tools": [],
+            "status": "hired"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:22",
+        "seq": 22,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08.400000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "allocated",
+          "agent_id": "a-op-copy",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.003000",
+          "parent_free_usd": "0.010866"
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:23",
+        "seq": 23,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08.500000Z",
+        "type": "task_assigned",
+        "payload": {
+          "task": {
+            "task_id": "t-2",
+            "run_id": "run_8f2c1a7d4b",
+            "role": "copywriter",
+            "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-2",
+            "inputs": [
+              "store://run_8f2c1a7d4b/results/t-1"
+            ],
+            "budget": {
+              "max_input_tokens": 20000,
+              "max_output_tokens": 4000,
+              "max_usd": "0.003000"
+            },
+            "deadline_s": 120
+          },
+          "agent_id": "a-op-copy",
+          "operator_id": "copywriter-lightning-01"
+        }
+      }
+    },
+    {
+      "delay_ms": 150,
+      "event": {
+        "id": "run_8f2c1a7d4b:24",
+        "seq": 24,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:08.650000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-2",
+          "agent_id": "a-op-copy",
+          "model": "nemotron-3.5-lightning",
+          "attempt_index": 0
+        }
+      }
+    },
+    {
+      "delay_ms": 1100,
+      "event": {
+        "id": "run_8f2c1a7d4b:25",
+        "seq": 25,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:09.750000Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-copy",
+          "attempt": {
+            "task_id": "t-2",
+            "attempt_index": 0,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [
+              "output.headline: Field required"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.000132",
+            "input_tokens": 1000,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:26",
+        "seq": 26,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:09.800000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.006066",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006400",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000306"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "operator",
+            "task_id": "t-2",
+            "model": "nemotron-3.5-lightning",
+            "input_tokens": 1000,
+            "cached_tokens": 0,
+            "output_tokens": 300,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.000132",
+            "usd_predicted": "0.000200",
+            "ts": "2026-10-20T15:00:08.650000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 150,
+      "event": {
+        "id": "run_8f2c1a7d4b:27",
+        "seq": 27,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:09.950000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-2",
+          "agent_id": "a-op-copy",
+          "model": "nemotron-3.5-lightning",
+          "attempt_index": 1
+        }
+      }
+    },
+    {
+      "delay_ms": 1100,
+      "event": {
+        "id": "run_8f2c1a7d4b:28",
+        "seq": 28,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:11.050000Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-copy",
+          "attempt": {
+            "task_id": "t-2",
+            "attempt_index": 1,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "repair",
+            "retry_reason": "validation_failed",
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [
+              "output.body: String should have at most 600 characters"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.000150",
+            "input_tokens": 1300,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:29",
+        "seq": 29,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:11.100000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.006216",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006600",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000456"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "operator",
+            "task_id": "t-2",
+            "model": "nemotron-3.5-lightning",
+            "input_tokens": 1300,
+            "cached_tokens": 0,
+            "output_tokens": 300,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.000150",
+            "usd_predicted": "0.000200",
+            "ts": "2026-10-20T15:00:09.950000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 150,
+      "event": {
+        "id": "run_8f2c1a7d4b:30",
+        "seq": 30,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:11.250000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-2",
+          "agent_id": "a-op-copy",
+          "model": "nemotron-3.5-lightning",
+          "attempt_index": 2
+        }
+      }
+    },
+    {
+      "delay_ms": 1100,
+      "event": {
+        "id": "run_8f2c1a7d4b:31",
+        "seq": 31,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:12.350000Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-copy",
+          "attempt": {
+            "task_id": "t-2",
+            "attempt_index": 2,
+            "model": "nemotron-3.5-lightning",
+            "protocol": "native_tools",
+            "reason": "repair",
+            "retry_reason": "validation_failed",
+            "loop_status": "interrupted",
+            "ok": false,
+            "validation_errors": [
+              "(loop): ended with interrupted: ReadError: connection reset"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.000342",
+            "input_tokens": 1600,
+            "output_tokens": 1024,
+            "usage_estimated": true,
+            "detail": "ReadError: connection reset"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:32",
+        "seq": 32,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:12.400000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.006558",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.006800",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.000798"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "operator",
+            "task_id": "t-2",
+            "model": "nemotron-3.5-lightning",
+            "input_tokens": 1600,
+            "cached_tokens": 0,
+            "output_tokens": 1024,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.000342",
+            "usd_predicted": "0.000200",
+            "ts": "2026-10-20T15:00:11.250000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": true
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 150,
+      "event": {
+        "id": "run_8f2c1a7d4b:33",
+        "seq": 33,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:12.550000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-2",
+          "agent_id": "a-op-copy",
+          "model": "nemotron-3-super",
+          "attempt_index": 3
+        }
+      }
+    },
+    {
+      "delay_ms": 1100,
+      "event": {
+        "id": "run_8f2c1a7d4b:34",
+        "seq": 34,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:13.650000Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-copy",
+          "attempt": {
+            "task_id": "t-2",
+            "attempt_index": 3,
+            "model": "nemotron-3-super",
+            "protocol": "native_tools",
+            "reason": "escalation",
+            "retry_reason": "interrupted",
+            "loop_status": "final",
+            "ok": true,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.000615",
+            "input_tokens": 1000,
+            "output_tokens": 350,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:35",
+        "seq": 35,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:13.700000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.007173",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.007000",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.001413"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "operator",
+            "task_id": "t-2",
+            "model": "nemotron-3-super",
+            "input_tokens": 1000,
+            "cached_tokens": 0,
+            "output_tokens": 350,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.000615",
+            "usd_predicted": "0.000200",
+            "ts": "2026-10-20T15:00:12.550000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:36",
+        "seq": 36,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:13.750000Z",
+        "type": "task_result",
+        "payload": {
+          "agent_id": "a-op-copy",
+          "result": {
+            "task_id": "t-2",
+            "status": "ok",
+            "output_ref": "store://run_8f2c1a7d4b/results/t-2",
+            "usage": {
+              "input_tokens": 4900,
+              "output_tokens": 1974,
+              "usd": "0.001239"
+            },
+            "self_check": {
+              "schema_valid": true,
+              "notes": "ok_after_escalation"
+            }
+          },
+          "label": "ok_after_escalation"
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:37",
+        "seq": 37,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:13.800000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "released",
+          "agent_id": "a-op-copy",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.001761",
+          "parent_free_usd": "0.012627"
+        }
+      }
+    },
+    {
+      "delay_ms": 200,
+      "event": {
+        "id": "run_8f2c1a7d4b:38",
+        "seq": 38,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:14Z",
+        "type": "agent_hired",
+        "payload": {
+          "agent": {
+            "agent_id": "a-op-menu",
+            "level": "operator",
+            "role": "copywriter",
+            "model": "nemotron-3-super",
+            "operator_id": "copywriter-super-01",
+            "parent_id": "a-manager-1",
+            "skills": [
+              "prose-style"
+            ],
+            "tools": [],
+            "status": "hired"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:39",
+        "seq": 39,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:14.050000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "allocated",
+          "agent_id": "a-op-menu",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.003000",
+          "parent_free_usd": "0.009627"
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:40",
+        "seq": 40,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:14.150000Z",
+        "type": "task_assigned",
+        "payload": {
+          "task": {
+            "task_id": "t-3",
+            "run_id": "run_8f2c1a7d4b",
+            "role": "copywriter",
+            "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-3",
+            "inputs": [
+              "store://run_8f2c1a7d4b/results/t-1"
+            ],
+            "budget": {
+              "max_input_tokens": 20000,
+              "max_output_tokens": 4000,
+              "max_usd": "0.003000"
+            },
+            "deadline_s": 120
+          },
+          "agent_id": "a-op-menu",
+          "operator_id": "copywriter-super-01"
+        }
+      }
+    },
+    {
+      "delay_ms": 150,
+      "event": {
+        "id": "run_8f2c1a7d4b:41",
+        "seq": 41,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:14.300000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-3",
+          "agent_id": "a-op-menu",
+          "model": "nemotron-3-super",
+          "attempt_index": 0
+        }
+      }
+    },
+    {
+      "delay_ms": 1000,
+      "event": {
+        "id": "run_8f2c1a7d4b:42",
+        "seq": 42,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:15.300000Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-menu",
+          "attempt": {
+            "task_id": "t-3",
+            "attempt_index": 0,
+            "model": "nemotron-3-super",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.000630",
+            "input_tokens": 1200,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:43",
+        "seq": 43,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:15.350000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.007803",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.007500",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.002043"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "operator",
+            "task_id": "t-3",
+            "model": "nemotron-3-super",
+            "input_tokens": 1200,
+            "cached_tokens": 0,
+            "output_tokens": 300,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.000630",
+            "usd_predicted": "0.000500",
+            "ts": "2026-10-20T15:00:14.300000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 150,
+      "event": {
+        "id": "run_8f2c1a7d4b:44",
+        "seq": 44,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:15.500000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-3",
+          "agent_id": "a-op-menu",
+          "model": "nemotron-3-ultra",
+          "attempt_index": 1
+        }
+      }
+    },
+    {
+      "delay_ms": 1000,
+      "event": {
+        "id": "run_8f2c1a7d4b:45",
+        "seq": 45,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:16.500000Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-menu",
+          "attempt": {
+            "task_id": "t-3",
+            "attempt_index": 1,
+            "model": "nemotron-3-ultra",
+            "protocol": "native_tools",
+            "reason": "escalation",
+            "retry_reason": "operator_reported_failure",
+            "loop_status": "final",
+            "ok": false,
+            "validation_errors": [],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 1,
+            "tool_calls": {},
+            "usd": "0.002100",
+            "input_tokens": 1200,
+            "output_tokens": 300,
+            "usage_estimated": false,
+            "detail": ""
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:46",
+        "seq": 46,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:16.550000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.009903",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.008000",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.004143"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "operator",
+            "task_id": "t-3",
+            "model": "nemotron-3-ultra",
+            "input_tokens": 1200,
+            "cached_tokens": 0,
+            "output_tokens": 300,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.002100",
+            "usd_predicted": "0.000500",
+            "ts": "2026-10-20T15:00:15.500000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:47",
+        "seq": 47,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:16.600000Z",
+        "type": "task_result",
+        "payload": {
+          "agent_id": "a-op-menu",
+          "result": {
+            "task_id": "t-3",
+            "status": "failed",
+            "output_ref": "store://run_8f2c1a7d4b/results/t-3",
+            "usage": {
+              "input_tokens": 2400,
+              "output_tokens": 600,
+              "usd": "0.002730"
+            },
+            "self_check": {
+              "schema_valid": true,
+              "notes": "failed; stopped: top_of_ladder"
+            }
+          },
+          "label": "failed"
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:48",
+        "seq": 48,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:16.650000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "released",
+          "agent_id": "a-op-menu",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.000270",
+          "parent_free_usd": "0.009897"
+        }
+      }
+    },
+    {
+      "delay_ms": 200,
+      "event": {
+        "id": "run_8f2c1a7d4b:49",
+        "seq": 49,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:16.850000Z",
+        "type": "agent_hired",
+        "payload": {
+          "agent": {
+            "agent_id": "a-op-menu-2",
+            "level": "operator",
+            "role": "copywriter",
+            "model": "nemotron-3-ultra",
+            "operator_id": "copywriter-ultra-01",
+            "parent_id": "a-manager-1",
+            "skills": [
+              "prose-style"
+            ],
+            "tools": [],
+            "status": "hired"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:50",
+        "seq": 50,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:16.900000Z",
+        "type": "escalation",
+        "payload": {
+          "from_agent_id": "a-op-menu",
+          "to_agent_id": "a-op-menu-2",
+          "task_id": "t-3",
+          "reason": "[synthetic] Operator copywriter-super-01 failed (top_of_ladder); the manager reassigns the task."
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:51",
+        "seq": 51,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:16.950000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "allocated",
+          "agent_id": "a-op-menu-2",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.003000",
+          "parent_free_usd": "0.006897"
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:52",
+        "seq": 52,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:17.050000Z",
+        "type": "task_assigned",
+        "payload": {
+          "task": {
+            "task_id": "t-3.2",
+            "run_id": "run_8f2c1a7d4b",
+            "role": "copywriter",
+            "instruction_ref": "store://run_8f2c1a7d4b/briefs/t-3.2",
+            "inputs": [
+              "store://run_8f2c1a7d4b/results/t-1"
+            ],
+            "budget": {
+              "max_input_tokens": 20000,
+              "max_output_tokens": 4000,
+              "max_usd": "0.003000"
+            },
+            "deadline_s": 120
+          },
+          "agent_id": "a-op-menu-2",
+          "operator_id": "copywriter-ultra-01"
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:53",
+        "seq": 53,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:17.150000Z",
+        "type": "task_started",
+        "payload": {
+          "task_id": "t-3.2",
+          "agent_id": "a-op-menu-2",
+          "model": "nemotron-3-ultra",
+          "attempt_index": 0
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:54",
+        "seq": 54,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:17.200000Z",
+        "type": "attempt_recorded",
+        "payload": {
+          "agent_id": "a-op-menu-2",
+          "attempt": {
+            "task_id": "t-3.2",
+            "attempt_index": 0,
+            "model": "nemotron-3-ultra",
+            "protocol": "native_tools",
+            "reason": "first",
+            "retry_reason": null,
+            "loop_status": "budget_exhausted",
+            "ok": false,
+            "validation_errors": [
+              "(loop): ended with budget_exhausted: budget cap reached for budget:t-3.2: cap USD 0.003000, committed USD 0.000000, requested USD 0.005100"
+            ],
+            "length_retries": 0,
+            "steps": 1,
+            "model_calls": 0,
+            "tool_calls": {},
+            "usd": "0.000000",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "usage_estimated": false,
+            "detail": "budget cap reached for budget:t-3.2: cap USD 0.003000, committed USD 0.000000, requested USD 0.005100"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:55",
+        "seq": 55,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:17.250000Z",
+        "type": "budget_exhausted",
+        "payload": {
+          "agent_id": "a-op-menu-2",
+          "level": "operator",
+          "scope": "budget",
+          "key": "budget:t-3.2",
+          "cap_usd": "0.003000",
+          "committed_usd": "0.000000",
+          "requested_usd": "0.005100"
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:56",
+        "seq": 56,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:17.300000Z",
+        "type": "task_result",
+        "payload": {
+          "agent_id": "a-op-menu-2",
+          "result": {
+            "task_id": "t-3.2",
+            "status": "failed",
+            "output_ref": "store://run_8f2c1a7d4b/results/t-3.2",
+            "usage": {
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "usd": "0.000000"
+            },
+            "self_check": {
+              "schema_valid": false,
+              "notes": "failed; stopped: budget_exhausted"
+            }
+          },
+          "label": "failed"
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:57",
+        "seq": 57,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:17.350000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "released",
+          "agent_id": "a-op-menu-2",
+          "parent_agent_id": "a-manager-1",
+          "usd": "0.003000",
+          "parent_free_usd": "0.009897"
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:58",
+        "seq": 58,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:17.450000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "released",
+          "agent_id": "a-manager-1",
+          "parent_agent_id": "a-director",
+          "usd": "0.009897",
+          "parent_free_usd": "0.230097"
+        }
+      }
+    },
+    {
+      "delay_ms": 1500,
+      "event": {
+        "id": "run_8f2c1a7d4b:59",
+        "seq": 59,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:18.950000Z",
+        "type": "audit_result",
+        "payload": {
+          "audit": {
+            "verdict": "accepted",
+            "model": "nemotron-3-ultra",
+            "checks": [
+              {
+                "criterion": "[synthetic] Covers the goal",
+                "passed": true,
+                "note": ""
+              },
+              {
+                "criterion": "[synthetic] Plain, specific prose",
+                "passed": true,
+                "note": ""
+              },
+              {
+                "criterion": "[synthetic] Sources listed",
+                "passed": true,
+                "note": ""
+              }
+            ],
+            "correction_cycles": 0,
+            "warning": null
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:60",
+        "seq": 60,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:19Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.013003",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.011500",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.004800",
+            "manager": "0.000960",
+            "operator": "0.004143",
+            "auditor": "0.003100"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "auditor",
+            "task_id": "audit",
+            "model": "nemotron-3-ultra",
+            "input_tokens": 2500,
+            "cached_tokens": 0,
+            "output_tokens": 200,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.003100",
+            "usd_predicted": "0.003500",
+            "ts": "2026-10-20T15:00:17.450000Z",
+            "skills": [
+              "prose-style"
+            ],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 50,
+      "event": {
+        "id": "run_8f2c1a7d4b:61",
+        "seq": 61,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:19.050000Z",
+        "type": "budget_allocation",
+        "payload": {
+          "action": "released",
+          "agent_id": "a-auditor",
+          "parent_agent_id": "a-director",
+          "usd": "0.006900",
+          "parent_free_usd": "0.236997"
+        }
+      }
+    },
+    {
+      "delay_ms": 1000,
+      "event": {
+        "id": "run_8f2c1a7d4b:62",
+        "seq": 62,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:20.050000Z",
+        "type": "budget_update",
+        "payload": {
+          "spent_usd": "0.015903",
+          "held_usd": "0.000000",
+          "predicted_usd": "0.014500",
+          "cap_usd": "0.250000",
+          "spent_by_level": {
+            "director": "0.007700",
+            "manager": "0.000960",
+            "operator": "0.004143",
+            "auditor": "0.003100"
+          },
+          "entry": {
+            "run_id": "run_8f2c1a7d4b",
+            "level": "director",
+            "task_id": "deliver",
+            "model": "nemotron-3-ultra",
+            "input_tokens": 2000,
+            "cached_tokens": 0,
+            "output_tokens": 300,
+            "reasoning_tokens": 0,
+            "cached_price_fallback": true,
+            "usd_real": "0.002900",
+            "usd_predicted": "0.003000",
+            "ts": "2026-10-20T15:00:19.050000Z",
+            "skills": [],
+            "usage_estimated": false
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:63",
+        "seq": 63,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:20.150000Z",
+        "type": "message",
+        "payload": {
+          "message": {
+            "message_id": "m-3",
+            "run_id": "run_8f2c1a7d4b",
+            "sender": "director",
+            "text": "[synthetic] Done: research notes and website copy, audited and accepted. The menu is missing: its second operator's first call did not fit the task budget. See the delivery package.",
+            "ts": "2026-10-20T15:00:20.150000Z"
+          }
+        }
+      }
+    },
+    {
+      "delay_ms": 100,
+      "event": {
+        "id": "run_8f2c1a7d4b:64",
+        "seq": 64,
+        "run_id": "run_8f2c1a7d4b",
+        "mode": "recorded",
+        "ts": "2026-10-20T15:00:20.250000Z",
+        "type": "run_finished",
+        "payload": {
+          "status": "finished",
+          "partial": true,
+          "spent_usd": "0.015903",
+          "predicted_usd": "0.014500",
+          "package_url": "/api/v1/runs/run_8f2c1a7d4b/package"
+        }
+      }
+    }
+  ]
+}
