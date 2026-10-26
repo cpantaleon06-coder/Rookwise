@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { runHref } from "../App";
-import { LiveRunsControl, REPO_URL, SiteFooter, SkipLink, ThemeToggle } from "../components/chrome";
+import { LiveRunsControl, REPO_URL, SiteFooter, SkipLink } from "../components/chrome";
 import { buttonClass, Chip, Label, Placeholder, Skeleton, Usd } from "../components/ui";
 import { splitOf, SPLIT_CHIP } from "../lib/incidents";
 import { formatDate, reasonWords } from "../lib/labels";
@@ -63,7 +63,7 @@ function SiteHeader() {
         </a>
         <nav aria-label="Site" className="hidden items-center sm:flex">
           {links}
-          <ThemeToggle />
+
         </nav>
         <button
           type="button"
@@ -78,7 +78,7 @@ function SiteHeader() {
       {open && (
         <nav id="site-menu" aria-label="Site" className="flex flex-col border-t border-line px-4 py-2 sm:hidden">
           {links}
-          <ThemeToggle />
+
         </nav>
       )}
     </header>

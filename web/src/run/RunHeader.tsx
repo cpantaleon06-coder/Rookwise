@@ -51,7 +51,7 @@ export function RecordedBanner({
             </p>
           )}
         </div>
-        <LiveRunsControl compact />
+        <LiveRunsControl />
       </div>
     </div>
   );
