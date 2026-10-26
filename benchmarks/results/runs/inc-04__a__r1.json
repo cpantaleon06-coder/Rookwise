@@ -1,0 +1,84 @@
+{
+  "incident_id": "inc-04",
+  "split": "test",
+  "configuration": "a",
+  "repeat": 1,
+  "commit": "d5ea1f75577f719cb848f785debd1c27acb751bd",
+  "dirty": false,
+  "config_sha256": "fbe5fb275592e24605b3e39d65a9577d051971c29f0acc3a74e15b11f859df1b",
+  "finished_at": "2026-10-26T03:36:17.602289+00:00",
+  "status": "finished",
+  "partial": true,
+  "cap_usd": "0.500000",
+  "spent_usd": "0.316251",
+  "predicted_usd": "0.406007",
+  "under_cap": true,
+  "wall_clock_s": 859.33,
+  "by_model": {
+    "nemotron-3-ultra": {
+      "calls": 6,
+      "input_tokens": 74068,
+      "output_tokens": 6128,
+      "usd_real": "0.092452"
+    },
+    "nemotron-3.5-lightning": {
+      "calls": 109,
+      "input_tokens": 1391667,
+      "output_tokens": 148817,
+      "usd_real": "0.119268"
+    },
+    "nemotron-3-super": {
+      "calls": 24,
+      "input_tokens": 289799,
+      "output_tokens": 19533,
+      "usd_real": "0.104531"
+    }
+  },
+  "calls": {
+    "attempted": 153,
+    "charged": 139,
+    "refused_or_failed": 14
+  },
+  "retries": {
+    "retried_attempts": 0,
+    "retried_by_status": {},
+    "wait_s_total": 0,
+    "calls_retried": 0,
+    "calls_gave_up": 0
+  },
+  "ledger_refusals": 14,
+  "operator_tasks": {
+    "total": 72,
+    "ok": 57,
+    "failed": 15,
+    "not_run": 0
+  },
+  "unread_slices": 5,
+  "coverage": {
+    "slices_read": 57,
+    "slices_total": 72,
+    "fraction": 0.7916666666666666,
+    "threshold": 0.7,
+    "low": false
+  },
+  "trimmed_citations": 70,
+  "salvaged_replies": 14,
+  "top_up_usd": "0.043303",
+  "diagnosis_status": "audited",
+  "diagnosis_category": "code_regression",
+  "diagnosis_repairs": 0,
+  "claim_counts": {
+    "supported": 4,
+    "withdrawn": 2
+  },
+  "score": {
+    "diagnosis_correct": false,
+    "category_correct": false,
+    "evidence_recall": 0.0,
+    "citation_verified_rate": 1.0,
+    "citation_first_pass_validity": 0.905,
+    "coverage": 0.7916666666666666,
+    "citation_repairs": 47,
+    "withdrawn_claims": 2
+  }
+}

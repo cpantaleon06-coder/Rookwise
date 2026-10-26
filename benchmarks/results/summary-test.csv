@@ -1,1 +1,4 @@
 split,configuration,runs,incidents,diagnosis_correct_rate,category_correct_rate,evidence_recall_mean,citation_verified_rate_mean,citation_first_pass_validity_mean,coverage_mean,spent_usd_mean,spent_usd_total,wall_clock_s_mean,partial_runs,operator_tasks_ok,operator_tasks_total,retried_attempts,trimmed_citations,commits
+test,a,3,3,0.6667,0.6667,0.3333,1.0,0.8927,0.9203,0.249995,0.749984,3695.15,2,173,190,1,137,d5ea1f7
+test,b,3,3,0.0,0.0,0.2222,1.0,0.8119,0.1074,0.385560,1.156681,108.9,3,21,190,0,1,d5ea1f7
+test,c,3,3,0.3333,0.3333,0.2222,0.6667,0.8363,0.705,0.118669,0.356007,2053.2533,3,134,190,3,125,d5ea1f7

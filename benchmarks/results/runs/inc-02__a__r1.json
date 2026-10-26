@@ -1,0 +1,86 @@
+{
+  "incident_id": "inc-02",
+  "split": "test",
+  "configuration": "a",
+  "repeat": 1,
+  "commit": "d5ea1f75577f719cb848f785debd1c27acb751bd",
+  "dirty": false,
+  "config_sha256": "fbe5fb275592e24605b3e39d65a9577d051971c29f0acc3a74e15b11f859df1b",
+  "finished_at": "2026-10-26T03:06:25.403851+00:00",
+  "status": "finished",
+  "partial": true,
+  "cap_usd": "0.500000",
+  "spent_usd": "0.246234",
+  "predicted_usd": "0.332787",
+  "under_cap": true,
+  "wall_clock_s": 1039.94,
+  "by_model": {
+    "nemotron-3-ultra": {
+      "calls": 3,
+      "input_tokens": 45527,
+      "output_tokens": 3504,
+      "usd_real": "0.056039"
+    },
+    "nemotron-3.5-lightning": {
+      "calls": 110,
+      "input_tokens": 1355181,
+      "output_tokens": 106321,
+      "usd_real": "0.106879"
+    },
+    "nemotron-3-super": {
+      "calls": 20,
+      "input_tokens": 235484,
+      "output_tokens": 14068,
+      "usd_real": "0.083316"
+    }
+  },
+  "calls": {
+    "attempted": 135,
+    "charged": 133,
+    "refused_or_failed": 2
+  },
+  "retries": {
+    "retried_attempts": 1,
+    "retried_by_status": {
+      "timeout": 1
+    },
+    "wait_s_total": 0.997,
+    "calls_retried": 1,
+    "calls_gave_up": 0
+  },
+  "ledger_refusals": 2,
+  "operator_tasks": {
+    "total": 65,
+    "ok": 63,
+    "failed": 2,
+    "not_run": 0
+  },
+  "unread_slices": 2,
+  "coverage": {
+    "slices_read": 63,
+    "slices_total": 65,
+    "fraction": 0.9692307692307692,
+    "threshold": 0.7,
+    "low": false
+  },
+  "trimmed_citations": 28,
+  "salvaged_replies": 12,
+  "top_up_usd": "0.000000",
+  "diagnosis_status": "audited",
+  "diagnosis_category": "resource_leak",
+  "diagnosis_repairs": 0,
+  "claim_counts": {
+    "supported": 3,
+    "withdrawn": 3
+  },
+  "score": {
+    "diagnosis_correct": true,
+    "category_correct": true,
+    "evidence_recall": 0.6666666666666666,
+    "citation_verified_rate": 1.0,
+    "citation_first_pass_validity": 0.9129464285714286,
+    "coverage": 0.9692307692307692,
+    "citation_repairs": 37,
+    "withdrawn_claims": 3
+  }
+}
