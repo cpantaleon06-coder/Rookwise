@@ -237,10 +237,13 @@ def _ledger(items, run_id: str, caps: api.RunCaps) -> api.LedgerView:
     )
 
 
-def _diagnosis(report: dict[str, Any], not_filled: list[str]):
-    """Diagnosis, evidence check, status and coverage from report.json. The report keeps
-    claim ids and texts, the claim reasons and the withdrawn claims' citation reasons,
-    not the root cause text, the citations or the remediation plan."""
+def _diagnosis(
+    report: dict[str, Any], not_filled: list[str], sidecar: dict[str, Any] | None = None
+):
+    """Diagnosis, evidence check, status and coverage from report.json, completed from a
+    sidecar of tools/recover_diagnosis.py when one is given. The report alone keeps claim
+    ids and texts, the claim reasons and the withdrawn claims' citation reasons, not the
+    root cause text, the citations, the remediation plan or the empty sources."""
     found = report.get("diagnosis") or {}
     status = None
     if found.get("status"):
@@ -248,7 +251,17 @@ def _diagnosis(report: dict[str, Any], not_filled: list[str]):
             status=found["status"], reason=found.get("inconclusive_reason") or ""
         )
     diagnosis = check = None
-    if found.get("category"):
+    counts = found.get("claim_counts") or {}
+    if found.get("category") and sidecar is not None and sidecar.get("diagnosis"):
+        _check_sidecar(sidecar, found)
+        diagnosis = api.Diagnosis.model_validate(sidecar["diagnosis"])
+        check = api.EvidenceCheck(
+            claims=sidecar["evidence"],
+            supported=counts.get("supported", 0),
+            withdrawn=counts.get("withdrawn", 0),
+            withdrawn_by_reason=counts.get("by_reason", {}),
+        )
+    elif found.get("category"):
         supported = found.get("supported_claims") or []
         withdrawn = found.get("withdrawn_claims") or []
         diagnosis = api.Diagnosis(
@@ -258,7 +271,6 @@ def _diagnosis(report: dict[str, Any], not_filled: list[str]):
                 for c in supported + withdrawn
             ],
         )
-        counts = found.get("claim_counts") or {}
         check = api.EvidenceCheck(
             claims=[
                 api.ClaimCheck(claim_id=c["claim_id"], supported=True, reason="ok")
@@ -298,9 +310,43 @@ def _diagnosis(report: dict[str, Any], not_filled: list[str]):
         slices_read=sum(m.get("slices_read", 0) for m in managers),
         empty_slices=sum(m.get("empty_slices", 0) for m in managers),
         unread_slices=report.get("unread_slices") or [],
+        empty_sources=sidecar["empty_sources"] if sidecar is not None else None,
     )
-    not_filled.append("package.coverage.empty_sources: not in report.json")
+    if sidecar is None:
+        not_filled.append("package.coverage.empty_sources: not in report.json")
     return diagnosis, check, status, coverage
+
+
+def _check_sidecar(sidecar: dict[str, Any], found: dict[str, Any]) -> None:
+    """The sidecar must describe the claims report.json split, with the same texts,
+    reasons and counts; otherwise it belongs to another run."""
+    claims = sidecar["diagnosis"]["claims"]
+    checks = {e["claim_id"]: e for e in sidecar["evidence"]}
+    if [c["claim_id"] for c in claims] != list(checks):
+        raise ExportError("sidecar: the evidence check does not follow the claims")
+    texts = {c["claim_id"]: c["text"] for c in claims}
+    for key, supported in (("supported_claims", True), ("withdrawn_claims", False)):
+        listed = found.get(key) or []
+        if [c["claim_id"] for c in listed] != [
+            i for i in texts if checks[i]["supported"] is supported
+        ]:
+            raise ExportError(f"sidecar: its {key} differ from report.json")
+        for claim in listed:
+            if texts[claim["claim_id"]] != claim["text"]:
+                raise ExportError(f"sidecar: claim {claim['claim_id']} text differs")
+            if not supported and (
+                checks[claim["claim_id"]]["reason"],
+                checks[claim["claim_id"]]["citation_reasons"],
+            ) != (claim["reason"], claim["citation_reasons"]):
+                raise ExportError(f"sidecar: claim {claim['claim_id']} reasons differ")
+    if sidecar["diagnosis"]["category"] != found.get("category"):
+        raise ExportError("sidecar: category differs from report.json")
+    for claim in claims:
+        if len(claim["citations"]) != len(checks[claim["claim_id"]]["citation_reasons"]):
+            raise ExportError(f"sidecar: claim {claim['claim_id']} citation count differs")
+    unknown = set(sidecar["diagnosis"]["root_cause_claim_ids"]) - set(texts)
+    if unknown:
+        raise ExportError(f"sidecar: root_cause_claim_ids name unknown claims {sorted(unknown)}")
 
 
 def build(
@@ -309,11 +355,18 @@ def build(
     recording_id: str,
     title: str,
     corpus: Path | None,
+    sidecar: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[str], list[str]]:
-    """(bundle, replay, not_filled, warnings) for one run folder."""
+    """(bundle, replay, not_filled, warnings) for one run folder, and the sidecar of
+    tools/recover_diagnosis.py for that run when one is given."""
     report = _read(run_dir / "report.json")
     events = _read(run_dir / "events.json")
     calls = _read(run_dir / "calls.json")
+    if sidecar is not None:
+        meta = sidecar.get("_recovered") or {}
+        expected = (report.get("incident_id"), events[0]["run_id"] if events else None)
+        if (meta.get("incident_id"), meta.get("run_id")) != expected:
+            raise ExportError("the diagnosis sidecar is for another run")
     not_filled: list[str] = []
     warnings: list[str] = []
     audit = report.get("audit")
@@ -378,7 +431,7 @@ def build(
     )
     package = None
     if audit:
-        diagnosis, check, diagnosis_status, coverage = _diagnosis(report, not_filled)
+        diagnosis, check, diagnosis_status, coverage = _diagnosis(report, not_filled, sidecar)
         director = [m.text for m in messages.items if m.sender == "director"]
         package = api.DeliveryPackage(
             run_id=run_id,
@@ -431,6 +484,8 @@ def build(
         "run_folder": "/".join(run_dir.resolve().parts[-2:]),
         "exported_by": "scripts/export_recorded_run.py",
         "max_delay_ms": MAX_DELAY_MS,
+        # Where the diagnosis fields report.json does not keep came from, if anywhere.
+        "diagnosis_source": _sidecar_source(sidecar),
         "changes": [
             'mode is "recorded" in every envelope and in run_started (with recording_id)',
             "run_finished.package_url points at the package" if package else "",
@@ -446,6 +501,19 @@ def build(
     bundle = {"_recording": header, **bundle_sections}
     replay = {"_recording": header, "run_id": run_id, "events": items}
     return bundle, replay, not_filled, warnings
+
+
+def _sidecar_source(sidecar: dict[str, Any] | None) -> dict[str, Any] | None:
+    if sidecar is None:
+        return None
+    meta = sidecar["_recovered"]
+    return {
+        "tool": meta["tool"],
+        "how": "an offline replay of the run's cassette at the recording commit, checked "
+        "against the run folder",
+        "commit": meta["commit"],
+        "verified_events": meta["verified"]["events"],
+    }
 
 
 # -- checks ---------------------------------------------------------------------------------
@@ -650,6 +718,7 @@ def export(
     corpus: Path | None = None,
     recording_id: str | None = None,
     title: str | None = None,
+    diagnosis: Path | None = None,
 ) -> dict[str, Any]:
     """Writes the recording and returns the report (also printed by main)."""
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", name):
@@ -660,8 +729,9 @@ def export(
         corpus = CORPUS_ROOT / incident_id
     recording_id = recording_id or f"rec-{name}"
     title = title or f"Incident {incident_id}, recorded run ({name})"
+    sidecar = _read(diagnosis) if diagnosis is not None else None
     bundle, replay, not_filled, warnings = build(
-        run_dir, recording_id=recording_id, title=title, corpus=corpus
+        run_dir, recording_id=recording_id, title=title, corpus=corpus, sidecar=sidecar
     )
     validate(bundle, replay)
     texts = {
@@ -704,6 +774,9 @@ def main() -> int:
     parser.add_argument("--corpus", type=Path, help="the incident's corpus folder")
     parser.add_argument("--recording-id")
     parser.add_argument("--title")
+    parser.add_argument(
+        "--diagnosis", type=Path, help="the run's sidecar from tools/recover_diagnosis.py"
+    )
     args = parser.parse_args()
     try:
         result = export(
@@ -713,6 +786,7 @@ def main() -> int:
             corpus=args.corpus,
             recording_id=args.recording_id,
             title=args.title,
+            diagnosis=args.diagnosis,
         )
     except ExportError as exc:
         print(f"export failed: {exc}", file=sys.stderr)

@@ -22,7 +22,7 @@ Options: `--port 8787` (default), `--host 127.0.0.1` (default), `--speed 1` (rep
 python examples/api/mock/serve.py --recording examples/api/recordings/inc-03-run2
 ```
 
-Unlike the fixtures, a recording is a **real run** (model output) on a **synthetic incident**: its `_recording` header says so, lists what the export changed (`mode`, `recording_id`, `package_url`, `tool_called.args`) and lists under `not_filled` what the run folder did not keep (those fields are `null` or empty, never invented). Label it as recorded, and as a synthetic incident, like any recorded run.
+Unlike the fixtures, a recording is a **real run** (model output) on a **synthetic incident**: its `_recording` header says so, lists what the export changed (`mode`, `recording_id`, `package_url`, `tool_called.args`) and lists under `not_filled` what the run folder did not keep (those fields are `null` or empty, never invented). The two committed recordings carry their full diagnosis (root cause, claims in order with citations, evidence check, remediation plan, empty sources), recovered by `tools/recover_diagnosis.py` from an offline replay of each run's cassette (`_recording.diagnosis_source`). Label it as recorded, and as a synthetic incident, like any recorded run.
 
 With `--recording`:
 
