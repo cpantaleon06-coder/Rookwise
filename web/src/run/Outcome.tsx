@@ -1,8 +1,117 @@
-import { Chip, Label, Panel } from "../components/ui";
+import { useSyncExternalStore } from "react";
+import { Button, Chip, Label, Panel } from "../components/ui";
+import { clearDecision, getDecision, recordDecision, subscribe } from "../lib/approval";
+import { formatDate } from "../lib/labels";
 import { formatMicros, toMicros } from "../lib/money";
 import type { RunState } from "../lib/runState";
 import type { ChatMessage, DeliveryPackage } from "../lib/types";
 import { agentName } from "../lib/feed";
+
+const NOTHING_RUNS =
+  "Rookwise v1 executes nothing. Your choice is recorded in this browser tab only: nothing is sent anywhere and nothing runs on your systems.";
+
+/**
+ * The approval gate (task step 3). Shown once the replay reached the end of the
+ * run. Approve or Reject is kept in memory for this tab; no request is made.
+ */
+export function ApprovalGate({
+  gateKey,
+  revealed,
+  pkg,
+  inconclusive,
+}: {
+  gateKey: string;
+  revealed: boolean;
+  pkg: DeliveryPackage | null;
+  inconclusive: boolean;
+}) {
+  const decision = useSyncExternalStore(subscribe, () => getDecision(gateKey));
+  if (!revealed) return null;
+
+  if (!pkg) {
+    return (
+      <Panel id="decision" title="Recommendation">
+        <p className="text-muted">This recording has no delivery package, so there is nothing to approve.</p>
+      </Panel>
+    );
+  }
+  if (inconclusive) {
+    return (
+      <Panel id="decision" title="Recommendation">
+        <p>
+          Nothing to approve: the diagnosis is inconclusive, so no recommendation rests on verified
+          evidence.
+        </p>
+      </Panel>
+    );
+  }
+
+  const plan = pkg.diagnosis?.remediation_plan;
+  const pending = decision === null;
+  return (
+    <section
+      id="decision"
+      aria-labelledby="decision-title"
+      className={`min-w-0 scroll-mt-52 rounded-[16px] border border-line p-4 sm:p-6 ${
+        pending ? "border-l-4 border-l-warn bg-warn-tint" : "bg-surface"
+      }`}
+    >
+      {pending && <p className="label text-warn">Decision needed</p>}
+      <h2 id="decision-title" className="mt-1 text-xl/7 font-semibold sm:text-2xl/8">
+        Approve the recommendation?
+      </h2>
+      {pkg.diagnosis?.root_cause && <p className="mt-2 wrap-anywhere">{pkg.diagnosis.root_cause}</p>}
+      {!pkg.diagnosis?.root_cause && pkg.summary && <p className="mt-2 wrap-anywhere">{pkg.summary}</p>}
+
+      {plan === null && pkg.diagnosis && (
+        <p className="mt-3 text-sm">
+          <Label>Remediation plan</Label> <span className="text-muted">Not recorded</span>
+        </p>
+      )}
+      {plan && plan.length > 0 && (
+        <ol className="mt-4 flex flex-col gap-2">
+          {plan.map((step, i) => (
+            <li key={i} className="min-w-0 rounded-[10px] border border-line bg-surface p-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="num text-muted">{String(i + 1).padStart(2, "0")}</span>
+                <span className="font-semibold wrap-anywhere">{step.action}</span>
+                <Chip tone={step.reversible ? "neutral" : "danger"}>
+                  {step.reversible ? "Reversible" : "Not reversible"}
+                </Chip>
+              </div>
+              <p className="mt-2 wrap-anywhere"><span className="text-muted">Why: </span>{step.why}</p>
+              <p className="mt-1 wrap-anywhere"><span className="text-muted">Risk: </span>{step.risk}</p>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <p className="mt-4 text-sm font-medium">{NOTHING_RUNS}</p>
+
+      {pending ? (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Button variant="primary" onClick={() => recordDecision(gateKey, "approved")}>
+            Approve recommendation
+          </Button>
+          <Button onClick={() => recordDecision(gateKey, "rejected")}>Reject</Button>
+        </div>
+      ) : (
+        <div role="status" className="mt-4 rounded-[10px] border border-line-strong p-3">
+          <p className="font-semibold">
+            {decision.choice === "approved" ? "You approved the recommendation." : "You rejected the recommendation."}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            Recorded at {formatDate(decision.at)} in this tab&apos;s memory. Reloading the page forgets it.
+            Nothing was executed.
+          </p>
+          <Button className="mt-3" onClick={() => clearDecision(gateKey)}>
+            Change my decision
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function PackagePanel({ pkg, partial }: { pkg: DeliveryPackage; partial: boolean }) {
   return (

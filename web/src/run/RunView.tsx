@@ -1,14 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { SiteFooter, SkipLink } from "../components/chrome";
+import { getDecision, subscribe } from "../lib/approval";
 import { VERDICT_WORDS } from "../lib/labels";
 import { atLeastPercent, formatUsd, toMicrosOrNull } from "../lib/money";
 import { provenanceOf, summaryOf, type LoadedRecording } from "../lib/recording";
 import { runStatusLabel } from "../lib/runState";
 import type { LedgerEntry } from "../lib/types";
 import { BudgetPanel } from "./Budget";
-import { AuditPanel, CoveragePanel, EvidencePanel } from "./Evidence";
+import { AuditPanel, CoveragePanel, EvidencePanel, isInconclusive } from "./Evidence";
 import { FeedPanel } from "./Feed";
-import { ChatPanel, PackagePanel, StopBanner, TerminalBanner } from "./Outcome";
+import { ApprovalGate, ChatPanel, PackagePanel, StopBanner, TerminalBanner } from "./Outcome";
 import { RecordedBanner, ReplayToolbar, RunHeader } from "./RunHeader";
 import { TaskPanel, TeamPanel } from "./Team";
 import { useReplay } from "./useReplay";
@@ -28,7 +29,7 @@ function ledgerSnapshot(ledger: unknown): LedgerEntry[] | null {
 }
 
 export function RunView({ recording }: { recording: LoadedRecording }) {
-  const { bundle, events } = recording;
+  const { bundle, events, folder } = recording;
   const replay = useReplay(events);
   const { state, done } = replay;
 
@@ -37,6 +38,10 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
   const pkg = bundle.package ?? null;
   const revealed = state.terminal !== null || (done && events.length > 0);
   const audit = state.audit ?? (revealed ? (pkg?.audit ?? null) : null);
+  const inconclusive = revealed && isInconclusive(pkg, audit);
+  const gateKey = `${folder}:${bundle.run.run_id}`;
+  const decision = useSyncExternalStore(subscribe, () => getDecision(gateKey));
+  const decisionNeeded = revealed && pkg !== null && !inconclusive && decision === null;
   const status = runStatusLabel(state);
   const fallbackCap = bundle.run.caps?.run_usd ?? null;
 
@@ -50,6 +55,7 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
     state.stops.length > 0 ? "An agent stopped on its budget." : null,
     state.audit ? `Audit result: ${VERDICT_WORDS[state.audit.verdict] ?? state.audit.verdict}.` : null,
     state.terminal ? `Run ${status.toLowerCase()}.` : null,
+    decisionNeeded ? "Decision needed: approve or reject the recommendation." : null,
   ]);
 
   if (events.length === 0) {
@@ -78,7 +84,7 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
         goal={goal}
         simulatedCase={state.simulatedCase ?? bundle.run.simulated_case}
         budget={{ spent, held, cap, stopped: state.stops.length > 0 }}
-        decisionNeeded={false}
+        decisionNeeded={decisionNeeded}
       />
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
@@ -92,6 +98,7 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
         <main className="flex min-w-0 flex-col gap-4 lg:col-span-8">
           <TerminalBanner state={state} />
           <StopBanner state={state} />
+          <ApprovalGate gateKey={gateKey} revealed={revealed} pkg={pkg} inconclusive={inconclusive} />
           <EvidencePanel
             pkg={pkg}
             revealed={revealed}
