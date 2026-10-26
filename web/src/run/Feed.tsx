@@ -31,7 +31,7 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
 
   return (
     <Panel id="feed" title="Feed" aside={<Label>{state.applied.length} events</Label>}>
-      <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Filter the feed">
+      <div className="flex flex-wrap items-center gap-8" role="radiogroup" aria-label="Filter the feed">
         {FEED_FILTERS.map((f) => (
           <button
             key={f.id}
@@ -39,20 +39,20 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
             role="radio"
             aria-checked={filter === f.id}
             onClick={() => setFilter(f.id)}
-            className={`label inline-flex min-h-11 items-center rounded-full px-3 ${
-              filter === f.id ? "bg-primary text-on-primary" : "border border-line-strong hover:bg-raised"
+            className={`label inline-flex min-h-11 items-center rounded-full px-13 ${
+              filter === f.id ? "bg-bone text-ink" : "border border-line-strong hover:bg-raised"
             }`}
           >
             {f.label}
           </button>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        <label className="inline-flex min-h-11 items-center gap-2">
+      <div className="mt-13 flex flex-wrap gap-x-21 gap-y-8">
+        <label className="inline-flex min-h-11 items-center gap-8">
           <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} className="size-4" />
           Follow the newest event
         </label>
-        <label className="inline-flex min-h-11 items-center gap-2">
+        <label className="inline-flex min-h-11 items-center gap-8">
           <input type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} className="size-4" />
           Announce feed events
         </label>
@@ -63,20 +63,20 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
         aria-live={announce ? "polite" : "off"}
         aria-label="Run events"
         tabIndex={0}
-        className="mt-3 max-h-[28rem] overflow-y-auto rounded-[10px] border border-line"
+        className="mt-13 max-h-[28rem] overflow-y-auto rounded-md border border-line"
       >
-        {rows.length === 0 && <li className="p-3 text-sm text-muted">No event to show yet.</li>}
+        {rows.length === 0 && <li className="p-13 text-muted">No event to show yet.</li>}
         {rows.map((event) => {
           const terminal = event.type === "run_finished" || event.type === "run_failed";
           const stop = event.type === "budget_exhausted";
           return (
             <li
               key={event.id}
-              className={`grid grid-cols-[4.5rem_1fr] gap-2 border-b border-line px-3 py-2 text-sm last:border-b-0 ${
-                terminal || stop ? (event.type === "run_failed" || stop ? "bg-danger-tint" : "bg-raised") : ""
+              className={`grid grid-cols-[4.5rem_1fr] gap-8 border-b border-line px-13 py-8 last:border-b-0 ${
+                terminal || stop ? (event.type === "run_failed" || stop ? "bg-berry-tint" : "bg-raised") : ""
               }`}
             >
-              <span className="num text-xs leading-5 text-muted">{elapsed(start, event.ts)}</span>
+              <span className="num text-muted">{elapsed(start, event.ts)}</span>
               <span className="min-w-0 wrap-anywhere">
                 <span className="font-medium">{actorOf(event, state)}</span>{" "}
                 <span className="text-muted">{feedSentence(event, state.agents)}</span>
@@ -85,7 +85,7 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
           );
         })}
       </ol>
-      <p className="mt-2 text-sm text-muted">{done ? "Run ended." : "Replaying."}</p>
+      <p className="mt-8 text-muted">{done ? "Run ended." : "Replaying."}</p>
     </Panel>
   );
 }

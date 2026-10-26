@@ -44,21 +44,21 @@ export function RunPage({ folder }: { folder: string }) {
     <>
       <SkipLink target="run">Skip to the run</SkipLink>
       <RecordedBanner provenance={null} summary={null} notice={null} />
-      <main id="run" className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+      <main id="run" className="mx-auto max-w-[1440px] px-13 py-34 sm:px-21 lg:px-34">
         {state.kind === "loading" ? (
-          <div role="status" className="flex flex-col gap-4">
+          <div role="status" className="flex flex-col gap-13">
             <p className="text-muted">Loading the recording “{folder}”.</p>
             <Skeleton className="h-24 w-full" />
-            <div className="grid gap-4 lg:grid-cols-12">
+            <div className="grid gap-13 lg:grid-cols-12">
               <Skeleton className="h-96 lg:col-span-8" />
               <Skeleton className="h-96 lg:col-span-4" />
             </div>
           </div>
         ) : (
-          <div role="alert" className="max-w-[60ch] rounded-[16px] border border-line bg-danger-tint p-6">
-            <h1 className="text-2xl/8 font-semibold">This recording could not be loaded.</h1>
-            <p className="mt-3 wrap-anywhere">{state.error.message}</p>
-            <p className="mt-2 text-sm text-muted">
+          <div role="alert" className="max-w-[60ch] rounded-lg border border-line bg-berry-tint p-21">
+            <h1 className="text-title font-semibold">This recording could not be loaded.</h1>
+            <p className="mt-13 wrap-anywhere">{state.error.message}</p>
+            <p className="mt-8 text-muted">
               {state.error.kind === "invalid_name"
                 ? "Recording names use letters, digits, dots, dashes and underscores."
                 : state.error.kind === "not_found"
@@ -67,7 +67,7 @@ export function RunPage({ folder }: { folder: string }) {
                     ? "The recording files are not in the expected shape."
                     : "Check the connection and try again."}
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-21 flex flex-wrap gap-13">
               {state.error.kind === "network" && (
                 <button type="button" className={buttonClass("primary")} onClick={retry}>
                   Try again

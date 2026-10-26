@@ -18,18 +18,18 @@ function AgentLine({ agent }: { agent: AgentState }) {
   const n = agent.node;
   const status = agent.status;
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-13 gap-y-8 py-8">
       <span className="font-medium wrap-anywhere">
         {n.level === "operator" ? n.role : (LEVEL_WORDS[n.level] ?? n.role)}
       </span>
       <Label>{LEVEL_WORDS[n.level] ?? n.level}</Label>
-      <span className="num wrap-anywhere text-xs text-muted">{n.model}</span>
+      <span className="num wrap-anywhere text-muted">{n.model}</span>
       <Chip tone={STATUS_TONE[status] ?? "neutral"}>{AGENT_STATUS_WORDS[status] ?? status}</Chip>
       {agent.allocated !== null && (
-        <span className="num text-xs text-muted">held {formatMicros(agent.allocated)}</span>
+        <span className="num text-muted">held {formatMicros(agent.allocated)}</span>
       )}
       {n.level === "operator" && agent.spent > 0n && (
-        <span className="num text-xs text-muted">spent {formatMicros(agent.spent)}</span>
+        <span className="num text-muted">spent {formatMicros(agent.spent)}</span>
       )}
     </div>
   );
@@ -61,7 +61,7 @@ function Branch({
   const kids = (tree.get(id) ?? []).map((k) => state.agents.get(k)!).filter(Boolean);
   const operators = kids.filter((k) => k.node.level === "operator");
   const others = kids.filter((k) => k.node.level !== "operator");
-  const indent = depth > 0 && depth <= 3 ? "pl-3 border-l border-line ml-1" : "";
+  const indent = depth > 0 && depth <= 3 ? "pl-13 border-l border-line ml-8" : "";
   return (
     <li className={`min-w-0 ${indent}`}>
       <AgentLine agent={agent} />
@@ -73,8 +73,8 @@ function Branch({
         </ul>
       )}
       {operators.length > 0 && (
-        <details open={operators.length <= 6} className="ml-1 border-l border-line pl-3">
-          <summary className="min-h-11 cursor-pointer py-2 text-sm text-muted">
+        <details open={operators.length <= 6} className="ml-8 border-l border-line pl-13">
+          <summary className="min-h-11 cursor-pointer py-8 text-muted">
             {operators.length} {operators.length === 1 ? "operator" : "operators"}: {statusCounts(operators)}
           </summary>
           <ul>
@@ -126,15 +126,15 @@ export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-muted">
+      <p className="mt-13 text-muted">
         Spend per agent is shown for operators only: ledger entries name a task, not an agent.
       </p>
       {state.escalations.length > 0 && (
-        <div className="mt-4 border-t border-line pt-4">
-          <h3 className="mb-2 font-semibold">Reassignments and escalations ({state.escalations.length})</h3>
-          <ul className="flex flex-col gap-2 text-sm">
+        <div className="mt-13 border-t border-line pt-13">
+          <h3 className="mb-8 font-semibold">Reassignments and escalations ({state.escalations.length})</h3>
+          <ul className="flex flex-col gap-8">
             {state.escalations.map((e, i) => (
-              <li key={i} className="min-w-0 rounded-[10px] border border-line p-3">
+              <li key={i} className="min-w-0 rounded-md border border-line p-13">
                 <p className="wrap-anywhere">
                   <span className="font-medium">{agentName(state.agents, e.from_agent_id)}</span>
                   <span aria-hidden="true"> → </span>
@@ -142,7 +142,7 @@ export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot
                   <span className="font-medium">{agentName(state.agents, e.to_agent_id)}</span>
                   {e.task_id && <span className="num text-muted"> (task {e.task_id})</span>}
                 </p>
-                <p className="mt-1 wrap-anywhere text-muted">{e.reason}</p>
+                <p className="mt-8 wrap-anywhere text-muted">{e.reason}</p>
               </li>
             ))}
           </ul>
@@ -185,13 +185,13 @@ export function TaskPanel({ state }: { state: RunState }) {
         <ol
           tabIndex={0}
           aria-label="Task list"
-          className="flex max-h-[32rem] flex-col gap-2 overflow-y-auto pr-1"
+          className="flex max-h-[32rem] flex-col gap-8 overflow-y-auto pr-8"
         >
           {tasks.map((t) => {
             const errors = t.attempts.flatMap((a) => a.validation_errors);
             return (
-              <li key={t.task.task_id} className="min-w-0 rounded-[10px] border border-line p-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
+              <li key={t.task.task_id} className="min-w-0 rounded-md border border-line p-13">
+                <div className="flex flex-wrap items-center gap-8">
                   <span className="num font-medium">{t.task.task_id}</span>
                   <span className="wrap-anywhere">{t.task.role}</span>
                   <Chip tone={taskTone(t)}>{TASK_STATUS_WORDS[t.status] ?? t.status}</Chip>
@@ -199,7 +199,7 @@ export function TaskPanel({ state }: { state: RunState }) {
                     <span className="text-muted">{TASK_LABEL_WORDS[t.label] ?? t.label}</span>
                   )}
                 </div>
-                <p className="mt-1 text-muted">
+                <p className="mt-8 text-muted">
                   {agentName(state.agents, t.agentId)}
                   {t.attempts.length > 0 &&
                     `; ${t.attempts.length} ${t.attempts.length === 1 ? "attempt" : "attempts"} (${t.attempts
@@ -207,18 +207,18 @@ export function TaskPanel({ state }: { state: RunState }) {
                       .join(", ")})`}
                   {t.spent > 0n && (
                     <>
-                      ; spent <span className="num text-ink">{formatMicros(t.spent)}</span>
+                      ; spent <span className="num text-bone">{formatMicros(t.spent)}</span>
                     </>
                   )}
                 </p>
                 {errors.length > 0 && (
-                  <details className="mt-1">
+                  <details className="mt-8">
                     <summary className="cursor-pointer text-muted">
                       {errors.length} validation {errors.length === 1 ? "error" : "errors"}
                     </summary>
-                    <ul className="mt-1 list-disc pl-5">
+                    <ul className="mt-8 list-disc pl-21">
                       {errors.map((e, i) => (
-                        <li key={i} className="quote text-xs">
+                        <li key={i} className="quote">
                           {e}
                         </li>
                       ))}
