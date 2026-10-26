@@ -1,0 +1,25 @@
+[
+  {"level": "director", "task_id": "plan", "model": "synthetic-ultra", "finish_reason": "stop",
+   "attempts": 2, "attempt_log": [
+    {"attempt": 1, "status_code": 429, "kind": "rate_limit", "wait_s": 2.0, "outcome": "retried"},
+    {"attempt": 2, "status_code": 200, "kind": null, "wait_s": null, "outcome": "ok"}]},
+  {"level": "director", "task_id": "plan-repair", "model": "synthetic-ultra",
+   "finish_reason": "length", "attempts": 1, "attempt_log": [
+    {"attempt": 1, "status_code": 200, "kind": null, "wait_s": null, "outcome": "ok"}]},
+  {"level": "operator", "task_id": "t-1", "model": "synthetic-lightning",
+   "finish_reason": "length", "attempts": 3, "attempt_log": [
+    {"attempt": 1, "status_code": 529, "kind": "server", "wait_s": 2.0, "outcome": "retried"},
+    {"attempt": 2, "status_code": 503, "kind": "server", "wait_s": 5.0, "outcome": "retried"},
+    {"attempt": 3, "status_code": 200, "kind": null, "wait_s": null, "outcome": "ok"}]},
+  {"level": "operator", "task_id": "t-2", "model": "synthetic-lightning",
+   "raised": "bad request (HTTP 422): synthetic", "counted": false, "attempt_log": [
+    {"attempt": 1, "status_code": 422, "kind": "bad_request", "wait_s": null,
+     "outcome": "gave_up"}]},
+  {"level": "operator", "task_id": "t-3", "model": "synthetic-lightning",
+   "raised": "budget cap reached (synthetic)", "counted": false, "attempt_log": [
+    {"attempt": 1, "status_code": null, "kind": "budget", "wait_s": null,
+     "outcome": "refused"}]},
+  {"level": "manager", "task_id": "b-1-summary", "model": "synthetic-super",
+   "finish_reason": "stop", "attempts": 1, "reused": true, "attempt_log": [
+    {"attempt": 1, "status_code": 200, "kind": null, "wait_s": null, "outcome": "ok"}]}
+]

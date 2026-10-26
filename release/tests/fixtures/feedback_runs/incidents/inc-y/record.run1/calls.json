@@ -1,0 +1,6 @@
+[
+  {"level": "operator", "task_id": "t-1", "model": "synthetic-lightning",
+   "raised": "server (HTTP 529): synthetic overload", "counted": false},
+  {"level": "operator", "task_id": "t-2", "model": "synthetic-lightning",
+   "finish_reason": "stop", "attempts": 1}
+]
