@@ -1,0 +1,4 @@
+split,configuration,runs,incidents,diagnosis_correct_rate,category_correct_rate,evidence_recall_mean,citation_verified_rate_mean,citation_first_pass_validity_mean,coverage_mean,spent_usd_mean,spent_usd_total,wall_clock_s_mean,partial_runs,operator_tasks_ok,operator_tasks_total,retried_attempts,trimmed_citations,commits
+dev,a,3,3,1.0,1.0,0.5556,1.0,0.9068,0.8796,0.289513,0.868538,1000.1833,3,168,191,1,511,b3aedd4
+dev,b,3,3,0.3333,0.3333,0.1111,1.0,0.8553,0.2184,0.409086,1.227259,142.9333,3,41,191,0,1,b3aedd4
+dev,c,3,3,0.3333,0.3333,0.1667,0.3333,0.8894,0.7062,0.120720,0.362161,859.26,3,135,191,0,375,b3aedd4

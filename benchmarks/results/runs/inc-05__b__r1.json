@@ -1,0 +1,72 @@
+{
+  "incident_id": "inc-05",
+  "split": "dev",
+  "configuration": "b",
+  "repeat": 1,
+  "commit": "b3aedd486e2c224a054dc1f7446e65c5140d59f4",
+  "dirty": false,
+  "config_sha256": "fbe5fb275592e24605b3e39d65a9577d051971c29f0acc3a74e15b11f859df1b",
+  "finished_at": "2026-10-26T01:36:30.573643+00:00",
+  "status": "finished",
+  "partial": true,
+  "cap_usd": "0.500000",
+  "spent_usd": "0.412808",
+  "predicted_usd": "0.618542",
+  "under_cap": true,
+  "wall_clock_s": 143.3,
+  "by_model": {
+    "nemotron-3-ultra": {
+      "calls": 30,
+      "input_tokens": 295757,
+      "output_tokens": 39017,
+      "usd_real": "0.412808"
+    }
+  },
+  "calls": {
+    "attempted": 73,
+    "charged": 30,
+    "refused_or_failed": 43
+  },
+  "retries": {
+    "retried_attempts": 0,
+    "retried_by_status": {},
+    "wait_s_total": 0,
+    "calls_retried": 0,
+    "calls_gave_up": 0
+  },
+  "ledger_refusals": 43,
+  "operator_tasks": {
+    "total": 58,
+    "ok": 13,
+    "failed": 45,
+    "not_run": 0
+  },
+  "unread_slices": 8,
+  "coverage": {
+    "slices_read": 13,
+    "slices_total": 58,
+    "fraction": 0.22413793103448276,
+    "threshold": 0.7,
+    "low": true
+  },
+  "trimmed_citations": 1,
+  "salvaged_replies": 6,
+  "top_up_usd": "0.000000",
+  "diagnosis_status": "audited",
+  "diagnosis_category": "code_regression",
+  "diagnosis_repairs": 1,
+  "claim_counts": {
+    "supported": 4,
+    "withdrawn": 0
+  },
+  "score": {
+    "diagnosis_correct": false,
+    "category_correct": false,
+    "evidence_recall": 0.0,
+    "citation_verified_rate": 1.0,
+    "citation_first_pass_validity": 0.6992481203007519,
+    "coverage": 0.22413793103448276,
+    "citation_repairs": 12,
+    "withdrawn_claims": 0
+  }
+}
