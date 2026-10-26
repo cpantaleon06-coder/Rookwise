@@ -263,3 +263,118 @@ def test_the_schema_check_refuses_what_the_schemas_refuse():
             exporter.check_schema(broken, root, root)
     with pytest.raises(exporter.ExportError, match="not supported"):
         exporter.check_schema(1, {"multipleOf": 2}, {})
+
+
+def _sidecar(run_id: str = "run_8f2c1a7d4b") -> dict:
+    def cite(line: int, quote: str) -> dict:
+        return {"source_id": "logs/app.log", "line_start": line, "line_end": line, "quote": quote}
+
+    return {
+        "_recovered": {
+            "version": 1,
+            "tool": "tools/recover_diagnosis.py",
+            "incident_id": "inc-syn",
+            "run_id": run_id,
+            "commit": "abc1234",
+            "cassette": "inc-syn.run1.json",
+            "verified": {"events": 63, "report_keys": [], "against": "inc-syn/record"},
+        },
+        "diagnosis": {
+            "root_cause": "[synthetic] The pool on pay-gw.example.net filled at 02:10.",
+            "category": "capacity_exhaustion",
+            "claims": [
+                {
+                    "claim_id": "c1",
+                    "text": "[synthetic] The pool on pay-gw.example.net filled.",
+                    "citations": [cite(2, "WARN pool full host=pay-gw.example.net")],
+                },
+                {
+                    "claim_id": "c2",
+                    "text": "[synthetic] The deploy changed the pool size.",
+                    "citations": [cite(2, "pool full"), cite(2, "pool size=4")],
+                },
+                {
+                    "claim_id": "c3",
+                    "text": "[synthetic] Requests queued after 02:10.",
+                    "citations": [cite(2, "02:10:00Z")],
+                },
+            ],
+            "root_cause_claim_ids": ["c1", "c3"],
+            "remediation_plan": [
+                {
+                    "action": "[synthetic] Raise the pool size.",
+                    "why": "[synthetic] The pool filled.",
+                    "risk": "[synthetic] More memory.",
+                    "reversible": True,
+                }
+            ],
+        },
+        "evidence": [
+            {"claim_id": "c1", "supported": True, "reason": "ok", "citation_reasons": ["ok"]},
+            {
+                "claim_id": "c2",
+                "supported": False,
+                "reason": "quote_not_found",
+                "citation_reasons": ["ok", "quote_not_found"],
+            },
+            {"claim_id": "c3", "supported": True, "reason": "ok", "citation_reasons": ["ok"]},
+        ],
+        "empty_sources": ["logs/empty.log"],
+    }
+
+
+def _export_with(run_dir, corpus, tmp_path, sidecar):
+    path = tmp_path / "diagnosis.json"
+    path.write_text(json.dumps(sidecar), encoding="utf-8")
+    return exporter.export(
+        run_dir, "inc-syn-run1", out_root=tmp_path / "out", corpus=corpus, diagnosis=path
+    )
+
+
+def test_a_recovered_diagnosis_fills_the_gaps_in_the_original_order(run_dir, corpus, tmp_path):
+    result = _export_with(run_dir, corpus, tmp_path, _sidecar())
+    out = tmp_path / "out" / "inc-syn-run1"
+    bundle = json.loads((out / exporter.BUNDLE_FILE).read_text(encoding="utf-8"))
+    package = SCHEMA_MODELS["DeliveryPackage"].model_validate(bundle["package"])
+    assert [c.claim_id for c in package.diagnosis.claims] == ["c1", "c2", "c3"]
+    assert package.diagnosis.root_cause.startswith("[synthetic] The pool")
+    assert package.diagnosis.root_cause_claim_ids == ["c1", "c3"]
+    assert package.diagnosis.remediation_plan[0].action == "[synthetic] Raise the pool size."
+    assert [len(c.citations) for c in package.diagnosis.claims] == [1, 2, 1]
+    assert [c.citation_reasons for c in package.evidence_check.claims] == [
+        ["ok"],
+        ["ok", "quote_not_found"],
+        ["ok"],
+    ]
+    assert (package.evidence_check.supported, package.evidence_check.withdrawn) == (2, 1)
+    assert package.coverage.empty_sources == ["logs/empty.log"]
+    gaps = " ".join(result["not_filled"])
+    for filled in ("root_cause", "remediation_plan", "citations", "empty_sources", "order"):
+        assert filled not in gaps, filled
+    assert "mode_notice" in gaps  # still not in the run, still listed
+    source = bundle["_recording"]["diagnosis_source"]
+    assert (source["tool"], source["commit"]) == ("tools/recover_diagnosis.py", "abc1234")
+
+
+@pytest.mark.parametrize(
+    ("change", "match"),
+    [
+        (lambda s: s["_recovered"].update(run_id="run_other"), "for another run"),
+        (lambda s: s["diagnosis"]["claims"][0].update(text="[synthetic] x"), "text differs"),
+        (lambda s: s["evidence"][1].update(citation_reasons=["ok", "ok"]), "reasons differ"),
+        (lambda s: s["evidence"][0].update(supported=False), "differ from report"),
+        (lambda s: s["diagnosis"]["root_cause_claim_ids"].append("c9"), "unknown claims"),
+        (
+            lambda s: s["diagnosis"]["claims"][2]["citations"].append(
+                s["diagnosis"]["claims"][2]["citations"][0]
+            ),
+            "citation count",
+        ),
+    ],
+)
+def test_a_sidecar_from_another_run_is_refused(run_dir, corpus, tmp_path, change, match):
+    sidecar = _sidecar()
+    change(sidecar)
+    with pytest.raises(exporter.ExportError, match=match):
+        _export_with(run_dir, corpus, tmp_path, sidecar)
+    assert not (tmp_path / "out" / "inc-syn-run1").exists()
