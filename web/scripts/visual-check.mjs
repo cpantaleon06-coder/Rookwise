@@ -56,6 +56,8 @@ async function overflow(browser) {
       const page = await browser.newPage({ viewport: { width, height: 844 } });
       await page.goto(BASE + route);
       await page.waitForLoadState("networkidle");
+      // The landing is complete once the rings (drawn from the loaded recording) exist.
+      if (route === "#/") await page.locator("#how-it-works svg").first().waitFor({ timeout: 20000 });
       if (route === RUN) await finishReplay(page);
       await page.waitForTimeout(500);
       const { scroll, inner } = await page.evaluate(() => ({
@@ -103,6 +105,7 @@ async function shots(browser) {
     await page.locator("#evidence").screenshot({ path: join(out, `${width}-run-evidence.png`) });
     await page.locator("#safeguards").screenshot({ path: join(out, `${width}-run-safeguards.png`) });
     await page.locator("#decision").screenshot({ path: join(out, `${width}-run-approval.png`) });
+    await page.locator("#budget").screenshot({ path: join(out, `${width}-run-budget.png`) });
     await page.close();
   }
   console.log(`screenshots saved to ${out}`);
