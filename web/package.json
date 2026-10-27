@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "check:scale": "node scripts/check-scale.mjs"
+    "check:scale": "node scripts/check-scale.mjs",
+    "check:overflow": "node scripts/visual-check.mjs --overflow",
+    "screenshots": "node scripts/visual-check.mjs --shots"
   },
   "dependencies": {
     "@fontsource-variable/space-grotesk": "^5.3.0",
