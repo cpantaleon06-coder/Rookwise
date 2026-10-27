@@ -559,9 +559,9 @@ function HowItWorks({ entry, team }: { entry: IndexEntry | null; team: TeamSumma
 /* 5. Results -------------------------------------------------------------- */
 
 const RESULTS = [
-  { name: "(a) hierarchy", correct: 2, coverage: "0.920", cost: "0.250" },
-  { name: "(b) single Ultra", correct: 0, coverage: "0.107", cost: "0.386" },
-  { name: "(c) single Lightning", correct: 1, coverage: "0.705", cost: "0.119" },
+  { name: "(a) hierarchy", correct: "2 of 3", coverage: "0.920", cost: "0.250" },
+  { name: "(b) single Ultra", correct: "0 of 3", coverage: "0.107", cost: "0.386" },
+  { name: "(c) single Lightning", correct: "1 of 3", coverage: "0.705", cost: "0.119" },
 ] as const;
 
 const CAPTION =
@@ -581,9 +581,9 @@ function Results() {
                 {i === 0 && (
                   <span aria-hidden="true" className="glow absolute left-1/2 top-1/2 size-[121px] -translate-x-1/2 -translate-y-1/2" />
                 )}
-                <span className="num relative block text-display font-semibold">{r.correct}</span>
+                <span className="num relative block whitespace-nowrap text-hero font-semibold">{r.correct}</span>
               </span>
-              <span className="label text-muted">of 3 correct</span>
+              <span className="label text-muted">correct diagnoses</span>
             </p>
             <div className="relative flex items-center gap-13">
               <ProgressRing value={Number(r.coverage)} size={55} stroke={6} tone={i === 0 ? "berry" : "bone"} />
