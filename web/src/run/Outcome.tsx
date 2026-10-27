@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { ApproveControls } from "../components/hold";
 import { Button, Chip, Label, Panel } from "../components/ui";
 import { clearDecision, getDecision, recordDecision, subscribe } from "../lib/approval";
 import { formatDate } from "../lib/labels";
@@ -52,12 +53,17 @@ export function ApprovalGate({
     <section
       id="decision"
       aria-labelledby="decision-title"
-      className={`min-w-0 scroll-mt-52 rounded-lg border border-line p-13 sm:p-21 ${
-        pending ? "border-l-4 border-l-berry bg-surface" : "bg-surface"
+      className={`card relative min-w-0 scroll-mt-144 overflow-hidden rounded-lg p-21 sm:p-34 ${
+        pending ? "border-berry/60" : ""
       }`}
     >
-      {pending && <p className="label text-berry">Decision needed</p>}
-      <h2 id="decision-title" className="mt-8 text-title font-semibold">
+      {pending && (
+        <span className="label pill inline-flex min-h-[34px] items-center gap-8 border border-berry px-13 text-berry">
+          <span aria-hidden="true" className="size-2 rounded-full bg-berry" />
+          Decision needed
+        </span>
+      )}
+      <h2 id="decision-title" className="mt-13 text-title font-semibold">
         Approve the recommendation?
       </h2>
       {pkg.diagnosis?.root_cause && <p className="mt-8 wrap-anywhere">{pkg.diagnosis.root_cause}</p>}
@@ -71,7 +77,7 @@ export function ApprovalGate({
       {plan && plan.length > 0 && (
         <ol className="mt-13 flex flex-col gap-8">
           {plan.map((step, i) => (
-            <li key={i} className="min-w-0 rounded-md border border-line bg-surface p-13">
+            <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
               <div className="flex flex-wrap items-center gap-8">
                 <span className="num text-muted">{String(i + 1).padStart(2, "0")}</span>
                 <span className="font-semibold wrap-anywhere">{step.action}</span>
@@ -86,17 +92,17 @@ export function ApprovalGate({
         </ol>
       )}
 
-      <p className="mt-13 font-medium">{NOTHING_RUNS}</p>
+      <p className="mt-21 font-medium">{NOTHING_RUNS}</p>
 
       {pending ? (
-        <div className="mt-13 flex flex-col gap-8 sm:flex-row">
-          <Button variant="primary" onClick={() => recordDecision(gateKey, "approved")}>
-            Approve recommendation
-          </Button>
-          <Button onClick={() => recordDecision(gateKey, "rejected")}>Reject</Button>
+        <div className="mt-21">
+          <ApproveControls
+            onApprove={() => recordDecision(gateKey, "approved")}
+            onReject={() => recordDecision(gateKey, "rejected")}
+          />
         </div>
       ) : (
-        <div role="status" className="mt-13 rounded-md border border-line-strong p-13">
+        <div role="status" className="mt-21 rounded-md border border-line-strong bg-ink p-21">
           <p className="font-semibold">
             {decision.choice === "approved" ? "You approved the recommendation." : "You rejected the recommendation."}
           </p>
@@ -123,7 +129,7 @@ export function PackagePanel({ pkg, partial }: { pkg: DeliveryPackage; partial: 
           <Label>Deliverables</Label>
           <ul className="mt-8 flex flex-col gap-8">
             {pkg.deliverables.map((d) => (
-              <li key={`${d.task_id}-${d.title}`} className="min-w-0 rounded-md border border-line p-13">
+              <li key={`${d.task_id}-${d.title}`} className="min-w-0 rounded-md border border-line bg-ink p-13">
                 <div className="flex flex-wrap items-center gap-8">
                   <span className="font-semibold wrap-anywhere">{d.title}</span>
                   {partial && <Chip tone="danger">Partial</Chip>}

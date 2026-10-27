@@ -17,7 +17,7 @@ function NavLink({ href, children }: { href: string; children: string }) {
     <a
       href={href}
       rel={external ? "noreferrer" : undefined}
-      className="label inline-flex min-h-11 items-center justify-center rounded-full px-13 text-muted hover:text-bone"
+      className="label pill inline-flex min-h-11 items-center justify-center border border-line bg-surface px-21 text-muted hover:bg-raised hover:text-bone"
     >
       {children}
     </a>
@@ -58,23 +58,20 @@ export function SiteHeader() {
   );
 }
 
-/** The live mode control: always disabled here, with the reason as visible text. */
-export function LiveRunsControl({ centered = false }: { centered?: boolean }) {
+export const LIVE_RUNS_NOTE = "Live runs are limited and not offered on this site. Recorded mode is the default.";
+
+/** The live mode button alone: always disabled, described by the note with id live-runs-note. */
+export function LiveRunsButton() {
   return (
-    <div className={`flex flex-col gap-8 ${centered ? "items-center text-center" : ""}`}>
-      <button
-        type="button"
-        disabled
-        aria-describedby="live-runs-note"
-        className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-8 rounded-full border border-line-strong px-21 font-medium text-muted"
-      >
-        <span aria-hidden="true" className="size-2 rounded-full border border-line-strong" />
-        Live runs
-      </button>
-      <p id="live-runs-note" className="max-w-[34ch] text-muted">
-        Live runs are limited and not offered on this site. Recorded mode is the default.
-      </p>
-    </div>
+    <button
+      type="button"
+      disabled
+      aria-describedby="live-runs-note"
+      className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-8 rounded-full border border-line-strong px-21 font-medium text-muted"
+    >
+      <span aria-hidden="true" className="size-2 rounded-full border border-line-strong" />
+      Live runs
+    </button>
   );
 }
 

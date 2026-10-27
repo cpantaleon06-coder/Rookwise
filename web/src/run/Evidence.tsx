@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Chip, Label, Panel, type Tone } from "../components/ui";
+import { Chip, Label, Panel, Stamp, type Tone } from "../components/ui";
 import { reasonWords, VERDICT_WORDS } from "../lib/labels";
+import type { SafeguardRow } from "../lib/safeguards";
 import type {
   AuditVerdict,
   ClaimCheck,
@@ -22,6 +23,23 @@ function NotRecorded() {
   return <span className="text-muted">Not recorded</span>;
 }
 
+function claimPill(text: string, strong = false) {
+  return (
+    <span
+      className={`label pill inline-flex min-h-[34px] items-center px-13 ${
+        strong ? "bg-bone text-ink" : "border border-line-strong text-bone"
+      }`}
+    >
+      {text}
+    </span>
+  );
+}
+
+/**
+ * One claim: its id, the status stamp, the text, and the cited lines as a log
+ * excerpt. A cited line the check found is lit in bone; a line whose quote
+ * failed is lit in Strawberry and its quote is struck through.
+ */
 function ClaimRow({
   claim,
   check,
@@ -36,52 +54,57 @@ function ClaimRow({
   const withdrawn = check ? !check.supported : false;
   return (
     <li
-      className={`min-w-0 rounded-md border border-line p-13 ${withdrawn ? "bg-berry-tint" : "bg-surface"}`}
+      className={`min-w-0 rounded-md border p-21 ${withdrawn ? "border-berry/40 bg-berry-tint" : "border-line bg-raised"}`}
     >
-      <div className="flex flex-wrap items-center gap-8">
-        {!check && <Chip>Not checked</Chip>}
-        {check && check.supported && <Chip tone="ok">Verified</Chip>}
-        {check && !check.supported && (
-          <Chip tone="danger">Withdrawn: {reasonWords(String(check.reason))}</Chip>
-        )}
-        <Label>{claim.claim_id}</Label>
-        {rootCause && <Label className="text-bone">Root cause rests on this</Label>}
+      <div className="flex flex-wrap items-start justify-between gap-13">
+        <div className="flex flex-wrap items-center gap-8">
+          {claimPill(claim.claim_id)}
+          {rootCause && claimPill("Root cause rests on this", true)}
+        </div>
+        {check ? <Stamp kind={check.supported ? "verified" : "withdrawn"} /> : <Chip>Not checked</Chip>}
       </div>
-      <p className="mt-8 wrap-anywhere font-semibold">{claim.text}</p>
+      <p className="mt-13 wrap-anywhere font-semibold sm:text-title">{claim.text}</p>
       {check && !check.supported && (
         <p className="mt-8 text-berry">
-          Reason code <span className="num">{check.reason}</span>.
+          Withdrawn: {reasonWords(String(check.reason))}. Reason code <span className="num">{check.reason}</span>.
         </p>
       )}
-      <div className="mt-13">
+      <div className="mt-21">
         {citations === null || citations === undefined ? (
-          <p className="">
+          <p>
             <Label>Citations</Label> <NotRecorded />
           </p>
         ) : citations.length === 0 ? (
           <p className="text-muted">No citation given.</p>
         ) : (
-          <ol className="flex flex-col gap-8">
+          <ol aria-label={`Lines cited by ${claim.claim_id}`} className="overflow-hidden rounded-sm border border-line bg-ink">
             {citations.map((c, i) => {
               const reason = reasons ? reasons[i] : undefined;
+              const failed = !!reason && reason !== "ok";
+              const lit = reason === "ok";
               return (
-                <li key={`${c.source_id}-${c.line_start}-${i}`} className="min-w-0 rounded-sm bg-raised p-13">
+                <li
+                  key={`${c.source_id}-${c.line_start}-${i}`}
+                  className={`min-w-0 border-b border-line px-13 py-8 last:border-b-0 ${
+                    lit ? "bg-raised shadow-[inset_3px_0_0_#eae4d3]" : failed ? "bg-berry-tint shadow-[inset_3px_0_0_#ff5c8d]" : ""
+                  }`}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-8">
-                    <Label className="wrap-anywhere">
+                    <span className="num wrap-anywhere text-muted">
                       {c.source_id} L{c.line_start}
                       {c.line_end !== c.line_start ? ` to L${c.line_end}` : ""}
-                    </Label>
+                    </span>
                     {reasons === null || reasons === undefined ? (
                       <span className="text-muted">Citation check not recorded</span>
-                    ) : reason === "ok" ? (
-                      <Chip tone="ok">Citation verified</Chip>
+                    ) : lit ? (
+                      <span className="label text-bone">Citation verified</span>
                     ) : reason ? (
-                      <Chip tone="danger">{reasonWords(String(reason))}</Chip>
+                      <span className="label text-berry">{reasonWords(String(reason))}</span>
                     ) : (
                       <span className="text-muted">No check for this citation</span>
                     )}
                   </div>
-                  <p className="quote mt-8">{c.quote}</p>
+                  <p className={`quote mt-8 ${failed ? "struck" : ""}`}>{c.quote}</p>
                 </li>
               );
             })}
@@ -170,7 +193,7 @@ export function EvidencePanel({
           <div>
             <Label>Root cause</Label>
             {diagnosis.root_cause ? (
-              <p className="mt-8 wrap-anywhere text-title font-semibold sm:text-heading">
+              <p className="mt-8 wrap-anywhere text-title font-semibold">
                 {diagnosis.root_cause}
               </p>
             ) : (
@@ -180,7 +203,7 @@ export function EvidencePanel({
         )}
         <div className="flex flex-wrap items-center gap-8">
           <Label>Category</Label>
-          <span className="num rounded-full border border-line-strong px-8 py-0">{diagnosis.category}</span>
+          <span className="num pill inline-flex min-h-[34px] items-center border border-line-strong px-13">{diagnosis.category}</span>
           {status && (
             <Chip tone={status.status === "audited" ? "ok" : "danger"}>
               {status.status === "audited" ? "Audited" : "Inconclusive"}
@@ -233,8 +256,8 @@ export function EvidencePanel({
             role="radio"
             aria-checked={filter === f}
             onClick={() => setFilter(f)}
-            className={`label inline-flex min-h-11 items-center rounded-full px-13 ${
-              filter === f ? "bg-bone text-ink" : "border border-line-strong hover:bg-raised"
+            className={`label pill inline-flex min-h-11 items-center px-21 ${
+              filter === f ? "bg-bone text-ink" : "border border-line-strong text-bone hover:bg-raised"
             }`}
           >
             {f}
@@ -278,7 +301,7 @@ export function AuditPanel({ audit }: { audit: AuditVerdict | null }) {
           {audit.warning && <p className="wrap-anywhere">{audit.warning}</p>}
           <ul className="flex flex-col gap-8">
             {audit.checks.map((c, i) => (
-              <li key={i} className="min-w-0 rounded-md border border-line p-13">
+              <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
                 <div className="flex flex-wrap items-start gap-8">
                   <Chip tone={c.passed ? "ok" : "danger"}>{c.passed ? "Passed" : "Failed"}</Chip>
                   <p className="min-w-0 flex-1 wrap-anywhere font-medium">{c.criterion}</p>
@@ -345,6 +368,47 @@ export function CoveragePanel({ coverage }: { coverage: Coverage }) {
           )}
         </p>
       </div>
+    </Panel>
+  );
+}
+
+/** Shingo's labels, for the safeguards that fired. */
+export function SafeguardsPanel({ rows, revealed }: { rows: SafeguardRow[]; revealed: boolean }) {
+  return (
+    <Panel id="safeguards" title="Safeguards that fired in this run">
+      {!revealed ? (
+        <p className="text-muted">The safeguards appear when the replay reaches the end of the run.</p>
+      ) : rows.length === 0 ? (
+        <p className="text-muted">This recording carries none of the fields the safeguards report.</p>
+      ) : (
+        <ul className="flex flex-col gap-13">
+          {rows.map((row) => (
+            <li key={row.key} className="min-w-0 rounded-md border border-line bg-ink p-13">
+              <div className="flex flex-wrap items-center justify-between gap-8">
+                <span
+                  className={`label pill inline-flex min-h-[34px] items-center gap-8 px-13 ${
+                    row.caught ? "border border-berry text-berry" : "border border-line-strong text-bone"
+                  }`}
+                >
+                  <span aria-hidden="true" className={`size-2 rounded-full ${row.caught ? "bg-berry" : "bg-bone"}`} />
+                  {row.kind}
+                </span>
+                {row.value !== null && <span className="num text-title">{row.value}</span>}
+              </div>
+              <p className="mt-8 font-semibold">{row.title}</p>
+              {row.details.length > 0 && (
+                <ul className="mt-8 flex flex-col gap-8">
+                  {row.details.map((d) => (
+                    <li key={d} className="num wrap-anywhere text-muted">
+                      {d}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </Panel>
   );
 }

@@ -1,13 +1,14 @@
 import { useMemo, useSyncExternalStore } from "react";
-import { SiteFooter, SkipLink } from "../components/chrome";
+import { SiteFooter, SiteHeader, SkipLink } from "../components/chrome";
 import { getDecision, subscribe } from "../lib/approval";
 import { VERDICT_WORDS } from "../lib/labels";
 import { atLeastPercent, formatUsd, toMicrosOrNull } from "../lib/money";
 import { provenanceOf, summaryOf, type LoadedRecording } from "../lib/recording";
 import { runStatusLabel } from "../lib/runState";
+import { safeguardRows } from "../lib/safeguards";
 import type { LedgerEntry } from "../lib/types";
 import { BudgetPanel } from "./Budget";
-import { AuditPanel, CoveragePanel, EvidencePanel, isInconclusive } from "./Evidence";
+import { AuditPanel, CoveragePanel, EvidencePanel, isInconclusive, SafeguardsPanel } from "./Evidence";
 import { FeedPanel } from "./Feed";
 import { ApprovalGate, ChatPanel, PackagePanel, StopBanner, TerminalBanner } from "./Outcome";
 import { RecordedBanner, ReplayToolbar, RunHeader } from "./RunHeader";
@@ -61,11 +62,12 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
   if (events.length === 0) {
     return (
       <>
+        <SiteHeader />
         <RecordedBanner provenance={provenance} summary={summary} notice={null} />
-        <main id="run" className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-          <h1 className="text-2xl/8 font-semibold">{summary.title}</h1>
-          <p className="mt-3 text-muted">This recording has no events, so there is nothing to replay.</p>
-          <a href="#/" className="mt-4 inline-block underline underline-offset-4">Back to the recordings</a>
+        <main id="run" className="mx-auto flex max-w-[1440px] flex-col items-center px-21 py-55 text-center lg:px-55">
+          <h1 className="text-heading font-semibold text-balance">{summary.title}</h1>
+          <p className="mt-13 text-muted">This recording has no events, so there is nothing to replay.</p>
+          <a href="#/" className="mt-21 inline-block underline underline-offset-4">Back to the recordings</a>
         </main>
       </>
     );
@@ -74,10 +76,13 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
   const goal = state.goal ?? bundle.run.goal;
   const corpusCategory = summary.category ?? null;
   const partial = state.terminal?.kind === "finished" ? state.terminal.partial : state.terminal?.partial ?? false;
+  const agents = state.agentOrder.map((id) => state.agents.get(id)!).filter(Boolean);
+  const safeguards = revealed ? safeguardRows(pkg, audit, { spent, cap, stops: state.stops.length }) : [];
 
   return (
     <>
       <SkipLink target="run">Skip to the run</SkipLink>
+      <SiteHeader />
       <RecordedBanner provenance={provenance} summary={summary} notice={state.modeNotice} />
       <RunHeader
         status={status}
@@ -85,20 +90,20 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
         simulatedCase={state.simulatedCase ?? bundle.run.simulated_case}
         budget={{ spent, held, cap, stopped: state.stops.length > 0 }}
         decisionNeeded={decisionNeeded}
+        agents={agents}
       />
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
-      <ReplayToolbar replay={replay} />
-      <div id="run" className="mx-auto max-w-[1440px] px-4 pt-4 sm:px-6 lg:px-8">
-        <h1 className="wrap-anywhere text-2xl/8 font-semibold sm:text-[2rem]/[2.5rem]">{summary.title}</h1>
-        <p className="mt-1 wrap-anywhere text-sm text-muted sm:hidden">{goal}</p>
+      <div id="run" className="mx-auto flex max-w-[1440px] flex-col items-center px-21 pt-34 text-center lg:px-55">
+        <h1 className="max-w-[22ch] wrap-anywhere text-heading font-semibold tracking-tight text-balance">{summary.title}</h1>
+        <p className="mt-13 max-w-[68ch] wrap-anywhere text-muted">{goal}</p>
       </div>
-      <div className="mx-auto grid max-w-[1440px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-12 lg:gap-6 lg:px-8">
-        <main className="flex min-w-0 flex-col gap-4 lg:col-span-8">
+      <ReplayToolbar replay={replay} />
+      <div className="mx-auto grid max-w-[1440px] gap-21 px-21 py-34 lg:grid-cols-[1.618fr_1fr] lg:gap-34 lg:px-55">
+        <main className="flex min-w-0 flex-col gap-21 lg:gap-34">
           <TerminalBanner state={state} />
           <StopBanner state={state} />
-          <ApprovalGate gateKey={gateKey} revealed={revealed} pkg={pkg} inconclusive={inconclusive} />
           <EvidencePanel
             pkg={pkg}
             revealed={revealed}
@@ -106,20 +111,22 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
             corpusCategory={corpusCategory}
             statusLabel={status}
           />
-          <AuditPanel audit={audit} />
-          {revealed && pkg?.coverage && <CoveragePanel coverage={pkg.coverage} />}
+          <ApprovalGate gateKey={gateKey} revealed={revealed} pkg={pkg} inconclusive={inconclusive} />
           {revealed && pkg && <PackagePanel pkg={pkg} partial={partial} />}
-          <TeamPanel state={state} snapshot={revealed && Array.isArray(bundle.org?.nodes) ? bundle.org!.nodes! : null} />
           <TaskPanel state={state} />
           <FeedPanel state={state} done={done} />
         </main>
-        <aside aria-label="Budget and chat" className="flex min-w-0 flex-col gap-4 lg:col-span-4">
+        <aside aria-label="Safeguards, budget and team" className="flex min-w-0 flex-col gap-21 lg:gap-34">
+          <SafeguardsPanel rows={safeguards} revealed={revealed} />
+          <AuditPanel audit={audit} />
+          {revealed && pkg?.coverage && <CoveragePanel coverage={pkg.coverage} />}
           <BudgetPanel
             state={state}
             report={revealed ? (pkg?.cost_report ?? null) : null}
             fallbackCap={fallbackCap}
             snapshot={revealed ? ledgerSnapshot(bundle.ledger) : null}
           />
+          <TeamPanel state={state} snapshot={revealed && Array.isArray(bundle.org?.nodes) ? bundle.org!.nodes! : null} />
           <ChatPanel messages={state.messages} />
         </aside>
       </div>

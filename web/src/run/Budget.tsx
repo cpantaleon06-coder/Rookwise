@@ -7,7 +7,7 @@ import type { CostReport, LedgerEntry } from "../lib/types";
 
 function Pill({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-flex max-w-full flex-wrap items-center gap-8 rounded-full border border-line px-13 py-0">
+    <span className="inline-flex max-w-full flex-wrap items-center gap-8 rounded-full border border-line bg-ink px-13 min-h-[34px]">
       <span className="label text-muted">{label}</span>
       <span className="num">{value}</span>
     </span>
@@ -169,7 +169,7 @@ export function BudgetPanel({
               </summary>
               <ul className="mt-8 flex flex-col gap-8">
                 {allocations.map((a) => (
-                  <li key={a.node.agent_id} className="rounded-md border border-line p-13">
+                  <li key={a.node.agent_id} className="rounded-md border border-line bg-ink p-13">
                     <p className="font-medium wrap-anywhere">{agentName(state.agents, a.node.agent_id)}</p>
                     <p className="text-muted">
                       Held <span className="num text-bone">{formatMicros(a.allocated ?? 0n)}</span>
@@ -201,7 +201,7 @@ export function BudgetPanel({
             </p>
             <ol className="mt-8 flex flex-col gap-8">
               {ledger.map((e, i) => (
-                <li key={i} className="min-w-0 rounded-md border border-line p-13">
+                <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
                   <div className="flex flex-wrap justify-between gap-8">
                     <span className="font-medium">
                       {LEVEL_WORDS[e.level] ?? e.level} <span className="num text-muted">{e.task_id}</span>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { SiteFooter, SkipLink } from "../components/chrome";
+import { SiteFooter, SiteHeader, SkipLink } from "../components/chrome";
 import { buttonClass, Skeleton } from "../components/ui";
 import { loadRecording, RecordingError, type LoadedRecording } from "../lib/recording";
 import { RecordedBanner } from "../run/RunHeader";
@@ -43,15 +43,16 @@ export function RunPage({ folder }: { folder: string }) {
   return (
     <>
       <SkipLink target="run">Skip to the run</SkipLink>
+      <SiteHeader />
       <RecordedBanner provenance={null} summary={null} notice={null} />
-      <main id="run" className="mx-auto max-w-[1440px] px-13 py-34 sm:px-21 lg:px-34">
+      <main id="run" className="mx-auto max-w-[1440px] px-21 py-34 lg:px-55">
         {state.kind === "loading" ? (
           <div role="status" className="flex flex-col gap-13">
             <p className="text-muted">Loading the recording “{folder}”.</p>
-            <Skeleton className="h-24 w-full" />
-            <div className="grid gap-13 lg:grid-cols-12">
-              <Skeleton className="h-96 lg:col-span-8" />
-              <Skeleton className="h-96 lg:col-span-4" />
+            <Skeleton className="h-24 w-full rounded-full" />
+            <div className="grid gap-21 lg:grid-cols-[1.618fr_1fr]">
+              <Skeleton className="h-96 rounded-lg" />
+              <Skeleton className="h-96 rounded-lg" />
             </div>
           </div>
         ) : (

@@ -83,7 +83,7 @@ export function Panel({
     <section
       id={id}
       aria-labelledby={headingId}
-      className={`min-w-0 scroll-mt-55 rounded-lg border border-line bg-surface p-21 sm:p-34 ${className}`}
+      className={`card min-w-0 scroll-mt-144 rounded-lg p-21 sm:p-34 ${className}`}
     >
       <div className="mb-21 flex flex-wrap items-baseline justify-between gap-13">
         <h2 id={headingId} className="text-title font-semibold">

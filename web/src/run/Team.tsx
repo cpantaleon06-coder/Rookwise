@@ -134,7 +134,7 @@ export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot
           <h3 className="mb-8 font-semibold">Reassignments and escalations ({state.escalations.length})</h3>
           <ul className="flex flex-col gap-8">
             {state.escalations.map((e, i) => (
-              <li key={i} className="min-w-0 rounded-md border border-line p-13">
+              <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
                 <p className="wrap-anywhere">
                   <span className="font-medium">{agentName(state.agents, e.from_agent_id)}</span>
                   <span aria-hidden="true"> → </span>
@@ -190,7 +190,7 @@ export function TaskPanel({ state }: { state: RunState }) {
           {tasks.map((t) => {
             const errors = t.attempts.flatMap((a) => a.validation_errors);
             return (
-              <li key={t.task.task_id} className="min-w-0 rounded-md border border-line p-13">
+              <li key={t.task.task_id} className="min-w-0 rounded-md border border-line bg-ink p-13">
                 <div className="flex flex-wrap items-center gap-8">
                   <span className="num font-medium">{t.task.task_id}</span>
                   <span className="wrap-anywhere">{t.task.role}</span>
