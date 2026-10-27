@@ -47,6 +47,24 @@ Rookwise is MIT licensed (see `LICENSE`). This repository also contains material
   - `skills/postmortem/SKILL.md`, from `skills/postmortem/SKILL.md`
 - Modifications: kept only the tool-independent guidance; removed every incident.io tool, account, MCP server, desktop app and channel reference and every step that asks the user; added the rule that demo incidents are simulated and labeled as simulated.
 
+## Web fonts (shipped with web/)
+
+Self-hosted through npm packages from Fontsource and bundled by Vite; no font CDN is used at
+runtime. Only the latin subsets ship. The license texts are served next to the site in
+`web/public/licenses/`.
+
+- Nunito, variable weight, `@fontsource-variable/nunito` 5.3.0. Upstream
+  https://github.com/googlefonts/nunito. License: SIL Open Font License 1.1, "Copyright 2014 The
+  Nunito Project Authors", full text in `web/public/licenses/nunito-OFL.txt`. Used for headings,
+  interface and body text.
+- JetBrains Mono 400 and 500, `@fontsource/jetbrains-mono` 5.3.0. Upstream
+  https://github.com/JetBrains/JetBrainsMono. License: SIL Open Font License 1.1, full text in
+  `web/public/licenses/jetbrains-mono-OFL.txt`. Used for log lines, citations, line numbers and
+  money.
+
+Earlier versions of the site used Inter, Source Serif 4 and Space Grotesk; none of them ships any
+more and their files and packages are removed.
+
 ## Laya (experiment dependency, not shipped)
 
 Used only by the stage-0 log filter experiment (`tools/laya-filter/`, results in

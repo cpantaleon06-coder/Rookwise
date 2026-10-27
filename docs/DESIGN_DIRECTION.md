@@ -48,7 +48,11 @@ reproduced; the site combines their vocabulary into one design of its own.
 - No hue outside ink, Stellar Strawberry and bone (no green, lime, blue, violet or white).
 - No giant background wordmark and no glass blur over content.
 
-## 2. Palette (hard rule)
+## 2. Palette
+
+Visual pass 2 keeps the three anchors and adds a small semantic set (section 2.1). Everything
+below the anchors table still holds for ink, bone and Stellar Strawberry.
+
 
 Three hues and nothing else, including charts, states, gradients, glows and the favicon.
 
@@ -94,6 +98,47 @@ top edge (bone 8% over ink). No text sits over the glow.
 Strawberry on bone 12% would fall to 4.06:1, so no card gradient goes above bone 8%, and
 Strawberry text never sits on the track tint.
 
+### 2.1 Semantic colors (visual pass 2)
+
+Four colors, each with one meaning, defined as Tailwind theme variables in `web/src/index.css`
+(`--color-teal`, `--color-amber`, `--color-violet`, `--color-gold`, and a `-tint` of each at 16%
+over ink). Every use also carries an icon or a word, so color is never the only signal.
+
+| Token | Value | Meaning | Where |
+|---|---|---|---|
+| teal | `#3ED6B0` | Verified: a supported claim, a passed check | VERIFIED stamp, verified claim rows and cited lines, "Citation verified", the proof line in the hero, Contact and Sequence labels, the leading result |
+| amber | `#FFA53D` | Withdrawn: a claim removed by the check, a warning | WITHDRAWN stamp, withdrawn rows, failed cited lines and their strikethrough, Warning labels, Limits |
+| violet | `#A5A8FF` | The auditor, the second check | Audit verdict and status chips, Second check labels, the auditor node and ring, the recorded-run banner and pill |
+| gold | `#F2CF5B` | Budget and money, used sparingly | Budget ring in the run strip, the budget meter and ledger bars, the money pill and ticker items, mean cost in Results, Control labels |
+
+Strawberry stays the action color: the primary button, "Decision needed", "You decide", focus
+rings and the hero glow.
+
+Contrast, WCAG 2.x, computed against the brightest pixel each text can sit on:
+
+| Color | as text on ink | as text on card top (bone 8%) | ink text on a fill of it | as text on its own tint | bone on its tint | muted on its tint |
+|---|---|---|---|---|---|---|
+| teal | 8.95:1 | 7.30:1 | 8.95:1 | 6.37:1 | 9.20:1 | 5.19:1 |
+| amber | 8.37:1 | 6.82:1 | 8.37:1 | 6.17:1 | 9.53:1 | 5.37:1 |
+| violet | 7.54:1 | 6.15:1 | 7.54:1 | 5.51:1 | 9.45:1 | 5.33:1 |
+| gold | 10.83:1 | 8.83:1 | 10.83:1 | 7.41:1 | 8.84:1 | 4.99:1 |
+| Strawberry | 5.60:1 | 4.57:1 | 5.60:1 | 4.75:1 (13% tint) | 10.95:1 | 6.17:1 |
+
+Washes: soft radial gradients painted on the hero and on the poka-yoke, how-it-works and
+results sections, so nothing extends past the page. Brightest wash pixels and the text over them:
+
+| Wash (peak) | bone | muted | teal text |
+|---|---|---|---|
+| teal 12% | 10.08:1 | 5.68:1 | 6.98:1 |
+| violet 12% | 10.35:1 | 5.83:1 | 7.17:1 |
+| Strawberry 10% | 11.46:1 | 6.46:1 | 7.93:1 |
+| amber 8% | 11.20:1 | 6.31:1 | 7.76:1 |
+
+Hues per screen (accents, not counting ink and bone): hero teal, amber, violet, gold and the
+Strawberry button (the four semantic pills and the action share the first screen; see
+deviations); poka-yoke teal, gold, amber, violet; how it works violet, teal, Strawberry;
+results teal and gold; run evidence teal, amber, violet.
+
 ## 3. Shape language, golden ratio and symmetry
 
 - **Radii:** Fibonacci 13, 21, 34, 55 for cards and panels; full pills for navigation, buttons,
@@ -102,12 +147,14 @@ Strawberry text never sits on the track tint.
 - **Depth:** the top-lit card gradient, and a Strawberry radial glow behind key objects only (the
   hero rook, the director node, the leading result).
 - **Spacing** (margin, padding and gap only): 8, 13, 21, 34, 55, 89, 144 px.
-- **Type:** 16, 26, 42, 68, 110 px. Body line height 1.618; display 1.1.
+- **Type:** 18, 29, 47, 76, 123 px since visual pass 2 (was 16, 26, 42, 68, 110). Each step is
+  about 1.618 times the last. Body line height 1.618; display 1.1. Body weight 500, headings 900.
 - **Layout:** two-column layouts are `1.618fr 1fr`; one central vertical axis; mirrored pairs.
 - **Grids:** 2x3 or 3x2 or 3x1; never 5.
 - **Mark:** the rook, 21 by 34 units, symmetric about x = 10.5. The hero draws it again as a dot
   matrix sampled from the same polygon.
-- **Fonts (SIL OFL 1.1, self-hosted):** Space Grotesk and JetBrains Mono.
+- **Fonts (SIL OFL 1.1, self-hosted):** Nunito (variable) for headings, interface and body since
+  visual pass 2; JetBrains Mono only for log lines, citations, line numbers and money.
 
 ## 4. Self-review
 
@@ -166,3 +213,23 @@ side by side on phones; a larger glow behind the rings; root cause at 26 px.
   wider than 360 or 390 px.
 - **Every recorded run:** a row of pill links under the stamp cards, so inc-01-run3 stays
   reachable from the landing.
+
+## 6. Visual pass 2
+
+Nunito replaces Space Grotesk; the type scale moves up one notch (18 px body); the semantic set
+of section 2.1 adds color; washes sit behind the hero and three sections; the hero now states
+what Rookwise is, for whom, and its proof point, with one large Strawberry action ("Watch a
+recorded investigation") and one secondary ("See the results"). "Recorded run, not live" and
+"Executes nothing" sit as pills right above the hero object.
+
+Deviations in this pass:
+
+- **Hues on the first screen:** the hero shows the Strawberry action plus teal, amber, gold and
+  violet pills, five accents where the brief asks for at most four. Each pill marks a different
+  meaning and the action color is Strawberry by rule; dropping one would hide a fact.
+- **Live runs control:** removed from the hero. The "Recorded run, not live" pill carries the same
+  fact next to the demo.
+- **Labels:** no longer mono uppercase; they are Nunito 800 at body size. Stamps keep VERIFIED and
+  WITHDRAWN in upper case.
+- **Results count:** each count is one string ("2 of 3") so release/check_numbers.py finds it in
+  the source; `::first-letter` keeps the count as the giant numeral.
