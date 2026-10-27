@@ -466,7 +466,7 @@ function GatePill({ kicker, title, tone }: { kicker: string; title: string; tone
   return (
     <div className="flex flex-col items-center gap-8 text-center">
       <span
-        className={`label pill inline-flex min-h-11 items-center px-21 ${
+        className={`label pill inline-flex min-h-11 items-center whitespace-nowrap px-13 sm:px-21 ${
           tone === "berry" ? "border border-berry text-berry" : "bg-bone text-ink"
         }`}
       >
@@ -487,7 +487,7 @@ function Rings({ team, title }: { team: TeamSummary; title: string }) {
   const mgrs: RingNode[] = Array.from({ length: managers?.count ?? 0 }, () => ({ tone: "lit" }));
   return (
     <figure className="mt-55">
-      <div className="grid grid-cols-2 items-center gap-x-13 gap-y-34 md:grid-cols-[1fr_auto_1fr] md:gap-34">
+      <div className="grid grid-cols-2 items-center gap-x-8 gap-y-34 md:grid-cols-[1fr_auto_1fr] md:gap-34">
         <div className="order-2 md:order-1 md:justify-self-end">
           <GatePill title="Evidence check" kicker="Code, no model" tone="berry" />
         </div>

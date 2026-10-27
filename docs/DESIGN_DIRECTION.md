@@ -111,8 +111,58 @@ Strawberry text never sits on the track tint.
 
 ## 4. Self-review
 
-Filled in from the screenshots in `web/screenshots-local/` (not committed).
+Screenshots at 1280 and 390 px of the landing (hero, hero object, poka-yoke, how it works,
+results, full page) and of the run view (top, evidence, safeguards, approval), taken with
+`npm run screenshots` into `web/screenshots-local/` (not committed) and compared with the nine
+references.
+
+### Round 1
+
+| Question | Answer |
+|---|---|
+| Does the hero have a central object with depth and a glow? | Yes, but at 1280 by 900 it sat entirely below the fold: the three-line H1 and stacked buttons pushed it down. |
+| Are cards and buttons visibly round? | Yes: 34 px cards, pill buttons, pill nav, pill tags. |
+| Do pills and ticker exist? | Yes: four floating pills with real data (c1 verified, c2 withdrawn: quote_not_found, $0.188152 of $0.500000 cap, 60 slices read, 0 unread) and the ticker. |
+| Is there a giant numeral? | Yes: 2, 0 and 1 at 110 px in Results. |
+| One original design, not a copy? | Yes: the dot-matrix rook, the rings and the stamp cards appear in no reference. |
+| Does anything look flat or empty? | The hero first screen had no object. The run strip's team diagram was a grey speck at 55 px. Poka-yoke cards in a row had different heights. On a phone the two gate pills stacked instead of mirroring, and the strip was three rows of pills. |
+
+Fixes: H1 to two lines at 1280 (21ch), buttons side by side with the note centered under both,
+smaller gaps, so the rook's crown shows on the first screen; a compact mode for the strip's rings
+(nodes 2.6 times larger); fewer strip pills; poka-yoke cards stretch to equal heights; gate pills
+side by side on phones; a larger glow behind the rings; root cause at 26 px.
+
+### Round 2
+
+| Question | Answer |
+|---|---|
+| Does the hero have a central object with depth and a glow? | Yes. The rook's crown, glow and arcs show on the first 1280 by 900 screen; the full object sits on the grid frame with crosshairs. |
+| Are cards and buttons visibly round? | Yes, at both widths. |
+| Do pills and ticker exist? | Yes. On phones the four pills stack under the rook instead of floating. |
+| Is there a giant numeral? | Yes. |
+| One original design, not a copy? | Yes. |
+| Does anything look flat or empty? | Two small issues: on a phone the "Evidence check" pill wrapped inside its capsule, and claim pills ("Root cause rests on this") wrapped inside theirs. Fixed with no-wrap and smaller inner padding on phones. The long section gaps (144 px) read as calm at 1280, not empty. |
 
 ## 5. Deviations
 
-Filled in at the end of the redesign.
+- **Section titles not in the brief:** "Three configurations, the same cap" (Results), "What this
+  does not show" (Limits), and the tag pills ("Real model runs, replayed", "Mistake-proofing",
+  "Results, test split"). The brief gave no titles for these.
+- **Prices per 1M tokens:** not shown; the recording files carry none.
+- **Hierarchy legend:** the rings carry no text inside the SVG (it would shrink below 16 px on a
+  phone). Model names sit in a 2x2 legend of rounded cards under the rings.
+- **Cards 1:1.618:** the six safeguard cards hold more text than a 1.618:1 box fits at 1280, so
+  they stretch to equal heights instead of keeping the ratio.
+- **Strip pills:** "Recorded" moved out of the strip (the banner above says it) and "Synthetic
+  incident" became "Synthetic", so the strip stays one row at 1280.
+- **Run view section links** (the old tabs) are gone; the strip's "Decision needed" pill still
+  jumps to the approval gate.
+- **Live runs control:** only on the landing; the shorter run banner no longer repeats it.
+- **No text below 16 px** anywhere, so the references' tiny corner labels are 16 px mono.
+- **The 394 px overflow** at a 390 px viewport came from the WITHDRAWN stamp: its paused animation
+  held the first keyframe (`scale(1.618)`), which reached 3.6 px past the right edge. The stamps
+  now rest in their final state, the animation only plays on top, and each stamp scales from its
+  inner side. No `overflow-x: hidden` was added; `npm run check:overflow` fails if the page is
+  wider than 360 or 390 px.
+- **Every recorded run:** a row of pill links under the stamp cards, so inc-01-run3 stays
+  reachable from the landing.

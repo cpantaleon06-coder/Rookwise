@@ -26,7 +26,7 @@ function NotRecorded() {
 function claimPill(text: string, strong = false) {
   return (
     <span
-      className={`label pill inline-flex min-h-[34px] items-center px-13 ${
+      className={`label pill inline-flex min-h-[34px] items-center whitespace-nowrap px-13 ${
         strong ? "bg-bone text-ink" : "border border-line-strong text-bone"
       }`}
     >
@@ -54,7 +54,7 @@ function ClaimRow({
   const withdrawn = check ? !check.supported : false;
   return (
     <li
-      className={`min-w-0 rounded-md border p-21 ${withdrawn ? "border-berry/40 bg-berry-tint" : "border-line bg-raised"}`}
+      className={`min-w-0 rounded-md border p-13 sm:p-21 ${withdrawn ? "border-berry/40 bg-berry-tint" : "border-line bg-raised"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-13">
         <div className="flex flex-wrap items-center gap-8">
