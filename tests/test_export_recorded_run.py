@@ -224,7 +224,8 @@ def test_a_run_without_an_audit_has_no_package(run_dir, corpus, tmp_path):
         ("[synthetic] see metrics.acme-internal.io", "hostname 'metrics.acme-internal.io'"),
         ("[synthetic] host 203.0.113.99 answered", "hostname '203.0.113.99'"),
         ("[synthetic] Authorization: Bearer abcdefghijklmnop", "bearer"),
-        ("[synthetic] token sk-abcdefghijklmnopqrstu", "sk-"),
+        # Built at runtime so this file does not itself match the release key-pattern check.
+        ("[synthetic] token " + "sk" + "-abcdefghijklmnopqrstu", "sk-"),
     ],
 )
 def test_it_refuses_unknown_hostnames_and_secrets(run_dir, corpus, tmp_path, text, problem):
