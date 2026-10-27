@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { runHref } from "../App";
-import { LiveRunsControl, REPO_URL, SiteFooter, SkipLink, ThemeToggle } from "../components/chrome";
-import { buttonClass, Chip, Label, Placeholder, Skeleton, Usd } from "../components/ui";
-import { splitOf, SPLIT_CHIP } from "../lib/incidents";
-import { formatDate, reasonWords } from "../lib/labels";
+import { LIVE_RUNS_NOTE, LiveRunsButton, SiteFooter, SiteHeader, SkipLink } from "../components/chrome";
+import { DotRook, Glyph, MirroredArcs, ProgressRing, TeamRings, type RingNode } from "../components/figures";
+import { buttonClass, Label, Skeleton, Stamp } from "../components/ui";
+import { runFacts, type RunFacts } from "../lib/facts";
+import { LEVEL_WORDS, reasonWords, VERDICT_WORDS } from "../lib/labels";
+import { formatUsd } from "../lib/money";
 import {
+  BUNDLE_FILE,
   loadIndex,
   RecordingError,
+  validateBundle,
   type ClaimExcerpt,
   type IndexEntry,
-  type RunExcerpt,
 } from "../lib/recording";
+import { teamOf, type TeamSummary } from "../lib/team";
 
 const BASE = `${import.meta.env.BASE_URL}recordings/`;
+
+/** The recording the hero, the stamp moment and the rings come from. */
+const FEATURED = "inc-03-run2";
 
 type IndexState =
   | { kind: "loading" }
@@ -43,348 +50,613 @@ function useRecordingIndex() {
   return { state, retry };
 }
 
-function SiteHeader() {
-  const [open, setOpen] = useState(false);
-  const links = (
-    <>
-      <a className="label inline-flex min-h-11 items-center px-3 text-muted hover:text-ink" href="#how-it-works">
-        How it works
-      </a>
-      <a className="label inline-flex min-h-11 items-center px-3 text-muted hover:text-ink" href={REPO_URL} rel="noreferrer">
-        Source on GitHub
-      </a>
-    </>
-  );
+interface Featured {
+  facts: RunFacts;
+  team: TeamSummary | null;
+}
+
+/** The featured recording's facts and team, read from its bundle. Null until loaded or when missing. */
+function useFeatured(folder: string | null): Featured | null {
+  const [loaded, setLoaded] = useState<{ folder: string; data: Featured | null } | null>(null);
+  useEffect(() => {
+    if (!folder) return;
+    let cancelled = false;
+    fetch(`${BASE}${encodeURIComponent(folder)}/${BUNDLE_FILE}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: unknown) => {
+        const bundle = validateBundle(data);
+        if (!cancelled) setLoaded({ folder, data: { facts: runFacts(bundle), team: teamOf(bundle.org?.nodes) } });
+      })
+      .catch(() => !cancelled && setLoaded({ folder, data: null }));
+    return () => {
+      cancelled = true;
+    };
+  }, [folder]);
+  return loaded && loaded.folder === folder ? loaded.data : null;
+}
+
+/** True once the element has been on screen; motion waits for it, the final state does not. */
+function useSeen<T extends Element>(): [RefObject<T | null>, boolean] {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || seen || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.38 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+  return [ref, seen];
+}
+
+function TagPill({ children, tone = "bone" }: { children: ReactNode; tone?: "bone" | "berry" }) {
   return (
-    <header className="border-b border-line">
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-2 px-4 py-2 sm:px-6 lg:px-8">
-        <a href="#/" className="text-lg font-semibold tracking-tight">
-          Rookwise
-        </a>
-        <nav aria-label="Site" className="hidden items-center sm:flex">
-          {links}
-          <ThemeToggle />
-        </nav>
-        <button
-          type="button"
-          className="label inline-flex min-h-11 items-center rounded-full border border-line-strong px-4 sm:hidden"
-          aria-expanded={open}
-          aria-controls="site-menu"
-          onClick={() => setOpen((v) => !v)}
-        >
-          Menu
-        </button>
-      </div>
-      {open && (
-        <nav id="site-menu" aria-label="Site" className="flex flex-col border-t border-line px-4 py-2 sm:hidden">
-          {links}
-          <ThemeToggle />
-        </nav>
-      )}
-    </header>
+    <span className="label pill inline-flex min-h-[34px] items-center gap-8 border border-line bg-raised px-13 text-bone">
+      <span aria-hidden="true" className={`size-2 rounded-full ${tone === "berry" ? "bg-berry" : "bg-bone"}`} />
+      {children}
+    </span>
   );
 }
 
-function provenanceChip(entry: IndexEntry) {
-  if (entry.provenance === "real_model_output") {
-    return <Chip tone="info">Real model output</Chip>;
-  }
-  if (entry.provenance === "synthetic_fixture") {
-    return <Chip tone="info">Synthetic fixture, not model output</Chip>;
-  }
-  return null;
+function Section({
+  id,
+  tag,
+  title,
+  children,
+}: {
+  id: string;
+  tag: string;
+  title: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-21 py-89 lg:py-144">
+      <div className="flex flex-col items-center text-center">
+        <TagPill>{tag}</TagPill>
+        <h2 id={`${id}-title`} className="mt-21 max-w-[22ch] text-heading font-semibold tracking-tight text-balance">
+          {title}
+        </h2>
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function ExcerptClaim({ claim, verified }: { claim: ClaimExcerpt; verified: boolean }) {
+/* 1. Hero ----------------------------------------------------------------- */
+
+function FactPill({ dot, children }: { dot: "bone" | "berry"; children: ReactNode }) {
   return (
-    <div className={`rounded-[10px] border border-line p-4 ${verified ? "" : "bg-danger-tint"}`}>
-      <div className="mb-2">
-        {verified ? (
-          <Chip tone="ok">Verified</Chip>
-        ) : (
-          <Chip tone="danger">Withdrawn: {reasonWords(String(claim.reason))}</Chip>
-        )}
+    <span className="num pill card inline-flex min-h-11 max-w-full items-center gap-8 px-21 shadow-[0_13px_34px_-21px_#142030]">
+      <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${dot === "berry" ? "bg-berry" : "bg-bone"}`} />
+      <span className="wrap-anywhere">{children}</span>
+    </span>
+  );
+}
+
+function factPills(facts: RunFacts | null): { key: string; dot: "bone" | "berry"; text: string }[] {
+  if (!facts) return [];
+  const pills: { key: string; dot: "bone" | "berry"; text: string }[] = [];
+  if (facts.verifiedClaimId) pills.push({ key: "verified", dot: "bone", text: `${facts.verifiedClaimId} verified` });
+  if (facts.withdrawnReason)
+    pills.push({ key: "withdrawn", dot: "berry", text: `${facts.withdrawnClaimId ?? "claim"} withdrawn: ${facts.withdrawnReason}` });
+  if (facts.spentUsd && facts.capUsd)
+    pills.push({ key: "budget", dot: "bone", text: `${formatUsd(facts.spentUsd)} of ${formatUsd(facts.capUsd)} cap` });
+  if (facts.slicesRead !== null)
+    pills.push({
+      key: "slices",
+      dot: facts.unreadRanges ? "berry" : "bone",
+      text: `${facts.slicesRead} slices read${facts.unreadRanges !== null ? `, ${facts.unreadRanges} unread` : ""}`,
+    });
+  return pills;
+}
+
+/** Floating pill positions, mirrored about the axis: left, right, left, right. */
+const PILL_SPOTS = [
+  "lg:left-0 lg:top-[21%]",
+  "lg:right-0 lg:top-[21%]",
+  "lg:left-[5%] lg:top-[66%]",
+  "lg:right-[5%] lg:top-[66%]",
+];
+
+function HeroObject({ facts }: { facts: RunFacts | null }) {
+  const pills = factPills(facts);
+  return (
+    <div id="hero-object" className="relative mx-auto mt-21 w-full max-w-[987px]">
+      <div className="relative h-[377px] md:h-[610px]">
+        <div aria-hidden="true" className="grid-frame absolute inset-0" />
+        <span aria-hidden="true" className="crosshair left-0 top-0" />
+        <span aria-hidden="true" className="crosshair right-0 top-0" />
+        <span aria-hidden="true" className="crosshair bottom-0 left-0" />
+        <span aria-hidden="true" className="crosshair bottom-0 right-0" />
+        <MirroredArcs className="absolute inset-0 h-full w-full" />
+        <div
+          aria-hidden="true"
+          className="glow absolute left-1/2 top-1/2 size-[322px] -translate-x-1/2 -translate-y-1/2 md:size-[521px]"
+        />
+        <DotRook className="absolute left-1/2 top-1/2 h-[289px] -translate-x-1/2 -translate-y-1/2 md:h-[466px]" />
+        {pills.map((p, i) => (
+          <div key={p.key} aria-hidden="true" className={`absolute hidden lg:block ${PILL_SPOTS[i]}`}>
+            <FactPill dot={p.dot}>{p.text}</FactPill>
+          </div>
+        ))}
       </div>
-      <p className="text-sm/5">{claim.text}</p>
-      {claim.citation && (
-        <div className="mt-3 rounded-[6px] bg-raised p-3">
-          <Label>
-            {claim.citation.source_id} L{claim.citation.line_start}
-            {claim.citation.line_end !== claim.citation.line_start ? ` to L${claim.citation.line_end}` : ""}
-          </Label>
-          <p className="quote mt-1 line-clamp-4">{claim.citation.quote}</p>
-        </div>
+      {pills.length > 0 && (
+        <ul aria-label="From the recorded run" className="mt-21 grid grid-cols-1 justify-items-center gap-8 lg:sr-only">
+          {pills.map((p) => (
+            <li key={p.key} className="max-w-full">
+              <FactPill dot={p.dot}>{p.text}</FactPill>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
 }
 
-function HeroExcerpt({ entry }: { entry: IndexEntry | null }) {
-  const excerpt: RunExcerpt | null = entry?.excerpt ?? null;
-  if (!entry || !excerpt) {
-    return (
-      <div className="placeholder-box flex min-h-64 items-center justify-center p-6 text-center">
-        <span className="label">Run excerpt: TBD from the recorded demo</span>
-      </div>
-    );
-  }
+function tickerFacts(facts: RunFacts | null): string[] {
+  if (!facts) return [];
+  const out: string[] = [];
+  if (facts.spentUsd) out.push(`Spent ${formatUsd(facts.spentUsd)}`);
+  if (facts.capUsd) out.push(`Cap ${formatUsd(facts.capUsd)}`);
+  if (facts.slicesRead !== null) out.push(`${facts.slicesRead} slices read`);
+  if (facts.supported !== null) out.push(`${facts.supported} claims supported`);
+  if (facts.withdrawn !== null) out.push(`${facts.withdrawn} claims withdrawn`);
+  if (facts.operators !== null) out.push(`${facts.operators} operators`);
+  if (facts.auditVerdict) out.push(`Audit: ${(VERDICT_WORDS[facts.auditVerdict] ?? facts.auditVerdict).toLowerCase()}`);
+  if (facts.category) out.push(`Category ${facts.category}`);
+  return out;
+}
+
+function Ticker({ facts, title }: { facts: RunFacts | null; title: string | null }) {
+  const items = tickerFacts(facts);
+  if (items.length === 0) return null;
+  const row = (copy: boolean) => (
+    <ul aria-hidden={copy || undefined} className={`flex shrink-0 items-center ${copy ? "ticker-copy" : ""}`}>
+      {items.map((item) => (
+        <li key={item} className="num flex items-center gap-21 whitespace-nowrap px-21">
+          <span aria-hidden="true" className="size-2 rounded-full bg-berry" />
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
   return (
-    <figure className="flex flex-col gap-3 rounded-[16px] border border-line bg-surface p-4 sm:p-6">
-      <figcaption className="text-sm text-muted">
-        From the recording “{entry.summary.title}”. Claims checked by code against the cited lines.
+    <div className="mt-55">
+      <p className="sr-only">Facts of the recorded run {title}:</p>
+      <div className="ticker pill card overflow-hidden py-13">
+        <div className="ticker-track">
+          {row(false)}
+          {row(true)}
+        </div>
+      </div>
+      {title && <p className="mt-13 text-center text-muted">From the recording “{title}”.</p>}
+    </div>
+  );
+}
+
+function lineRange(c: NonNullable<ClaimExcerpt["citation"]>): string {
+  return c.line_end !== c.line_start ? `${c.line_start} to ${c.line_end}` : String(c.line_start);
+}
+
+function SceneCard({ claim, verified }: { claim: ClaimExcerpt; verified: boolean }) {
+  const c = claim.citation;
+  return (
+    <figure
+      className={`scene-claim relative flex min-w-0 flex-col gap-21 rounded-lg p-21 sm:p-34 ${
+        verified ? "card" : "border border-berry/40 bg-berry-tint"
+      }`}
+      style={{ ["--scene-delay" as string]: verified ? "0ms" : "377ms" }}
+    >
+      <div className={`flex ${verified ? "justify-start" : "justify-end"}`}>
+        {/* Scales from its inner side, so the stamp-in never reaches past the card edge. */}
+        <Stamp kind={verified ? "verified" : "withdrawn"} className={`scene-stamp ${verified ? "origin-left" : "origin-right"}`} />
+      </div>
+      <blockquote>
+        <p className="wrap-anywhere">{claim.text}</p>
+      </blockquote>
+      {c && (
+        <div className="overflow-hidden rounded-md border border-line bg-ink">
+          <p className="label wrap-anywhere border-b border-line px-13 py-8 text-muted">{c.source_id}</p>
+          <div
+            className={`scene-line grid grid-cols-[auto_1fr] gap-13 px-13 py-8 ${
+              verified ? "bg-raised shadow-[inset_3px_0_0_#eae4d3]" : "bg-berry-tint shadow-[inset_3px_0_0_#ff5c8d]"
+            }`}
+          >
+            <span className="num text-muted">{lineRange(c)}</span>
+            <span className={`quote ${verified ? "" : "struck scene-strike"}`}>{c.quote}</span>
+          </div>
+        </div>
+      )}
+      <figcaption className={verified ? "text-muted" : "text-berry"}>
+        {verified
+          ? c
+            ? `The quote is in line ${lineRange(c)} of ${c.source_id}. The claim stands.`
+            : "The quotes are in the cited lines. The claim stands."
+          : `${reasonWords(String(claim.reason))}. The claim is withdrawn and shown with its reason.`}
       </figcaption>
-      {excerpt.verified && <ExcerptClaim claim={excerpt.verified} verified />}
-      {excerpt.withdrawn && <ExcerptClaim claim={excerpt.withdrawn} verified={false} />}
     </figure>
   );
 }
 
-function RecordingCard({ entry }: { entry: IndexEntry }) {
-  const s = entry.summary;
-  const recorded = formatDate(s.recorded_at);
-  const split = splitOf(s.incident_id);
+function StampMoment({ entry }: { entry: IndexEntry | null }) {
+  const [ref, seen] = useSeen<HTMLDivElement>();
+  const [take, setTake] = useState(0);
+  const excerpt = entry?.excerpt;
+  if (!entry || !excerpt?.verified || !excerpt.withdrawn) return null;
   return (
-    <li className="flex min-w-0 flex-col gap-3 rounded-[10px] border border-line bg-surface p-4 sm:p-6">
-      <div className="flex flex-wrap gap-2">
-        {provenanceChip(entry)}
-        {s.simulated_case && <Chip tone="neutral">Synthetic incident</Chip>}
-        {split && <Chip tone="neutral">{SPLIT_CHIP[split]}</Chip>}
+    <div ref={ref} className="mx-auto mt-89 max-w-[1100px]">
+      <p className="mx-auto max-w-[55ch] text-center text-muted text-balance">
+        Two claims from the recording “{entry.summary.title}”, as the evidence check judged them.
+      </p>
+      <div
+        key={take}
+        className={`scene mt-34 grid gap-21 md:grid-cols-2 md:gap-34 ${seen || take > 0 ? "is-playing" : ""}`}
+      >
+        <SceneCard claim={excerpt.verified} verified />
+        <SceneCard claim={excerpt.withdrawn} verified={false} />
       </div>
-      <h3 className="wrap-anywhere text-xl/7 font-semibold">{s.title}</h3>
-      <p className="wrap-anywhere text-sm text-muted">{s.goal}</p>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <div className="min-w-0">
-          <dt><Label>Cost when recorded</Label></dt>
-          <dd><Usd value={s.spent_usd} /></dd>
-        </div>
-        {entry.capUsd && (
-          <div className="min-w-0">
-            <dt><Label>Cap</Label></dt>
-            <dd><Usd value={entry.capUsd} /></dd>
-          </div>
-        )}
-        {recorded && (
-          <div className="min-w-0">
-            <dt><Label>Recorded</Label></dt>
-            <dd className="num">{recorded}</dd>
-          </div>
-        )}
-        {s.incident_id && (
-          <div className="min-w-0">
-            <dt><Label>Incident</Label></dt>
-            <dd className="num wrap-anywhere">{s.incident_id}</dd>
-          </div>
-        )}
-        {s.category && (
-          <div className="col-span-2 min-w-0">
-            <dt><Label>Incident category (corpus)</Label></dt>
-            <dd className="num wrap-anywhere">{s.category}</dd>
-          </div>
-        )}
-      </dl>
-      <div className="mt-auto pt-2">
-        <a className={buttonClass("primary")} href={runHref(entry.folder)}>
-          Watch<span className="sr-only">: {s.title}</span>
-        </a>
+      <div className="mt-34 flex justify-center motion-reduce:hidden">
+        <button type="button" className={buttonClass("secondary")} onClick={() => setTake((n) => n + 1)}>
+          Replay the check
+        </button>
       </div>
-    </li>
+    </div>
   );
 }
 
-const STEPS = [
-  ["You pick the evidence and set a cap", "The cap is in USD and is set before the run starts."],
-  ["Cheap models read the logs in slices", "Each operator reads one slice and cites the lines it relies on."],
-  ["A strong model writes the diagnosis", "The director turns the findings into a root cause and a remediation plan."],
-  ["Code checks every citation", "Unsupported claims are withdrawn and stay listed with their reason."],
-  ["An auditor reviews, and you decide", "Approving records your decision. v1 executes nothing."],
-] as const;
-
-const CHECKS = [
-  [
-    "Every claim cites a line",
-    "Source, line numbers and the quote. A deterministic check (core/evidence.py, no model) confirms the quote is in the cited lines.",
-  ],
-  [
-    "A budget set before the run",
-    "The ledger reserves money before each call and refuses calls that do not fit. Predicted versus real is reported.",
-  ],
-  ["You decide", "Approving records the decision and runs nothing on your systems."],
-] as const;
-
-export function Landing() {
-  const { state, retry } = useRecordingIndex();
+function Hero({ index, featured }: { index: ReturnType<typeof useRecordingIndex>; featured: Featured | null }) {
+  const { state, retry } = index;
   const recordings = state.kind === "ready" ? state.recordings : [];
   const first = recordings[0] ?? null;
+  const entry = recordings.find((r) => r.folder === FEATURED) ?? recordings.find((r) => r.excerpt) ?? null;
+  return (
+    <section aria-labelledby="hero-title" className="pt-55 pb-89 lg:pb-144">
+      <div className="flex flex-col items-center text-center">
+        <TagPill tone="berry">Real model runs, replayed</TagPill>
+        <h1 id="hero-title" className="mt-21 max-w-[21ch] text-heading font-semibold tracking-tight text-balance sm:text-hero">
+          An incident answer <span className="text-muted">you can check, line by&nbsp;line.</span>
+        </h1>
+        <p className="mt-21 max-w-[42ch] text-muted text-balance sm:text-title">
+          Rookwise investigates an outage under a budget you set. Before you read the answer, code
+          checks every claim against the log.
+        </p>
+        <div className="mt-34 flex w-full flex-col items-center gap-13 sm:flex-row sm:justify-center">
+          {state.kind === "loading" && (
+            <button type="button" disabled className={buttonClass("primary")}>
+              Checking what is available
+            </button>
+          )}
+          {state.kind === "ready" && first && (
+            <a href={runHref(first.folder)} className={`${buttonClass("primary")} shadow-[0_0_34px_-8px_#ff5c8d]`}>
+              Watch a recorded run
+            </a>
+          )}
+          {state.kind === "ready" && !first && <p className="text-muted">No recorded run is published yet.</p>}
+          {state.kind === "error" && (
+            <div role="alert" className="flex flex-col items-center gap-8">
+              <p>Could not load the recordings. {state.message}</p>
+              <button type="button" onClick={retry} className={buttonClass("secondary")}>
+                Try again
+              </button>
+            </div>
+          )}
+          <LiveRunsButton />
+        </div>
+        <p id="live-runs-note" className="mt-13 max-w-[42ch] text-muted text-balance">
+          {LIVE_RUNS_NOTE}
+        </p>
+      </div>
+      <HeroObject facts={featured?.facts ?? null} />
+      <Ticker facts={featured?.facts ?? null} title={entry?.summary.title ?? null} />
+      {state.kind === "loading" ? (
+        <div className="mx-auto mt-89 grid max-w-[1100px] gap-34 md:grid-cols-2">
+          <Skeleton className="h-72 rounded-lg" />
+          <Skeleton className="h-72 rounded-lg" />
+        </div>
+      ) : (
+        <StampMoment entry={entry} />
+      )}
+      {recordings.length > 1 && (
+        <nav aria-label="Recorded runs" className="mt-55 flex flex-col items-center gap-13 text-center">
+          <Label>Every recorded run</Label>
+          <ul className="flex flex-wrap justify-center gap-8">
+            {recordings.map((r) => (
+              <li key={r.folder}>
+                <a className={buttonClass("secondary")} href={runHref(r.folder)}>
+                  {r.summary.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+    </section>
+  );
+}
+
+/* 3. Poka-yoke ------------------------------------------------------------ */
+
+const SAFEGUARDS = [
+  [
+    "Contact",
+    "Every claim is checked by code",
+    "A claim stands only if its quote is in the cited lines. Otherwise it is withdrawn, and shown with the reason.",
+  ],
+  [
+    "Control",
+    "The budget cannot be exceeded",
+    "Money is reserved before each call. A call that does not fit is refused. There is no bill after the fact.",
+  ],
+  [
+    "Sequence",
+    "The steps cannot be skipped",
+    "Plan, read, consolidate, judge, verify, audit, approve, in that order. If nothing survives verification, no audit runs and the result is inconclusive.",
+  ],
+  [
+    "Warning",
+    "Unread evidence is declared",
+    "The report lists the slices that were never read and warns when coverage is low.",
+  ],
+  [
+    "Second check",
+    "A second reader audits",
+    "A separate model, in a separate context, reviews what remains against a fixed rubric.",
+  ],
+  [
+    "Control",
+    "A human decides, nothing executes",
+    "Rookwise v1 only reads and recommends. It holds no credentials and cannot change your systems.",
+  ],
+] as const;
+
+function PokaYoke() {
+  return (
+    <Section id="poka-yoke" tag="Mistake-proofing" title="Built on poka-yoke">
+      <p className="mx-auto mt-34 max-w-[68ch] text-center text-muted">
+        Poka-yoke is Japanese for mistake-proofing. Shigeo Shingo formalized it within the Toyota
+        Production System in the 1960s: a process should make errors hard to commit and easy to see,
+        instead of asking people to be careful. The name comes from a shogi term for avoiding an
+        unthinkably bad move. Rookwise applies the same idea to AI-assisted investigation.
+      </p>
+      <ol className="mt-55 grid gap-21 sm:grid-cols-2 lg:grid-cols-3 lg:gap-34">
+        {SAFEGUARDS.map(([kind, title, text], i) => (
+          <li key={title} className="card flex min-w-0 flex-col gap-21 rounded-lg p-21 lg:p-34">
+            <div className="flex items-start justify-between gap-13">
+              <Glyph kind={i as 0 | 1 | 2 | 3 | 4 | 5} className="size-[55px] shrink-0" />
+              <span className="label pill inline-flex min-h-[34px] items-center border border-berry px-13 text-berry">
+                {kind}
+              </span>
+            </div>
+            <h3 className="text-title font-semibold text-balance">{title}</h3>
+            <p className="text-muted">{text}</p>
+          </li>
+        ))}
+      </ol>
+      <p className="mx-auto mt-34 max-w-[68ch] text-center text-muted">
+        The labels borrow Shingo&apos;s vocabulary. This is an analogy, not a certification. Source:{" "}
+        <a
+          className="underline underline-offset-4 hover:text-bone"
+          href="https://en.wikipedia.org/wiki/Poka-yoke"
+          rel="noreferrer"
+        >
+          Wikipedia, Poka-yoke
+        </a>
+        .
+      </p>
+    </Section>
+  );
+}
+
+/* 4. How it works --------------------------------------------------------- */
+
+function levelWords(level: TeamSummary["levels"][number]): string {
+  const word = (LEVEL_WORDS[level.level] ?? level.level).toLowerCase();
+  return `${level.count} ${word}${level.count === 1 ? "" : "s"}`;
+}
+
+function GatePill({ kicker, title, tone }: { kicker: string; title: string; tone: "bone" | "berry" }) {
+  return (
+    <div className="flex flex-col items-center gap-8 text-center">
+      <span
+        className={`label pill inline-flex min-h-11 items-center whitespace-nowrap px-13 sm:px-21 ${
+          tone === "berry" ? "border border-berry text-berry" : "bg-bone text-ink"
+        }`}
+      >
+        {title}
+      </span>
+      <span className="text-muted">{kicker}</span>
+    </div>
+  );
+}
+
+function Rings({ team, title }: { team: TeamSummary; title: string }) {
+  const [ref, seen] = useSeen<HTMLDivElement>();
+  const managers = team.levels.find((l) => l.level === "manager");
+  const operators = team.levels.find((l) => l.level === "operator");
+  const legend = team.levels;
+  const mainModel = operators?.models[0]?.model;
+  const ops: RingNode[] = team.operators.map((m) => ({ tone: "lit", square: m !== mainModel }));
+  const mgrs: RingNode[] = Array.from({ length: managers?.count ?? 0 }, () => ({ tone: "lit" }));
+  return (
+    <figure className="mt-55">
+      <div className="grid grid-cols-2 items-center gap-x-8 gap-y-34 md:grid-cols-[1fr_auto_1fr] md:gap-34">
+        <div className="order-2 md:order-1 md:justify-self-end">
+          <GatePill title="Evidence check" kicker="Code, no model" tone="berry" />
+        </div>
+        <div ref={ref} className={`lights relative order-1 col-span-2 mx-auto w-full max-w-[466px] md:order-2 md:col-span-1 ${seen ? "is-playing" : ""}`}>
+          <div aria-hidden="true" className="glow absolute left-1/2 top-1/2 size-[89%] -translate-x-1/2 -translate-y-1/2" />
+          <TeamRings
+            director="lit"
+            managers={mgrs}
+            operators={ops}
+            auditor={team.levels.some((l) => l.level === "auditor") ? "lit" : null}
+            lights
+            className="relative w-full"
+          />
+        </div>
+        <div className="order-3 md:justify-self-start">
+          <GatePill title="You decide" kicker="Approve or reject" tone="bone" />
+        </div>
+      </div>
+      <ul aria-label="Team of the recorded run" className="mx-auto mt-34 grid max-w-[987px] gap-13 sm:grid-cols-2">
+        {legend.map((level) => (
+          <li key={level.level} className="card flex flex-col items-center gap-8 rounded-md p-21 text-center">
+            <span className="font-semibold">
+              {level.level === "director"
+                ? "Center"
+                : level.level === "manager"
+                  ? "Inner ring"
+                  : level.level === "operator"
+                    ? "Outer ring"
+                    : level.level === "auditor"
+                      ? "Dashed ring"
+                      : "Ring"}
+              : {levelWords(level)}
+            </span>
+            <span className="flex flex-wrap justify-center gap-x-13 gap-y-8">
+              {level.models.map((m) => (
+                <span key={m.model} className="num text-muted">
+                  {m.model}
+                  {level.models.length > 1 ? ` (${m.count})` : ""}
+                </span>
+              ))}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <figcaption className="mt-21 text-center text-muted text-balance">
+        The team of the recording “{title}”, from its org chart.
+        {operators && operators.models.length > 1 && " Round dots ran the most common operator model; square ones ran the other."}
+      </figcaption>
+    </figure>
+  );
+}
+
+function HowItWorks({ entry, team }: { entry: IndexEntry | null; team: TeamSummary | null }) {
+  return (
+    <Section
+      id="how-it-works"
+      tag="How it works"
+      title="Cheap models read. A strong model judges. Code verifies. A human decides."
+    >
+      {team && entry ? (
+        <Rings team={team} title={entry.summary.title} />
+      ) : (
+        <Skeleton className="mx-auto mt-55 aspect-square max-w-[466px] rounded-full" />
+      )}
+    </Section>
+  );
+}
+
+/* 5. Results -------------------------------------------------------------- */
+
+const RESULTS = [
+  { name: "(a) hierarchy", correct: 2, coverage: "0.920", cost: "0.250" },
+  { name: "(b) single Ultra", correct: 0, coverage: "0.107", cost: "0.386" },
+  { name: "(c) single Lightning", correct: 1, coverage: "0.705", cost: "0.119" },
+] as const;
+
+const CAPTION =
+  "Synthetic incidents, 3 per configuration, same 0.50 USD cap for every configuration, test split not used while tuning.";
+
+function Results() {
+  return (
+    <Section id="results" tag="Results, test split" title="Three configurations, the same cap">
+      <ul className="mx-auto mt-55 grid max-w-[1100px] gap-21 md:grid-cols-3 md:gap-34">
+        {RESULTS.map((r, i) => (
+          <li key={r.name} className="card relative flex flex-col items-center gap-21 overflow-hidden rounded-lg p-34 text-center">
+            <span className={`label pill relative inline-flex min-h-[34px] items-center px-13 ${i === 0 ? "bg-bone text-ink" : "border border-line-strong text-bone"}`}>
+              {r.name}
+            </span>
+            <p className="relative">
+              <span className="relative block">
+                {i === 0 && (
+                  <span aria-hidden="true" className="glow absolute left-1/2 top-1/2 size-[121px] -translate-x-1/2 -translate-y-1/2" />
+                )}
+                <span className="num relative block text-display font-semibold">{r.correct}</span>
+              </span>
+              <span className="label text-muted">of 3 correct</span>
+            </p>
+            <div className="relative flex items-center gap-13">
+              <ProgressRing value={Number(r.coverage)} size={55} stroke={6} tone={i === 0 ? "berry" : "bone"} />
+              <span className="flex flex-col items-start">
+                <span className="num text-title">{r.coverage}</span>
+                <span className="label text-muted">mean coverage</span>
+              </span>
+            </div>
+            <p className="relative flex flex-col items-center">
+              <span className="num text-title">{r.cost} USD</span>
+              <span className="label text-muted">mean cost</span>
+            </p>
+          </li>
+        ))}
+      </ul>
+      <p className="mx-auto mt-34 max-w-[68ch] text-center text-muted">{CAPTION}</p>
+      <p className="mx-auto mt-55 max-w-[68ch] text-center text-balance sm:text-title">
+        Verified citations do not prove a diagnosis is correct: a single Lightning run on inc-06 had 6
+        supported claims and the wrong category. And Rookwise is allowed to say it does not know:
+        inconclusive is a result, not an error.
+      </p>
+    </Section>
+  );
+}
+
+/* 6. Limits --------------------------------------------------------------- */
+
+const LIMITS = [
+  ["Synthetic corpus", "The incidents are generated logs, metrics and diffs, not a real outage."],
+  ["Small samples", "Three test incidents per configuration, one run each."],
+  ["Executes nothing", "Rookwise v1 only recommends. Approving records your decision in this tab and runs nothing."],
+] as const;
+
+function Limits() {
+  return (
+    <Section id="limits" tag="Limits" title="What this does not show">
+      <ul className="mx-auto mt-55 grid max-w-[1100px] gap-21 md:grid-cols-3 md:gap-34">
+        {LIMITS.map(([title, text]) => (
+          <li key={title} className="card flex flex-col items-center gap-13 rounded-lg p-34 text-center">
+            <span className="label pill inline-flex min-h-[34px] items-center border border-berry px-13 text-berry">{title}</span>
+            <p className="text-muted">{text}</p>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+export function Landing() {
+  const index = useRecordingIndex();
+  const recordings = index.state.kind === "ready" ? index.state.recordings : [];
+  const entry = recordings.find((r) => r.folder === FEATURED) ?? recordings[0] ?? null;
+  const featured = useFeatured(entry?.folder ?? null);
 
   return (
     <>
       <SkipLink target="content">Skip to content</SkipLink>
       <SiteHeader />
-      <main id="content" className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-        {/* Hero (P6) */}
-        <section className="grid gap-10 py-16 lg:grid-cols-2 lg:items-center lg:py-24">
-          <div className="min-w-0">
-            <h1 className="font-serif text-[2.5rem]/[2.75rem] font-medium sm:text-[3.5rem]/[3.75rem]">
-              Incident answers
-              <br />
-              <span className="text-muted">you can check line by line.</span>
-            </h1>
-            <p className="mt-6 max-w-[60ch] text-muted">
-              Rookwise is a team of AI agents that investigates an incident under a budget you set
-              before the run. Every claim cites the log lines it rests on, and code checks each
-              citation. This site replays recorded runs; replaying costs nothing.
-            </p>
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-start">
-              {state.kind === "loading" && (
-                <button type="button" disabled className={`${buttonClass("primary")} w-full sm:w-auto`}>
-                  Checking what is available
-                </button>
-              )}
-              {state.kind === "ready" && first && (
-                <a href={runHref(first.folder)} className={`${buttonClass("primary")} w-full sm:w-auto`}>
-                  Watch a recorded run
-                </a>
-              )}
-              {state.kind === "ready" && !first && (
-                <p className="text-muted">No recorded run is published yet.</p>
-              )}
-              {state.kind === "error" && (
-                <div role="alert" className="flex flex-col gap-2">
-                  <p>Could not load the recordings. {state.message}</p>
-                  <button type="button" onClick={retry} className={buttonClass("secondary")}>
-                    Try again
-                  </button>
-                </div>
-              )}
-              <LiveRunsControl />
-            </div>
-          </div>
-          <div className="min-w-0">
-            {state.kind === "loading" ? <Skeleton className="h-64 w-full" /> : <HeroExcerpt entry={first} />}
-          </div>
-        </section>
+      <main id="content" className="mx-auto max-w-[1440px] px-21 lg:px-55">
+        <Hero index={index} featured={featured} />
 
-        {/* Recorded runs */}
-        <section aria-labelledby="recordings-title" className="border-t border-line py-16 sm:py-24">
-          <Label>Recorded runs</Label>
-          <h2 id="recordings-title" className="mt-3 text-2xl/8 font-semibold">
-            Watch a saved run with its original timing.
-            <span className="text-muted"> Speed it up or jump to the end.</span>
-          </h2>
-          <div className="mt-8">
-            {state.kind === "loading" && (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Skeleton className="h-72" />
-                <Skeleton className="h-72" />
-              </div>
-            )}
-            {state.kind === "error" && <p className="text-muted">The recordings could not be listed.</p>}
-            {state.kind === "ready" && recordings.length === 0 && (
-              <p className="text-muted">No recorded run is published yet.</p>
-            )}
-            {state.kind === "ready" && recordings.length > 0 && (
-              <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {recordings.map((entry) => (
-                  <RecordingCard key={entry.folder} entry={entry} />
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-
-        {/* How it works (P10) */}
-        <section id="how-it-works" aria-labelledby="how-title" className="scroll-mt-4 border-t border-line py-16 sm:py-24">
-          <Label>How it works</Label>
-          <h2 id="how-title" className="mt-3 text-2xl/8 font-semibold">
-            Five steps from evidence to decision.
-          </h2>
-          <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {STEPS.map(([title, line], i) => (
-              <li key={title} className="rounded-[10px] border border-line bg-surface p-4">
-                <span className="num text-muted">{String(i + 1).padStart(2, "0")}</span>
-                <h3 className="mt-2 font-semibold">{title}</h3>
-                <p className="mt-1 text-sm text-muted">{line}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {/* What you can check (P9) */}
-        <section aria-labelledby="check-title" className="border-t border-line py-16 sm:py-24">
-          <Label>What you can check</Label>
-          <h2 id="check-title" className="mt-3 text-2xl/8 font-semibold">
-            Nothing to take on trust.
-            <span className="text-muted"> Each promise is visible in the run view.</span>
-          </h2>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {CHECKS.map(([title, line]) => (
-              <div key={title} className="rounded-[10px] border border-line bg-surface p-6">
-                <h3 className="text-xl/7 font-semibold">{title}</h3>
-                <p className="mt-2 text-sm text-muted">{line}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Benchmark (section 4 rule 1) */}
-        <section aria-labelledby="bench-title" className="border-t border-line py-16 sm:py-24">
-          <Label>Benchmark</Label>
-          <h2 id="bench-title" className="mt-3 text-2xl/8 font-semibold">
-            Hierarchy against one large and one small model.
-          </h2>
-          <div className="mt-8 flex flex-col gap-3 md:hidden">
-            {["(a) Hierarchy", "(b) Single large model", "(c) Single small model"].map((name) => (
-              <div key={name} className="rounded-[10px] border border-line bg-surface p-4">
-                <h3 className="font-semibold">{name}</h3>
-                <dl className="mt-2 grid gap-2 text-sm">
-                  {["Diagnosis correct (test split)", "Real cost", "Predicted versus real"].map((col) => (
-                    <div key={col} className="flex flex-wrap items-center justify-between gap-2">
-                      <dt className="text-muted">{col}</dt>
-                      <dd><Placeholder>TBD from benchmark</Placeholder></dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            ))}
-          </div>
-          <table className="mt-8 hidden w-full border-collapse text-left text-sm md:table">
-            <thead>
-              <tr className="border-b border-line">
-                <th scope="col" className="label py-3 pr-4 text-muted">Configuration</th>
-                <th scope="col" className="label py-3 pr-4 text-muted">Diagnosis correct (test split)</th>
-                <th scope="col" className="label py-3 pr-4 text-muted">Real cost</th>
-                <th scope="col" className="label py-3 text-muted">Predicted versus real</th>
-              </tr>
-            </thead>
-            <tbody>
-              {["(a) Hierarchy", "(b) Single large model", "(c) Single small model"].map((name) => (
-                <tr key={name} className="border-b border-line">
-                  <th scope="row" className="py-3 pr-4 font-medium">{name}</th>
-                  <td className="py-3 pr-4"><Placeholder>TBD from benchmark</Placeholder></td>
-                  <td className="py-3 pr-4"><Placeholder>TBD from benchmark</Placeholder></td>
-                  <td className="py-3"><Placeholder>TBD from benchmark</Placeholder></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-4 text-sm text-muted">
-            6 synthetic incidents, 3 dev and 3 test. Test results are reported apart from dev. Numbers
-            appear here only once a committed benchmark report has them.
+        <Section id="why" tag="Why it exists" title="A small team cannot afford to be wrong.">
+          <p className="mx-auto mt-34 max-w-[55ch] text-center text-balance sm:text-title">
+            A large company can absorb a wrong diagnosis. A team of five cannot: no on-call rotation to
+            catch it, no budget to rerun it, no room to be wrong twice. So Rookwise does not ask you to
+            trust the model. It makes mistakes hard to make, and visible when they happen.
           </p>
-        </section>
+        </Section>
 
-        {/* Limits */}
-        <section aria-labelledby="limits-title" className="border-t border-line py-16 sm:py-24">
-          <Label>Limits</Label>
-          <h2 id="limits-title" className="mt-3 text-2xl/8 font-semibold">What this is not.</h2>
-          <ul className="mt-6 list-disc space-y-2 pl-5 text-muted">
-            <li>The incidents are synthetic: generated logs, metrics and diffs, not a real outage.</li>
-            <li>v1 executes nothing. Approving a recommendation only records your decision.</li>
-            <li>This site replays recordings. It starts no run and calls no model.</li>
-            <li>A citation check proves the quote is in the cited lines, not that the claim is true.</li>
-            <li>Benchmark numbers appear only once they are measured and committed.</li>
-          </ul>
-        </section>
+        <PokaYoke />
+        <HowItWorks entry={entry} team={featured?.team ?? null} />
+        <Results />
+        <Limits />
       </main>
       <SiteFooter />
     </>

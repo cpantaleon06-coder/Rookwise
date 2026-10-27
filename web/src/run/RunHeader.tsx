@@ -1,10 +1,11 @@
-import { LiveRunsControl } from "../components/chrome";
-import { Button, Chip, Label, Meter, type Tone } from "../components/ui";
+import { ProgressRing, TeamRings, type NodeTone, type RingNode } from "../components/figures";
+import { buttonClass, Label } from "../components/ui";
 import { splitOf, SPLIT_WORDS } from "../lib/incidents";
-import { formatDate } from "../lib/labels";
-import { formatMicros, formatUsd, type Micros } from "../lib/money";
+import { AGENT_STATUS_WORDS } from "../lib/labels";
+import { atLeastPercent, formatMicros, percentOf, type Micros } from "../lib/money";
 import type { Provenance } from "../lib/recording";
 import { SPEEDS, type Speed } from "../lib/replay";
+import type { AgentState } from "../lib/runState";
 import type { RecordingSummary } from "../lib/types";
 import type { ReplayControls } from "./useReplay";
 
@@ -14,7 +15,7 @@ const PROVENANCE_WORDS: Record<Provenance, string> = {
   unknown: "Recorded run (replayed)",
 };
 
-/** web/DESIGN.md 3.3: on every screen of a recorded run, never dismissible. */
+/** On every screen of a recorded run, never dismissible. One slim line. */
 export function RecordedBanner({
   provenance,
   summary,
@@ -24,40 +25,26 @@ export function RecordedBanner({
   summary: RecordingSummary | null;
   notice: string | null;
 }) {
-  const recorded = formatDate(summary?.recorded_at);
   const split = splitOf(summary?.incident_id);
   return (
-    <div
-      role="note"
-      aria-label="Recorded run"
-      className="border-l-4 border-info bg-info-tint"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-        <div className="min-w-0">
-          <p className="label text-info">{PROVENANCE_WORDS[provenance ?? "unknown"]}</p>
-          <p className="mt-1 text-sm">
-            {notice ?? "Replaying a saved run with its original timing. It costs nothing and cannot be changed."}
-            {provenance === "synthetic_fixture" && " The run is a synthetic fixture: its texts and numbers are not model output."}
-            {provenance === "real_model_output" && " The model output is real; the incident it investigated is synthetic."}
-            {split && ` ${SPLIT_WORDS[split]}`}
-          </p>
-          {summary && (
-            <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-              {summary.simulated_case && <span>Synthetic incident</span>}
-              <span>
-                Cost when recorded: <span className="num">{formatUsd(summary.spent_usd)}</span>
-              </span>
-              {recorded && <span>Recorded {recorded}</span>}
-            </p>
-          )}
-        </div>
-        <LiveRunsControl compact />
-      </div>
+    <div role="note" aria-label="Recorded run" className="px-21 pt-13 lg:px-55">
+      <p className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-x-13 gap-y-8 rounded-md border border-line bg-surface px-21 py-8 text-center lg:rounded-full">
+        <span className="label inline-flex items-center gap-8 text-bone">
+          <span aria-hidden="true" className="size-2 rounded-full border-2 border-bone" />
+          {PROVENANCE_WORDS[provenance ?? "unknown"]}
+        </span>
+        <span className="text-muted">
+          {notice ?? "Replayed at no cost; it cannot be changed."}
+          {provenance === "synthetic_fixture" && " The run is a synthetic fixture: its texts and numbers are not model output."}
+          {provenance === "real_model_output" && " The model output is real; the incident it investigated is synthetic."}
+          {split && ` ${SPLIT_WORDS[split]}`}
+        </span>
+      </p>
     </div>
   );
 }
 
-export function statusTone(label: string): Tone {
+export function statusTone(label: string): "ok" | "danger" | "neutral" {
   if (label === "Finished") return "ok";
   if (label === "Failed" || label === "Partial" || label === "Cancelled") return "danger";
   return "neutral";
@@ -70,64 +57,137 @@ export interface HeaderBudget {
   stopped: boolean;
 }
 
+const AGENT_TONE: Record<string, NodeTone> = {
+  done: "lit",
+  working: "active",
+  hired: "dim",
+  idle: "dim",
+  failed: "alert",
+  stopped: "alert",
+};
+
+function teamNodes(agents: AgentState[]) {
+  const ops = agents.filter((a) => a.node.level === "operator");
+  const counts = new Map<string, number>();
+  for (const o of ops) counts.set(o.node.model, (counts.get(o.node.model) ?? 0) + 1);
+  const main = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const tone = (a: AgentState): NodeTone => AGENT_TONE[a.status] ?? "dim";
+  const director = agents.find((a) => a.node.level === "director" || a.node.level === "vp");
+  const auditor = agents.find((a) => a.node.level === "auditor");
+  return {
+    director: director ? tone(director) : ("dim" as NodeTone),
+    managers: agents.filter((a) => a.node.level === "manager").map((a): RingNode => ({ tone: tone(a) })),
+    operators: ops.map((a): RingNode => ({ tone: tone(a), square: a.node.model !== main })),
+    auditor: auditor ? tone(auditor) : null,
+  };
+}
+
+function statusWords(agents: AgentState[]): string {
+  const counts = new Map<string, number>();
+  for (const a of agents) {
+    const word = (AGENT_STATUS_WORDS[a.status] ?? a.status).toLowerCase();
+    counts.set(word, (counts.get(word) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([w, n]) => `${n} ${w}`).join(", ");
+}
+
+function StatusPill({ tone, children }: { tone: "ok" | "danger" | "neutral" | "warn"; children: string }) {
+  const cls =
+    tone === "ok"
+      ? "bg-bone text-ink"
+      : tone === "danger"
+        ? "bg-berry text-ink"
+        : tone === "warn"
+          ? "border border-berry text-berry"
+          : "border border-line-strong text-bone";
+  return <span className={`label pill inline-flex min-h-[34px] items-center px-13 ${cls}`}>{children}</span>;
+}
+
+/**
+ * The compact strip at the top of a run: the team as small rings, the budget
+ * as a ring with its numbers, and the status pills. Sticky from tablet width.
+ */
 export function RunHeader({
   status,
   goal,
   simulatedCase,
   budget,
   decisionNeeded,
+  agents,
 }: {
   status: string;
   goal: string;
   simulatedCase: boolean;
   budget: HeaderBudget;
   decisionNeeded: boolean;
+  agents: AgentState[];
 }) {
   const { spent, held, cap, stopped } = budget;
   const over = spent !== null && cap !== null && spent > cap;
+  const alert = stopped || over || (spent !== null && cap !== null && cap > 0n && atLeastPercent(spent, cap, 80));
+  const pct = spent !== null && cap !== null ? Math.min(100, percentOf(spent, cap)) : 0;
+  const nodes = teamNodes(agents);
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-bg/95 backdrop-blur supports-[backdrop-filter]:bg-bg/85">
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <a href="#/" className="mr-2 font-semibold tracking-tight">
-            Rookwise
-          </a>
-          <Chip tone="info">Recorded</Chip>
-          <Chip tone={statusTone(status)}>{status}</Chip>
-          {simulatedCase && <Chip>Synthetic incident</Chip>}
+    <header className="z-20 bg-ink px-21 py-8 md:sticky md:top-0 lg:px-55">
+      <div className="card mx-auto grid max-w-[1440px] items-center gap-13 rounded-lg p-13 md:grid-cols-3 md:rounded-full md:px-34">
+        <div className="flex min-w-0 items-center gap-13">
+          <TeamRings {...nodes} compact className="size-[55px] shrink-0" />
+          <div className="min-w-0">
+            <Label>Team</Label>
+            <p className="wrap-anywhere">
+              {agents.length === 0 ? "No agent yet" : `${agents.length} agents: ${statusWords(agents)}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex min-w-0 items-center gap-13 md:justify-center">
+          <div
+            role="meter"
+            aria-label="Budget"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={spent === null ? 0 : pct}
+            aria-valuetext={
+              spent === null || cap === null
+                ? "Not started"
+                : `Spent ${formatMicros(spent)} of ${formatMicros(cap)} cap, ${formatMicros(held ?? 0n)} reserved`
+            }
+            className="meter-track shrink-0 rounded-full"
+          >
+            <ProgressRing value={pct / 100} size={55} stroke={6} tone={alert ? "berry" : "bone"} />
+          </div>
+          <div className="min-w-0">
+          <dl>
+            <div className="flex flex-wrap items-baseline gap-x-8">
+              <dt><Label>Spent</Label></dt>
+              <dd className="num">{spent === null ? "Not started" : formatMicros(spent)}</dd>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-8">
+              <dt><Label>Cap</Label></dt>
+              <dd className="num">{cap === null ? "Not recorded" : formatMicros(cap)}</dd>
+              {held !== null && held > 0n && (
+                <>
+                  <dt className="sr-only">Reserved</dt>
+                  <dd className="num text-muted">({formatMicros(held)} reserved)</dd>
+                </>
+              )}
+            </div>
+          </dl>
+          {over && spent !== null && cap !== null && (
+            <p className="text-berry">Over the cap by {formatMicros(spent - cap)}.</p>
+          )}
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-8 md:justify-end">
+          <StatusPill tone={statusTone(status)}>{status}</StatusPill>
+          {simulatedCase && <StatusPill tone="neutral">Synthetic</StatusPill>}
           {decisionNeeded && (
             <a href="#decision" onClick={jumpTo("decision")} className="rounded-full">
-              <Chip tone="warn">Decision needed</Chip>
+              <StatusPill tone="warn">Decision needed</StatusPill>
             </a>
           )}
         </div>
-        <p className="hidden truncate text-sm text-muted sm:block" title={goal}>
-          <span className="sr-only">Goal: </span>
-          {goal}
-        </p>
-        <div className="grid gap-2 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-6">
-          <dl className="grid grid-cols-3 divide-x divide-line">
-            <div className="min-w-0 pr-3">
-              <dt><Label>Spent</Label></dt>
-              <dd className="num text-sm sm:text-base">{spent === null ? "Not started" : formatMicros(spent)}</dd>
-            </div>
-            <div className="min-w-0 px-3">
-              <dt><Label>Reserved</Label></dt>
-              <dd className="num text-sm sm:text-base">{held === null ? "Not started" : formatMicros(held)}</dd>
-            </div>
-            <div className="min-w-0 pl-3">
-              <dt><Label>Cap</Label></dt>
-              <dd className="num text-sm sm:text-base">{cap === null ? "Not recorded" : formatMicros(cap)}</dd>
-            </div>
-          </dl>
-          <div className="flex min-w-0 flex-col gap-1">
-            <Meter spent={spent} held={held} cap={cap} stopped={stopped} />
-            {over && spent !== null && cap !== null && (
-              <p className="text-sm text-danger">Over the cap by {formatMicros(spent - cap)}.</p>
-            )}
-          </div>
-        </div>
       </div>
+      <p className="sr-only">Goal: {goal}</p>
     </header>
   );
 }
@@ -146,64 +206,43 @@ export function jumpTo(id: string) {
 
 const SPEED_WORDS: Record<Speed, string> = { "1x": "1x", "4x": "4x", instant: "Instant" };
 
-const JUMPS = [
-  ["decision", "Decision"],
-  ["evidence", "Evidence"],
-  ["team", "Team"],
-  ["tasks", "Tasks"],
-  ["feed", "Feed"],
-  ["budget", "Budget"],
-  ["chat", "Chat"],
-] as const;
-
 export function ReplayToolbar({ replay }: { replay: ReplayControls }) {
   const { speed, playing, done, position, total } = replay;
   return (
-    <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 pt-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-      <div className="flex flex-wrap items-center gap-2">
-        <Label className="mr-1">Replay</Label>
-        {done ? (
-          <Button onClick={replay.restart}>Replay again</Button>
-        ) : playing ? (
-          <Button onClick={replay.pause}>Pause</Button>
-        ) : (
-          <Button onClick={replay.play}>Play</Button>
-        )}
-        <div role="radiogroup" aria-label="Replay speed" className="flex gap-1">
-          {SPEEDS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              role="radio"
-              aria-checked={speed === s}
-              onClick={() => replay.setSpeed(s)}
-              className={`label inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-3 ${
-                speed === s ? "bg-primary text-on-primary" : "border border-line-strong text-ink hover:bg-raised"
-              }`}
-            >
-              {SPEED_WORDS[s]}
-            </button>
-          ))}
-        </div>
-        <span className="num text-sm text-muted" aria-live="off">
-          Event {position} of {total}
-        </span>
+    <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-13 px-21 pt-21 lg:px-55">
+      <Label>Replay</Label>
+      {done ? (
+        <button type="button" className={buttonClass("secondary")} onClick={replay.restart}>
+          Replay again
+        </button>
+      ) : playing ? (
+        <button type="button" className={buttonClass("secondary")} onClick={replay.pause}>
+          Pause
+        </button>
+      ) : (
+        <button type="button" className={buttonClass("primary")} onClick={replay.play}>
+          Play
+        </button>
+      )}
+      <div role="radiogroup" aria-label="Replay speed" className="pill flex gap-8 border border-line">
+        {SPEEDS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            role="radio"
+            aria-checked={speed === s}
+            onClick={() => replay.setSpeed(s)}
+            className={`label pill inline-flex min-h-11 min-w-11 items-center justify-center px-13 ${
+              speed === s ? "bg-bone text-ink" : "text-bone hover:bg-raised"
+            }`}
+          >
+            {SPEED_WORDS[s]}
+          </button>
+        ))}
       </div>
-      <nav aria-label="Sections" className="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:px-0">
-        <ul className="flex w-max gap-1">
-          {JUMPS.map(([id, label]) => (
-            <li key={id}>
-              <a
-                href={`#${id}`}
-                onClick={jumpTo(id)}
-                className="label inline-flex min-h-11 items-center rounded-full px-3 text-muted hover:bg-raised hover:text-ink"
-              >
-                {label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <span className="num text-muted" aria-live="off">
+        Event {position} of {total}
+      </span>
     </div>
   );
 }

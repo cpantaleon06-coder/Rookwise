@@ -3,36 +3,60 @@ import { atLeastPercent, formatMicros, formatUsd, percentOf, type Micros } from 
 
 export type Tone = "ok" | "warn" | "danger" | "info" | "neutral";
 
+// Three hues only (docs/DESIGN_DIRECTION.md section 2): bone for what held,
+// Strawberry for what failed or needs attention, muted bone for the rest.
 const DOT: Record<Tone, string> = {
-  ok: "bg-ok",
-  warn: "bg-warn",
-  danger: "bg-danger",
-  info: "bg-info",
-  neutral: "bg-ink",
+  ok: "bg-bone",
+  warn: "border-2 border-berry",
+  danger: "bg-berry",
+  info: "border-2 border-bone",
+  neutral: "bg-muted",
 };
-const TEXT: Record<Tone, string> = {
-  ok: "text-ok",
-  warn: "text-warn",
-  danger: "text-danger",
-  info: "text-info",
-  neutral: "text-ink",
-};
-const TINT: Record<Tone, string> = {
-  ok: "bg-ok-tint",
-  warn: "bg-warn-tint",
-  danger: "bg-danger-tint",
-  info: "bg-info-tint",
-  neutral: "bg-raised",
+const CHIP: Record<Tone, string> = {
+  ok: "border border-bone text-bone",
+  warn: "border border-berry text-berry",
+  danger: "bg-berry-tint text-berry",
+  info: "bg-raised text-bone",
+  neutral: "border border-line-strong text-muted",
 };
 
-/** P8: a dot plus an uppercase word. The word carries the meaning. */
+/** A dot plus an uppercase word. The word carries the meaning. */
 export function Chip({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   return (
-    <span
-      className={`label inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 ${TINT[tone]} ${TEXT[tone]}`}
-    >
+    <span className={`label inline-flex max-w-full items-center gap-8 rounded-full px-13 min-h-[34px] ${CHIP[tone]}`}>
       <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${DOT[tone]}`} />
       <span className="wrap-anywhere">{children}</span>
+    </span>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M3 8.5l3.2 3.2L13 4.8" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+function CrossIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="square" />
+    </svg>
+  );
+}
+
+/** VERIFIED: bone fill, check. WITHDRAWN: Strawberry fill, cross. Ink text on both. */
+export function Stamp({ kind, className = "" }: { kind: "verified" | "withdrawn"; className?: string }) {
+  const verified = kind === "verified";
+  return (
+    <span
+      className={`label inline-flex shrink-0 items-center gap-8 rounded-sm px-13 min-h-[34px] font-bold text-ink ${
+        verified ? "bg-bone" : "bg-berry"
+      } ${className}`}
+    >
+      {verified ? <CheckIcon /> : <CrossIcon />}
+      {verified ? "Verified" : "Withdrawn"}
     </span>
   );
 }
@@ -59,10 +83,10 @@ export function Panel({
     <section
       id={id}
       aria-labelledby={headingId}
-      className={`min-w-0 scroll-mt-52 rounded-[16px] border border-line bg-surface p-4 sm:p-6 ${className}`}
+      className={`card min-w-0 scroll-mt-144 rounded-lg p-21 sm:p-34 ${className}`}
     >
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id={headingId} className="text-xl/7 font-semibold sm:text-2xl/8">
+      <div className="mb-21 flex flex-wrap items-baseline justify-between gap-13">
+        <h2 id={headingId} className="text-title font-semibold">
           {title}
         </h2>
         {aside}
@@ -80,14 +104,14 @@ type ButtonProps = {
 
 export function buttonClass(variant: "primary" | "secondary" | "ghost" = "secondary"): string {
   const base =
-    "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-sm font-medium transition-colors duration-[120ms] ease-rw disabled:cursor-not-allowed";
+    "inline-flex min-h-11 shrink-0 items-center justify-center gap-8 whitespace-nowrap rounded-full px-21 font-medium transition-colors duration-[120ms] ease-rw disabled:cursor-not-allowed";
   if (variant === "primary") {
-    return `${base} bg-primary text-on-primary hover:opacity-90 disabled:opacity-50`;
+    return `${base} bg-berry text-ink hover:bg-bone disabled:opacity-50 disabled:hover:bg-berry`;
   }
   if (variant === "ghost") {
-    return `${base} text-ink hover:bg-raised disabled:text-muted`;
+    return `${base} text-bone hover:bg-raised disabled:text-muted`;
   }
-  return `${base} border border-line-strong text-ink hover:bg-raised disabled:border-line disabled:text-muted`;
+  return `${base} border border-line-strong text-bone hover:bg-raised disabled:border-line disabled:text-muted`;
 }
 
 export function Button({ variant = "secondary", children, className = "", ...rest }: ButtonProps) {
@@ -105,17 +129,17 @@ export function Usd({ value, className = "" }: { value: string | null | undefine
 
 /** A value that does not exist yet: dashed box, never a zero. */
 export function Placeholder({ children }: { children: ReactNode }) {
-  return <span className="placeholder-box label inline-block px-2 py-1">{children}</span>;
+  return <span className="placeholder-box label inline-flex items-center px-8 min-h-[34px]">{children}</span>;
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`rounded-[6px] bg-raised ${className}`} />;
+  return <div aria-hidden="true" className={`rounded-sm bg-raised ${className}`} />;
 }
 
 /**
- * The budget meter (web/DESIGN.md 3.2.1): spent solid, reserved hatched, the
- * cap as the end. Neutral below 80 percent, warn from 80 percent, danger on a
- * stop or past the cap. Widths come from integer micro-USD math.
+ * The budget meter: spent solid, reserved hatched, the cap as the end. Bone
+ * below 80 percent, Strawberry from 80 percent, on a stop or past the cap.
+ * Widths come from integer micro-USD math.
  */
 export function Meter({
   spent,
@@ -134,7 +158,7 @@ export function Meter({
   const h = held ?? 0n;
   const c = cap ?? 0n;
   const over = c > 0n && s > c;
-  const tone: Tone = stopped || over ? "danger" : c > 0n && atLeastPercent(s, c, 80) ? "warn" : "neutral";
+  const alert = stopped || over || (c > 0n && atLeastPercent(s, c, 80));
   const spentPct = Math.min(100, percentOf(s, c));
   const heldPct = Math.max(0, Math.min(100 - spentPct, percentOf(h, c)));
   const valueText =
@@ -152,14 +176,14 @@ export function Meter({
       className={`meter-track relative h-2.5 w-full overflow-hidden rounded-full bg-track ${stale ? "outline outline-1 outline-dashed outline-line-strong" : ""}`}
     >
       <div
-        className={`absolute inset-y-0 left-0 transition-[width] duration-200 ease-rw ${DOT[tone]}`}
+        className={`absolute inset-y-0 left-0 transition-[width] duration-200 ease-rw ${alert ? "bg-berry" : "bg-bone"}`}
         style={{ width: `${spentPct}%` }}
       />
       <div
         className="hatched absolute inset-y-0 transition-[width] duration-200 ease-rw"
         style={{ left: `${spentPct}%`, width: `${heldPct}%` }}
       />
-      {over && <div className="absolute inset-y-0 right-0 w-1.5 bg-danger" aria-hidden="true" />}
+      {over && <div className="absolute inset-y-0 right-0 w-1.5 bg-berry" aria-hidden="true" />}
     </div>
   );
 }

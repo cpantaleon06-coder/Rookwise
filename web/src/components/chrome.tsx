@@ -1,65 +1,77 @@
-import { useEffect, useState } from "react";
+import { RookMark } from "./mark";
 
 export const REPO_URL = "https://github.com/cpantaleon06-coder/Rookwise";
 
-type Theme = "system" | "dark" | "light";
+const NAV_LEFT = [
+  ["#poka-yoke", "Poka-yoke"],
+  ["#how-it-works", "How it works"],
+] as const;
+const NAV_RIGHT = [
+  ["#results", "Results"],
+  [REPO_URL, "Source"],
+] as const;
 
-const THEME_KEY = "rookwise-theme";
-
-function readTheme(): Theme {
-  try {
-    const value = localStorage.getItem(THEME_KEY);
-    return value === "dark" || value === "light" ? value : "system";
-  } catch {
-    return "system";
-  }
-}
-
-/** Follows the system setting; the button cycles system, dark, light (open question 1). */
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(readTheme);
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "system") root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", theme);
-    try {
-      if (theme === "system") localStorage.removeItem(THEME_KEY);
-      else localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // Storage can be blocked; the theme still applies for this visit.
-    }
-  }, [theme]);
-  const next: Record<Theme, Theme> = { system: "dark", dark: "light", light: "system" };
-  const words: Record<Theme, string> = { system: "System", dark: "Dark", light: "Light" };
+function NavLink({ href, children }: { href: string; children: string }) {
+  const external = href.startsWith("http");
   return (
-    <button
-      type="button"
-      onClick={() => setTheme(next[theme])}
-      className="label inline-flex min-h-11 items-center rounded-full px-3 text-muted hover:bg-raised hover:text-ink"
-      aria-label={`Theme: ${words[theme]}. Change theme`}
+    <a
+      href={href}
+      rel={external ? "noreferrer" : undefined}
+      className="label pill inline-flex min-h-11 items-center justify-center border border-line bg-surface px-21 text-muted hover:bg-raised hover:text-bone"
     >
-      Theme: {words[theme]}
-    </button>
+      {children}
+    </a>
   );
 }
 
-/** The live mode control: always disabled here, with the reason as visible text. */
-export function LiveRunsControl({ compact = false }: { compact?: boolean }) {
+/**
+ * The site header on its central axis: the rook mark in the middle, two links
+ * on each side. On a phone the four links sit in a 2x2 grid under the mark.
+ */
+export function SiteHeader() {
   return (
-    <div className={compact ? "flex flex-wrap items-center gap-x-3 gap-y-1" : "flex flex-col gap-2"}>
-      <button
-        type="button"
-        disabled
-        aria-describedby="live-runs-note"
-        className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-full border border-line px-5 text-sm font-medium text-muted"
-      >
-        <span aria-hidden="true" className="size-2 rounded-full border border-line-strong" />
-        Live runs
-      </button>
-      <p id="live-runs-note" className="text-sm text-muted">
-        Live runs are limited and not offered on this site. Recorded mode is the default.
-      </p>
-    </div>
+    <header className="border-b border-line">
+      <div className="mx-auto max-w-[1440px] px-21 py-13">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-21">
+          <nav aria-label="Site, left" className="hidden justify-end gap-8 sm:flex">
+            {NAV_LEFT.map(([href, word]) => (
+              <NavLink key={href} href={href}>{word}</NavLink>
+            ))}
+          </nav>
+          <a href="#/" className="col-start-2 flex flex-col items-center gap-8 rounded-sm px-8 text-bone">
+            <RookMark className="h-[34px] w-[21px]" />
+            <span className="label">Rookwise</span>
+          </a>
+          <nav aria-label="Site, right" className="hidden justify-start gap-8 sm:flex">
+            {NAV_RIGHT.map(([href, word]) => (
+              <NavLink key={href} href={href}>{word}</NavLink>
+            ))}
+          </nav>
+        </div>
+        <nav aria-label="Site" className="mt-8 grid grid-cols-2 gap-x-8 sm:hidden">
+          {[...NAV_LEFT, ...NAV_RIGHT].map(([href, word]) => (
+            <NavLink key={href} href={href}>{word}</NavLink>
+          ))}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+export const LIVE_RUNS_NOTE = "Live runs are limited and not offered on this site. Recorded mode is the default.";
+
+/** The live mode button alone: always disabled, described by the note with id live-runs-note. */
+export function LiveRunsButton() {
+  return (
+    <button
+      type="button"
+      disabled
+      aria-describedby="live-runs-note"
+      className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-8 rounded-full border border-line-strong px-21 font-medium text-muted"
+    >
+      <span aria-hidden="true" className="size-2 rounded-full border border-line-strong" />
+      Live runs
+    </button>
   );
 }
 
@@ -76,7 +88,7 @@ export function SkipLink({ target, children }: { target: string; children: strin
           el.focus();
         }
       }}
-      className="sr-only rounded-full bg-primary px-4 py-2 text-on-primary focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
+      className="sr-only rounded-full bg-berry px-21 py-8 text-ink focus:not-sr-only focus:fixed focus:left-13 focus:top-13 focus:z-50"
     >
       {children}
     </a>
@@ -85,24 +97,26 @@ export function SkipLink({ target, children }: { target: string; children: strin
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-line">
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-10 text-sm text-muted sm:px-6 lg:px-8">
+    <footer className="mt-89 border-t border-line">
+      <div className="mx-auto flex max-w-[89ch] flex-col items-center gap-13 px-21 py-89 text-center text-muted">
+        <RookMark className="h-[34px] w-[21px] text-bone" />
         <p>
-          MIT license.{" "}
-          <a className="underline underline-offset-4 hover:text-ink" href={REPO_URL} rel="noreferrer">
+          <a className="underline underline-offset-4 hover:text-bone" href={REPO_URL} rel="noreferrer">
             Source on GitHub
           </a>
-          . Built for the Nebius x NVIDIA Global AI Hackathon 2026.
+          . MIT license.
         </p>
         <p>
-          Models: NVIDIA Nemotron, served by Nebius Token Factory. Web search: Tavily. Fonts: Inter,
-          JetBrains Mono and Source Serif 4 (SIL Open Font License 1.1,{" "}
-          <a className="underline underline-offset-4 hover:text-ink" href="./licenses/inter-OFL.txt">
+          Built for the Nebius x NVIDIA Global AI Hackathon 2026 on NVIDIA Nemotron models served by
+          Nebius Token Factory.
+        </p>
+        <p>
+          Fonts: Space Grotesk and JetBrains Mono, SIL Open Font License 1.1 (
+          <a className="underline underline-offset-4 hover:text-bone" href="./licenses/space-grotesk-OFL.txt">
             license texts
           </a>
-          ).
+          ). This site replays recordings only and sets no cookies.
         </p>
-        <p>This site replays recordings only. It sets no cookies and makes no request except for its own files.</p>
       </div>
     </footer>
   );
