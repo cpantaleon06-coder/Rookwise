@@ -28,9 +28,9 @@ export function RecordedBanner({
   const split = splitOf(summary?.incident_id);
   return (
     <div role="note" aria-label="Recorded run" className="px-21 pt-13 lg:px-55">
-      <p className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-x-13 gap-y-8 rounded-md border border-line bg-surface px-21 py-8 text-center lg:rounded-full">
-        <span className="label inline-flex items-center gap-8 text-bone">
-          <span aria-hidden="true" className="size-2 rounded-full border-2 border-bone" />
+      <p className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-x-13 gap-y-8 rounded-md bg-violet-tint px-21 py-8 text-center lg:rounded-full">
+        <span className="label inline-flex items-center gap-8 text-violet">
+          <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-violet" />
           {PROVENANCE_WORDS[provenance ?? "unknown"]}
         </span>
         <span className="text-muted">
@@ -94,11 +94,11 @@ function statusWords(agents: AgentState[]): string {
 function StatusPill({ tone, children }: { tone: "ok" | "danger" | "neutral" | "warn"; children: string }) {
   const cls =
     tone === "ok"
-      ? "bg-bone text-ink"
+      ? "bg-teal text-ink"
       : tone === "danger"
         ? "bg-berry text-ink"
         : tone === "warn"
-          ? "border border-berry text-berry"
+          ? "bg-berry-tint text-berry"
           : "border border-line-strong text-bone";
   return <span className={`label pill inline-flex min-h-[34px] items-center px-13 ${cls}`}>{children}</span>;
 }
@@ -153,7 +153,7 @@ export function RunHeader({
             }
             className="meter-track shrink-0 rounded-full"
           >
-            <ProgressRing value={pct / 100} size={55} stroke={6} tone={alert ? "berry" : "bone"} />
+            <ProgressRing value={pct / 100} size={55} stroke={6} tone={alert ? "berry" : "gold"} />
           </div>
           <div className="min-w-0">
           <dl>
@@ -240,7 +240,7 @@ export function ReplayToolbar({ replay }: { replay: ReplayControls }) {
           </button>
         ))}
       </div>
-      <span className="num text-muted" aria-live="off">
+      <span className="figure text-muted" aria-live="off">
         Event {position} of {total}
       </span>
     </div>

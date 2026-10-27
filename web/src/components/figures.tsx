@@ -101,7 +101,7 @@ export function TeamRings({
       <g fill="none" className={compact ? "stroke-line-strong" : "stroke-line"} strokeWidth={compact ? 8 : 1}>
         <circle cx="305" cy="305" r="144" />
         <circle cx="305" cy="305" r="233" />
-        {auditor && <circle cx="305" cy="305" r="289" strokeDasharray={compact ? "13 21" : "3 8"} className="stroke-line-strong" />}
+        {auditor && <circle cx="305" cy="305" r="289" strokeDasharray={compact ? "13 21" : "3 8"} className="stroke-violet/60" />}
       </g>
       <circle cx="305" cy="305" r="55" strokeWidth="2" className={director === "lit" ? "fill-ink stroke-bone" : `fill-ink ${FILL[director]}`} />
       <g transform={`translate(${305 - ROOK_WIDTH * 0.9} ${305 - ROOK_HEIGHT * 0.9}) scale(1.8)`} className="fill-bone" fillRule="evenodd">
@@ -125,11 +125,20 @@ export function TeamRings({
       })}
       {auditor && (() => {
         const [x, y] = around(0, 1, 289, 90);
-        return <circle cx={x} cy={y} r={13 * k} strokeWidth={3 * k} className={`${FILL[auditor]} [stroke-dasharray:none]`} />;
+        return <circle cx={x} cy={y} r={13 * k} strokeWidth={3 * k} className={`${auditor === "lit" ? "fill-violet stroke-violet" : FILL[auditor]} [stroke-dasharray:none]`} />;
       })()}
     </svg>
   );
 }
+
+const RING_STROKE = {
+  bone: "stroke-bone",
+  berry: "stroke-berry",
+  ink: "stroke-ink",
+  teal: "stroke-teal",
+  gold: "stroke-gold",
+  violet: "stroke-violet",
+} as const;
 
 /** A circular progress ring, value from 0 to 1. */
 export function ProgressRing({
@@ -142,7 +151,7 @@ export function ProgressRing({
   value: number;
   size?: number;
   stroke?: number;
-  tone?: "bone" | "berry" | "ink";
+  tone?: "bone" | "berry" | "ink" | "teal" | "gold" | "violet";
   className?: string;
 }) {
   const r = (size - stroke) / 2;
@@ -160,13 +169,17 @@ export function ProgressRing({
         strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={c * (1 - v)}
-        className={`hold-ring ${tone === "berry" ? "stroke-berry" : tone === "ink" ? "stroke-ink" : "stroke-bone"}`}
+        className={`hold-ring ${RING_STROKE[tone]}`}
       />
     </svg>
   );
 }
 
-/** Six original glyphs for the six safeguards: ring, square, triangle, arc, twin circles, dot. */
+/**
+ * Six original glyphs for the six safeguards: ring, square, triangle, arc, twin
+ * circles, dot. Accents follow the semantic set: teal for checks, gold for money,
+ * amber for warnings, violet for the second reader.
+ */
 export function Glyph({ kind, className = "" }: { kind: 0 | 1 | 2 | 3 | 4 | 5; className?: string }) {
   const common = { fill: "none", strokeWidth: 2.5 } as const;
   return (
@@ -174,31 +187,31 @@ export function Glyph({ kind, className = "" }: { kind: 0 | 1 | 2 | 3 | 4 | 5; c
       {kind === 0 && (
         <>
           <circle cx="27.5" cy="27.5" r="21" className="stroke-bone" {...common} />
-          <circle cx="27.5" cy="27.5" r="6" className="fill-berry" />
+          <circle cx="27.5" cy="27.5" r="6" className="fill-teal" />
         </>
       )}
       {kind === 1 && (
         <>
           <rect x="8" y="8" width="39" height="39" rx="8" className="stroke-bone" {...common} />
-          <rect x="8" y="30" width="39" height="17" rx="8" className="fill-berry" />
+          <rect x="8" y="30" width="39" height="17" rx="8" className="fill-gold" />
         </>
       )}
       {kind === 2 && (
         <>
           <path d="M27.5 6 L50 47 H5 Z" strokeLinejoin="round" className="stroke-bone" {...common} />
-          <circle cx="27.5" cy="34" r="5" className="fill-berry" />
+          <circle cx="27.5" cy="34" r="5" className="fill-teal" />
         </>
       )}
       {kind === 3 && (
         <>
           <path d="M8 40 A21 21 0 1 1 47 40" strokeLinecap="round" className="stroke-bone" {...common} />
-          <path d="M37 21 L27.5 34" strokeLinecap="round" className="stroke-berry" {...common} />
+          <path d="M37 21 L27.5 34" strokeLinecap="round" className="stroke-amber" {...common} />
         </>
       )}
       {kind === 4 && (
         <>
           <circle cx="20" cy="27.5" r="13" className="stroke-bone" {...common} />
-          <circle cx="35" cy="27.5" r="13" className="stroke-berry" {...common} />
+          <circle cx="35" cy="27.5" r="13" className="stroke-violet" {...common} />
         </>
       )}
       {kind === 5 && (

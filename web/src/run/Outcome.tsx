@@ -63,7 +63,7 @@ export function ApprovalGate({
           Decision needed
         </span>
       )}
-      <h2 id="decision-title" className="mt-13 text-title font-semibold">
+      <h2 id="decision-title" className="mt-13 text-title font-black">
         Approve the recommendation?
       </h2>
       {pkg.diagnosis?.root_cause && <p className="mt-8 wrap-anywhere">{pkg.diagnosis.root_cause}</p>}
@@ -79,8 +79,8 @@ export function ApprovalGate({
           {plan.map((step, i) => (
             <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
               <div className="flex flex-wrap items-center gap-8">
-                <span className="num text-muted">{String(i + 1).padStart(2, "0")}</span>
-                <span className="font-semibold wrap-anywhere">{step.action}</span>
+                <span className="figure text-muted">{String(i + 1).padStart(2, "0")}</span>
+                <span className="font-extrabold wrap-anywhere">{step.action}</span>
                 <Chip tone={step.reversible ? "neutral" : "danger"}>
                   {step.reversible ? "Reversible" : "Not reversible"}
                 </Chip>
@@ -92,7 +92,7 @@ export function ApprovalGate({
         </ol>
       )}
 
-      <p className="mt-21 font-medium">{NOTHING_RUNS}</p>
+      <p className="mt-21 rounded-md border border-line bg-ink p-13 font-extrabold">{NOTHING_RUNS}</p>
 
       {pending ? (
         <div className="mt-21">
@@ -103,7 +103,7 @@ export function ApprovalGate({
         </div>
       ) : (
         <div role="status" className="mt-21 rounded-md border border-line-strong bg-ink p-21">
-          <p className="font-semibold">
+          <p className="font-extrabold">
             {decision.choice === "approved" ? "You approved the recommendation." : "You rejected the recommendation."}
           </p>
           <p className="mt-8 text-muted">
@@ -131,7 +131,7 @@ export function PackagePanel({ pkg, partial }: { pkg: DeliveryPackage; partial: 
             {pkg.deliverables.map((d) => (
               <li key={`${d.task_id}-${d.title}`} className="min-w-0 rounded-md border border-line bg-ink p-13">
                 <div className="flex flex-wrap items-center gap-8">
-                  <span className="font-semibold wrap-anywhere">{d.title}</span>
+                  <span className="font-extrabold wrap-anywhere">{d.title}</span>
                   {partial && <Chip tone="danger">Partial</Chip>}
                 </div>
                 <pre className="quote mt-8 rounded-sm bg-raised p-13">
@@ -163,7 +163,7 @@ export function StopBanner({ state }: { state: RunState }) {
   return (
     <div role="region" aria-label="Budget stops" className="rounded-lg border-l-4 border-berry bg-berry-tint p-13 sm:p-21">
       <p className="label text-berry">Stopped on budget</p>
-      <p className="mt-8 font-semibold">
+      <p className="mt-8 font-extrabold">
         {state.stops.length === 1
           ? "One agent stopped on its budget."
           : `${state.stops.length} agents stopped on their budget.`}
@@ -202,7 +202,7 @@ export function TerminalBanner({ state }: { state: RunState }) {
   if (t.status === "cancelled") {
     return (
       <div className="rounded-lg border-l-4 border-berry bg-berry-tint p-13 sm:p-21">
-        <p className="font-semibold">The run was cancelled. Spent {formatMicros(toMicros(t.spent))}.</p>
+        <p className="font-extrabold">The run was cancelled. Spent {formatMicros(toMicros(t.spent))}.</p>
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { HOLD_MS, LINE_HEIGHT, PHI, SPACING, TYPE_SCALE } from "./scale";
+import { ANCHORS, HOLD_MS, LINE_HEIGHT, PHI, SEMANTIC, SPACING, TYPE_SCALE } from "./scale";
 
 const CSS = readFileSync(resolve(__dirname, "../index.css"), "utf8");
 
@@ -39,9 +39,9 @@ describe("the type scale", () => {
 });
 
 describe("the palette", () => {
-  it("names exactly three hues", () => {
+  it("names only the three anchors and the four semantic colors", () => {
     const hexes = new Set([...CSS.matchAll(/#[0-9a-f]{6}\b/gi)].map((m) => m[0].toLowerCase()));
-    expect([...hexes].sort()).toEqual(["#142030", "#eae4d3", "#ff5c8d"]);
+    expect([...hexes].sort()).toEqual([...Object.values(ANCHORS), ...Object.values(SEMANTIC)].sort());
   });
 });
 

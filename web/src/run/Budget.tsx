@@ -20,7 +20,7 @@ function Bar({ label, value, max }: { label: string; value: Micros; max: Micros 
       <Label>{label}</Label>
       <div className="flex min-w-0 items-center gap-8">
         <div className="h-2 min-w-0 flex-1 rounded-full bg-track">
-          <div className="h-2 rounded-full bg-bone" style={{ width: `${percentOf(value, max)}%` }} />
+          <div className="h-2 rounded-full bg-gold" style={{ width: `${percentOf(value, max)}%` }} />
         </div>
         <span className="num shrink-0">{formatMicros(value)}</span>
       </div>
@@ -92,7 +92,7 @@ export function BudgetPanel({
     <Panel id="budget" title="Budget (USD)">
       {spent === null ? (
         <div className="flex flex-col gap-13">
-          <p className="num text-heading font-medium text-muted">Not started</p>
+          <p className="figure text-heading font-medium text-muted">Not started</p>
           <Pill label="Cap" value={cap === null ? "Not recorded" : formatMicros(cap)} />
           <Meter spent={null} held={null} cap={cap} stopped={false} />
         </div>
@@ -111,7 +111,7 @@ export function BudgetPanel({
           <Meter spent={spent} held={held} cap={cap} stopped={state.stops.length > 0} />
 
           <div className="border-t border-line pt-13">
-            <h3 className="mb-13 font-semibold">Predicted versus real</h3>
+            <h3 className="mb-13 font-extrabold">Predicted versus real</h3>
             {report ? (
               <PredictedVersusReal
                 predicted={toMicros(report.predicted_usd)}
@@ -125,7 +125,7 @@ export function BudgetPanel({
           </div>
 
           <div className="border-t border-line pt-13">
-            <h3 className="mb-8 font-semibold">By level</h3>
+            <h3 className="mb-8 font-extrabold">By level</h3>
             {Object.keys(levels).length === 0 ? (
               <p className="text-muted">Nothing charged yet.</p>
             ) : (
@@ -143,7 +143,7 @@ export function BudgetPanel({
 
           {state.stops.length > 0 && (
             <div className="border-t border-line pt-13">
-              <h3 className="mb-8 font-semibold text-berry">Stops ({state.stops.length})</h3>
+              <h3 className="mb-8 font-extrabold text-berry">Stops ({state.stops.length})</h3>
               <ul className="flex flex-col gap-8">
                 {state.stops.map((s, i) => (
                   <li key={i} className="rounded-md bg-berry-tint p-13">
@@ -164,7 +164,7 @@ export function BudgetPanel({
 
           {allocations.length > 0 && (
             <details className="border-t border-line pt-13">
-              <summary className="min-h-11 cursor-pointer font-semibold">
+              <summary className="min-h-11 cursor-pointer font-extrabold">
                 Sub-budgets ({allocations.length})
               </summary>
               <ul className="mt-8 flex flex-col gap-8">
@@ -191,7 +191,7 @@ export function BudgetPanel({
           )}
 
           <details className="border-t border-line pt-13">
-            <summary className="min-h-11 cursor-pointer font-semibold">
+            <summary className="min-h-11 cursor-pointer font-extrabold">
               Ledger ({ledger.length} {ledger.length === 1 ? "entry" : "entries"})
             </summary>
             <p className="mt-8 text-muted">
@@ -204,11 +204,11 @@ export function BudgetPanel({
                 <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
                   <div className="flex flex-wrap justify-between gap-8">
                     <span className="font-medium">
-                      {LEVEL_WORDS[e.level] ?? e.level} <span className="num text-muted">{e.task_id}</span>
+                      {LEVEL_WORDS[e.level] ?? e.level} <span className="figure text-muted">{e.task_id}</span>
                     </span>
                     <span className="num">{formatMicros(toMicros(e.usd_real))}</span>
                   </div>
-                  <p className="num wrap-anywhere text-muted">{e.model}</p>
+                  <p className="figure wrap-anywhere text-muted">{e.model}</p>
                   <p className="num text-muted">
                     in {e.input_tokens}, cached {e.cached_tokens}, out {e.output_tokens}; predicted{" "}
                     {formatMicros(toMicros(e.usd_predicted))}

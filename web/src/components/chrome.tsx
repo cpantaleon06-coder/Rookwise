@@ -58,23 +58,6 @@ export function SiteHeader() {
   );
 }
 
-export const LIVE_RUNS_NOTE = "Live runs are limited and not offered on this site. Recorded mode is the default.";
-
-/** The live mode button alone: always disabled, described by the note with id live-runs-note. */
-export function LiveRunsButton() {
-  return (
-    <button
-      type="button"
-      disabled
-      aria-describedby="live-runs-note"
-      className="inline-flex min-h-11 cursor-not-allowed items-center justify-center gap-8 rounded-full border border-line-strong px-21 font-medium text-muted"
-    >
-      <span aria-hidden="true" className="size-2 rounded-full border border-line-strong" />
-      Live runs
-    </button>
-  );
-}
-
 export function SkipLink({ target, children }: { target: string; children: string }) {
   return (
     <a
@@ -111,8 +94,8 @@ export function SiteFooter() {
           Nebius Token Factory.
         </p>
         <p>
-          Fonts: Space Grotesk and JetBrains Mono, SIL Open Font License 1.1 (
-          <a className="underline underline-offset-4 hover:text-bone" href="./licenses/space-grotesk-OFL.txt">
+          Fonts: Nunito and JetBrains Mono, SIL Open Font License 1.1 (
+          <a className="underline underline-offset-4 hover:text-bone" href="./licenses/nunito-OFL.txt">
             license texts
           </a>
           ). This site replays recordings only and sets no cookies.

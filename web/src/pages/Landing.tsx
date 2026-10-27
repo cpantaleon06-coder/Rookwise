@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { runHref } from "../App";
-import { LIVE_RUNS_NOTE, LiveRunsButton, SiteFooter, SiteHeader, SkipLink } from "../components/chrome";
+import { SiteFooter, SiteHeader, SkipLink } from "../components/chrome";
 import { DotRook, Glyph, MirroredArcs, ProgressRing, TeamRings, type RingNode } from "../components/figures";
 import { buttonClass, Label, Skeleton, Stamp } from "../components/ui";
 import { runFacts, type RunFacts } from "../lib/facts";
@@ -97,10 +97,30 @@ function useSeen<T extends Element>(): [RefObject<T | null>, boolean] {
   return [ref, seen];
 }
 
-function TagPill({ children, tone = "bone" }: { children: ReactNode; tone?: "bone" | "berry" }) {
+type Accent = "bone" | "berry" | "teal" | "amber" | "violet" | "gold";
+
+const DOT_BG: Record<Accent, string> = {
+  bone: "bg-bone",
+  berry: "bg-berry",
+  teal: "bg-teal",
+  amber: "bg-amber",
+  violet: "bg-violet",
+  gold: "bg-gold",
+};
+
+const ACCENT_PILL: Record<Accent, string> = {
+  bone: "border border-line-strong text-bone",
+  berry: "bg-berry-tint text-berry",
+  teal: "bg-teal-tint text-teal",
+  amber: "bg-amber-tint text-amber",
+  violet: "bg-violet-tint text-violet",
+  gold: "bg-gold-tint text-gold",
+};
+
+function TagPill({ children, tone = "bone" }: { children: ReactNode; tone?: Accent }) {
   return (
     <span className="label pill inline-flex min-h-[34px] items-center gap-8 border border-line bg-raised px-13 text-bone">
-      <span aria-hidden="true" className={`size-2 rounded-full ${tone === "berry" ? "bg-berry" : "bg-bone"}`} />
+      <span aria-hidden="true" className={`size-2.5 rounded-full ${DOT_BG[tone]}`} />
       {children}
     </span>
   );
@@ -109,19 +129,24 @@ function TagPill({ children, tone = "bone" }: { children: ReactNode; tone?: "bon
 function Section({
   id,
   tag,
+  tone = "bone",
+  wash = "",
   title,
   children,
 }: {
   id: string;
   tag: string;
+  tone?: Accent;
+  /** A soft colored wash painted on the section (see index.css). */
+  wash?: string;
   title: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-21 py-89 lg:py-144">
+    <section id={id} aria-labelledby={`${id}-title`} className={`scroll-mt-21 rounded-xl py-89 lg:py-144 ${wash}`}>
       <div className="flex flex-col items-center text-center">
-        <TagPill>{tag}</TagPill>
-        <h2 id={`${id}-title`} className="mt-21 max-w-[22ch] text-heading font-semibold tracking-tight text-balance">
+        <TagPill tone={tone}>{tag}</TagPill>
+        <h2 id={`${id}-title`} className="mt-21 max-w-[22ch] text-heading font-black text-balance">
           {title}
         </h2>
       </div>
@@ -132,27 +157,27 @@ function Section({
 
 /* 1. Hero ----------------------------------------------------------------- */
 
-function FactPill({ dot, children }: { dot: "bone" | "berry"; children: ReactNode }) {
+function FactPill({ dot, children }: { dot: Accent; children: ReactNode }) {
   return (
-    <span className="num pill card inline-flex min-h-11 max-w-full items-center gap-8 px-21 shadow-[0_13px_34px_-21px_#142030]">
-      <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${dot === "berry" ? "bg-berry" : "bg-bone"}`} />
+    <span className="figure pill card inline-flex min-h-11 max-w-full items-center gap-8 px-21 shadow-[0_13px_34px_-21px_#142030]">
+      <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${DOT_BG[dot]}`} />
       <span className="wrap-anywhere">{children}</span>
     </span>
   );
 }
 
-function factPills(facts: RunFacts | null): { key: string; dot: "bone" | "berry"; text: string }[] {
+function factPills(facts: RunFacts | null): { key: string; dot: Accent; text: string }[] {
   if (!facts) return [];
-  const pills: { key: string; dot: "bone" | "berry"; text: string }[] = [];
-  if (facts.verifiedClaimId) pills.push({ key: "verified", dot: "bone", text: `${facts.verifiedClaimId} verified` });
+  const pills: { key: string; dot: Accent; text: string }[] = [];
+  if (facts.verifiedClaimId) pills.push({ key: "verified", dot: "teal", text: `${facts.verifiedClaimId} verified` });
   if (facts.withdrawnReason)
-    pills.push({ key: "withdrawn", dot: "berry", text: `${facts.withdrawnClaimId ?? "claim"} withdrawn: ${facts.withdrawnReason}` });
+    pills.push({ key: "withdrawn", dot: "amber", text: `${facts.withdrawnClaimId ?? "claim"} withdrawn: ${facts.withdrawnReason}` });
   if (facts.spentUsd && facts.capUsd)
-    pills.push({ key: "budget", dot: "bone", text: `${formatUsd(facts.spentUsd)} of ${formatUsd(facts.capUsd)} cap` });
+    pills.push({ key: "budget", dot: "gold", text: `${formatUsd(facts.spentUsd)} of ${formatUsd(facts.capUsd)} cap` });
   if (facts.slicesRead !== null)
     pills.push({
       key: "slices",
-      dot: facts.unreadRanges ? "berry" : "bone",
+      dot: facts.unreadRanges ? "amber" : "teal",
       text: `${facts.slicesRead} slices read${facts.unreadRanges !== null ? `, ${facts.unreadRanges} unread` : ""}`,
     });
   return pills;
@@ -169,7 +194,17 @@ const PILL_SPOTS = [
 function HeroObject({ facts }: { facts: RunFacts | null }) {
   const pills = factPills(facts);
   return (
-    <div id="hero-object" className="relative mx-auto mt-21 w-full max-w-[987px]">
+    <div id="hero-object" className="relative mx-auto mt-34 w-full max-w-[987px]">
+      <div className="flex flex-wrap justify-center gap-8">
+        <span className={`label pill inline-flex min-h-[34px] items-center gap-8 px-13 ${ACCENT_PILL.violet}`}>
+          <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-violet" />
+          Recorded run, not live
+        </span>
+        <span className={`label pill inline-flex min-h-[34px] items-center gap-8 px-13 ${ACCENT_PILL.bone}`}>
+          <span aria-hidden="true" className="size-2.5 rounded-full bg-bone" />
+          Executes nothing
+        </span>
+      </div>
       <div className="relative h-[377px] md:h-[610px]">
         <div aria-hidden="true" className="grid-frame absolute inset-0" />
         <span aria-hidden="true" className="crosshair left-0 top-0" />
@@ -201,17 +236,18 @@ function HeroObject({ facts }: { facts: RunFacts | null }) {
   );
 }
 
-function tickerFacts(facts: RunFacts | null): string[] {
+function tickerFacts(facts: RunFacts | null): { text: string; tone: Accent }[] {
   if (!facts) return [];
-  const out: string[] = [];
-  if (facts.spentUsd) out.push(`Spent ${formatUsd(facts.spentUsd)}`);
-  if (facts.capUsd) out.push(`Cap ${formatUsd(facts.capUsd)}`);
-  if (facts.slicesRead !== null) out.push(`${facts.slicesRead} slices read`);
-  if (facts.supported !== null) out.push(`${facts.supported} claims supported`);
-  if (facts.withdrawn !== null) out.push(`${facts.withdrawn} claims withdrawn`);
-  if (facts.operators !== null) out.push(`${facts.operators} operators`);
-  if (facts.auditVerdict) out.push(`Audit: ${(VERDICT_WORDS[facts.auditVerdict] ?? facts.auditVerdict).toLowerCase()}`);
-  if (facts.category) out.push(`Category ${facts.category}`);
+  const out: { text: string; tone: Accent }[] = [];
+  if (facts.spentUsd) out.push({ text: `Spent ${formatUsd(facts.spentUsd)}`, tone: "gold" });
+  if (facts.capUsd) out.push({ text: `Cap ${formatUsd(facts.capUsd)}`, tone: "gold" });
+  if (facts.slicesRead !== null) out.push({ text: `${facts.slicesRead} slices read`, tone: "bone" });
+  if (facts.supported !== null) out.push({ text: `${facts.supported} claims supported`, tone: "teal" });
+  if (facts.withdrawn !== null) out.push({ text: `${facts.withdrawn} claims withdrawn`, tone: "amber" });
+  if (facts.operators !== null) out.push({ text: `${facts.operators} operators`, tone: "bone" });
+  if (facts.auditVerdict)
+    out.push({ text: `Audit: ${(VERDICT_WORDS[facts.auditVerdict] ?? facts.auditVerdict).toLowerCase()}`, tone: "violet" });
+  if (facts.category) out.push({ text: `Category ${facts.category}`, tone: "bone" });
   return out;
 }
 
@@ -221,9 +257,9 @@ function Ticker({ facts, title }: { facts: RunFacts | null; title: string | null
   const row = (copy: boolean) => (
     <ul aria-hidden={copy || undefined} className={`flex shrink-0 items-center ${copy ? "ticker-copy" : ""}`}>
       {items.map((item) => (
-        <li key={item} className="num flex items-center gap-21 whitespace-nowrap px-21">
-          <span aria-hidden="true" className="size-2 rounded-full bg-berry" />
-          {item}
+        <li key={item.text} className="figure flex items-center gap-13 whitespace-nowrap px-21">
+          <span aria-hidden="true" className={`size-2.5 rounded-full ${DOT_BG[item.tone]}`} />
+          {item.text}
         </li>
       ))}
     </ul>
@@ -251,7 +287,7 @@ function SceneCard({ claim, verified }: { claim: ClaimExcerpt; verified: boolean
   return (
     <figure
       className={`scene-claim relative flex min-w-0 flex-col gap-21 rounded-lg p-21 sm:p-34 ${
-        verified ? "card" : "border border-berry/40 bg-berry-tint"
+        verified ? "card border-teal/40" : "border border-amber/40 bg-amber-tint"
       }`}
       style={{ ["--scene-delay" as string]: verified ? "0ms" : "377ms" }}
     >
@@ -267,7 +303,7 @@ function SceneCard({ claim, verified }: { claim: ClaimExcerpt; verified: boolean
           <p className="label wrap-anywhere border-b border-line px-13 py-8 text-muted">{c.source_id}</p>
           <div
             className={`scene-line grid grid-cols-[auto_1fr] gap-13 px-13 py-8 ${
-              verified ? "bg-raised shadow-[inset_3px_0_0_#eae4d3]" : "bg-berry-tint shadow-[inset_3px_0_0_#ff5c8d]"
+              verified ? "bg-teal-tint shadow-[inset_4px_0_0_#3ed6b0]" : "bg-amber-tint shadow-[inset_4px_0_0_#ffa53d]"
             }`}
           >
             <span className="num text-muted">{lineRange(c)}</span>
@@ -275,7 +311,7 @@ function SceneCard({ claim, verified }: { claim: ClaimExcerpt; verified: boolean
           </div>
         </div>
       )}
-      <figcaption className={verified ? "text-muted" : "text-berry"}>
+      <figcaption className={`font-bold ${verified ? "text-teal" : "text-amber"}`}>
         {verified
           ? c
             ? `The quote is in line ${lineRange(c)} of ${c.source_id}. The claim stands.`
@@ -318,25 +354,30 @@ function Hero({ index, featured }: { index: ReturnType<typeof useRecordingIndex>
   const first = recordings[0] ?? null;
   const entry = recordings.find((r) => r.folder === FEATURED) ?? recordings.find((r) => r.excerpt) ?? null;
   return (
-    <section aria-labelledby="hero-title" className="pt-55 pb-89 lg:pb-144">
+    <section aria-labelledby="hero-title" className="wash-hero rounded-xl pt-55 pb-89 lg:pb-144">
       <div className="flex flex-col items-center text-center">
-        <TagPill tone="berry">Real model runs, replayed</TagPill>
-        <h1 id="hero-title" className="mt-21 max-w-[21ch] text-heading font-semibold tracking-tight text-balance sm:text-hero">
+        <TagPill tone="teal">For small engineering teams</TagPill>
+        <h1 id="hero-title" className="mt-21 max-w-[21ch] text-heading font-black text-balance sm:text-hero">
           An incident answer <span className="text-muted">you can check, line by&nbsp;line.</span>
         </h1>
-        <p className="mt-21 max-w-[42ch] text-muted text-balance sm:text-title">
-          Rookwise investigates an outage under a budget you set. Before you read the answer, code
-          checks every claim against the log.
+        <p className="mt-21 max-w-[46ch] font-semibold text-balance sm:text-title">
+          Rookwise is an AI incident investigator that works under a budget you set.{" "}
+          <span className="text-teal">
+            Every claim is checked against the log lines. Unsupported claims are withdrawn and shown.
+          </span>
         </p>
         <div className="mt-34 flex w-full flex-col items-center gap-13 sm:flex-row sm:justify-center">
           {state.kind === "loading" && (
-            <button type="button" disabled className={buttonClass("primary")}>
+            <button type="button" disabled className={`${buttonClass("primary")} min-h-[55px] px-34`}>
               Checking what is available
             </button>
           )}
           {state.kind === "ready" && first && (
-            <a href={runHref(first.folder)} className={`${buttonClass("primary")} shadow-[0_0_34px_-8px_#ff5c8d]`}>
-              Watch a recorded run
+            <a
+              href={runHref(first.folder)}
+              className={`${buttonClass("primary")} min-h-[55px] max-w-full whitespace-normal px-34 text-center sm:text-title shadow-[0_0_34px_-8px_#ff5c8d]`}
+            >
+              Watch a recorded investigation
             </a>
           )}
           {state.kind === "ready" && !first && <p className="text-muted">No recorded run is published yet.</p>}
@@ -348,11 +389,10 @@ function Hero({ index, featured }: { index: ReturnType<typeof useRecordingIndex>
               </button>
             </div>
           )}
-          <LiveRunsButton />
+          <a href="#results" className={`${buttonClass("secondary")} min-h-[55px] max-w-full px-34 sm:text-title`}>
+            See the results
+          </a>
         </div>
-        <p id="live-runs-note" className="mt-13 max-w-[42ch] text-muted text-balance">
-          {LIVE_RUNS_NOTE}
-        </p>
       </div>
       <HeroObject facts={featured?.facts ?? null} />
       <Ticker facts={featured?.facts ?? null} title={entry?.summary.title ?? null} />
@@ -417,9 +457,12 @@ const SAFEGUARDS = [
   ],
 ] as const;
 
+/** Teal for checks, gold for money, amber for warnings, violet for the second reader. */
+const SAFEGUARD_TONES: Accent[] = ["teal", "gold", "teal", "amber", "violet", "gold"];
+
 function PokaYoke() {
   return (
-    <Section id="poka-yoke" tag="Mistake-proofing" title="Built on poka-yoke">
+    <Section id="poka-yoke" tag="Mistake-proofing" tone="amber" wash="wash-amber" title="Built on poka-yoke">
       <p className="mx-auto mt-34 max-w-[68ch] text-center text-muted">
         Poka-yoke is Japanese for mistake-proofing. Shigeo Shingo formalized it within the Toyota
         Production System in the 1960s: a process should make errors hard to commit and easy to see,
@@ -431,11 +474,11 @@ function PokaYoke() {
           <li key={title} className="card flex min-w-0 flex-col gap-21 rounded-lg p-21 lg:p-34">
             <div className="flex items-start justify-between gap-13">
               <Glyph kind={i as 0 | 1 | 2 | 3 | 4 | 5} className="size-[55px] shrink-0" />
-              <span className="label pill inline-flex min-h-[34px] items-center border border-berry px-13 text-berry">
+              <span className={`label pill inline-flex min-h-[34px] items-center px-13 ${ACCENT_PILL[SAFEGUARD_TONES[i]]}`}>
                 {kind}
               </span>
             </div>
-            <h3 className="text-title font-semibold text-balance">{title}</h3>
+            <h3 className="text-title font-black text-balance">{title}</h3>
             <p className="text-muted">{text}</p>
           </li>
         ))}
@@ -462,12 +505,12 @@ function levelWords(level: TeamSummary["levels"][number]): string {
   return `${level.count} ${word}${level.count === 1 ? "" : "s"}`;
 }
 
-function GatePill({ kicker, title, tone }: { kicker: string; title: string; tone: "bone" | "berry" }) {
+function GatePill({ kicker, title, tone }: { kicker: string; title: string; tone: "teal" | "berry" }) {
   return (
     <div className="flex flex-col items-center gap-8 text-center">
       <span
         className={`label pill inline-flex min-h-11 items-center whitespace-nowrap px-13 sm:px-21 ${
-          tone === "berry" ? "border border-berry text-berry" : "bg-bone text-ink"
+          tone === "teal" ? "bg-teal-tint text-teal" : "bg-berry text-ink"
         }`}
       >
         {title}
@@ -489,7 +532,7 @@ function Rings({ team, title }: { team: TeamSummary; title: string }) {
     <figure className="mt-55">
       <div className="grid grid-cols-2 items-center gap-x-8 gap-y-34 md:grid-cols-[1fr_auto_1fr] md:gap-34">
         <div className="order-2 md:order-1 md:justify-self-end">
-          <GatePill title="Evidence check" kicker="Code, no model" tone="berry" />
+          <GatePill title="Evidence check" kicker="Code, no model" tone="teal" />
         </div>
         <div ref={ref} className={`lights relative order-1 col-span-2 mx-auto w-full max-w-[466px] md:order-2 md:col-span-1 ${seen ? "is-playing" : ""}`}>
           <div aria-hidden="true" className="glow absolute left-1/2 top-1/2 size-[89%] -translate-x-1/2 -translate-y-1/2" />
@@ -503,13 +546,13 @@ function Rings({ team, title }: { team: TeamSummary; title: string }) {
           />
         </div>
         <div className="order-3 md:justify-self-start">
-          <GatePill title="You decide" kicker="Approve or reject" tone="bone" />
+          <GatePill title="You decide" kicker="Approve or reject" tone="berry" />
         </div>
       </div>
       <ul aria-label="Team of the recorded run" className="mx-auto mt-34 grid max-w-[987px] gap-13 sm:grid-cols-2">
         {legend.map((level) => (
           <li key={level.level} className="card flex flex-col items-center gap-8 rounded-md p-21 text-center">
-            <span className="font-semibold">
+            <span className="font-extrabold">
               {level.level === "director"
                 ? "Center"
                 : level.level === "manager"
@@ -523,7 +566,7 @@ function Rings({ team, title }: { team: TeamSummary; title: string }) {
             </span>
             <span className="flex flex-wrap justify-center gap-x-13 gap-y-8">
               {level.models.map((m) => (
-                <span key={m.model} className="num text-muted">
+                <span key={m.model} className="figure text-muted">
                   {m.model}
                   {level.models.length > 1 ? ` (${m.count})` : ""}
                 </span>
@@ -545,6 +588,8 @@ function HowItWorks({ entry, team }: { entry: IndexEntry | null; team: TeamSumma
     <Section
       id="how-it-works"
       tag="How it works"
+      tone="violet"
+      wash="wash-violet"
       title="Cheap models read. A strong model judges. Code verifies. A human decides."
     >
       {team && entry ? (
@@ -569,31 +614,31 @@ const CAPTION =
 
 function Results() {
   return (
-    <Section id="results" tag="Results, test split" title="Three configurations, the same cap">
+    <Section id="results" tag="Results, test split" tone="teal" wash="wash-teal" title="Three configurations, the same cap">
       <ul className="mx-auto mt-55 grid max-w-[1100px] gap-21 md:grid-cols-3 md:gap-34">
         {RESULTS.map((r, i) => (
-          <li key={r.name} className="card relative flex flex-col items-center gap-21 overflow-hidden rounded-lg p-34 text-center">
-            <span className={`label pill relative inline-flex min-h-[34px] items-center px-13 ${i === 0 ? "bg-bone text-ink" : "border border-line-strong text-bone"}`}>
+          <li key={r.name} className={`card relative flex flex-col items-center gap-21 overflow-hidden rounded-lg p-34 text-center ${i === 0 ? "border-teal/60" : ""}`}>
+            <span className={`label pill relative inline-flex min-h-[34px] items-center px-13 ${i === 0 ? "bg-teal text-ink" : "border border-line-strong text-bone"}`}>
               {r.name}
             </span>
             <p className="relative">
               <span className="relative block">
-                {i === 0 && (
-                  <span aria-hidden="true" className="glow absolute left-1/2 top-1/2 size-[121px] -translate-x-1/2 -translate-y-1/2" />
-                )}
-                <span className="num relative block whitespace-nowrap text-hero font-semibold">{r.correct}</span>
+                {/* One string ("2 of 3"); ::first-letter makes the count the giant numeral. */}
+                <span className="figure relative block whitespace-nowrap text-heading font-black first-letter:text-display">
+                  {r.correct}
+                </span>
               </span>
               <span className="label text-muted">correct diagnoses</span>
             </p>
             <div className="relative flex items-center gap-13">
-              <ProgressRing value={Number(r.coverage)} size={55} stroke={6} tone={i === 0 ? "berry" : "bone"} />
+              <ProgressRing value={Number(r.coverage)} size={55} stroke={6} tone={i === 0 ? "teal" : "bone"} />
               <span className="flex flex-col items-start">
-                <span className="num text-title">{r.coverage}</span>
+                <span className="figure text-title">{r.coverage}</span>
                 <span className="label text-muted">mean coverage</span>
               </span>
             </div>
             <p className="relative flex flex-col items-center">
-              <span className="num text-title">{r.cost} USD</span>
+              <span className="num text-title text-gold">{r.cost} USD</span>
               <span className="label text-muted">mean cost</span>
             </p>
           </li>
@@ -619,11 +664,11 @@ const LIMITS = [
 
 function Limits() {
   return (
-    <Section id="limits" tag="Limits" title="What this does not show">
+    <Section id="limits" tag="Limits" tone="amber" title="What this does not show">
       <ul className="mx-auto mt-55 grid max-w-[1100px] gap-21 md:grid-cols-3 md:gap-34">
         {LIMITS.map(([title, text]) => (
           <li key={title} className="card flex flex-col items-center gap-13 rounded-lg p-34 text-center">
-            <span className="label pill inline-flex min-h-[34px] items-center border border-berry px-13 text-berry">{title}</span>
+            <span className={`label pill inline-flex min-h-[34px] items-center px-13 ${ACCENT_PILL.amber}`}>{title}</span>
             <p className="text-muted">{text}</p>
           </li>
         ))}
@@ -645,7 +690,7 @@ export function Landing() {
       <main id="content" className="mx-auto max-w-[1440px] px-21 lg:px-55">
         <Hero index={index} featured={featured} />
 
-        <Section id="why" tag="Why it exists" title="A small team cannot afford to be wrong.">
+        <Section id="why" tag="Why it exists" tone="berry" title="A small team cannot afford to be wrong.">
           <p className="mx-auto mt-34 max-w-[55ch] text-center text-balance sm:text-title">
             A large company can absorb a wrong diagnosis. A team of five cannot: no on-call rotation to
             catch it, no budget to rerun it, no room to be wrong twice. So Rookwise does not ask you to

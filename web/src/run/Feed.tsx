@@ -76,7 +76,7 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
                 terminal || stop ? (event.type === "run_failed" || stop ? "bg-berry-tint" : "bg-raised") : ""
               }`}
             >
-              <span className="num text-muted">{elapsed(start, event.ts)}</span>
+              <span className="figure text-muted">{elapsed(start, event.ts)}</span>
               <span className="min-w-0 wrap-anywhere">
                 <span className="font-medium">{actorOf(event, state)}</span>{" "}
                 <span className="text-muted">{feedSentence(event, state.agents)}</span>
