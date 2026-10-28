@@ -14,9 +14,19 @@ const STATUS_TONE: Record<string, Tone> = {
   stopped: "danger",
 };
 
-function AgentLine({ agent }: { agent: AgentState }) {
+/**
+ * True when the run has ended and the recording still shows a director,
+ * manager or auditor as only "hired": no event records their final state, so
+ * the panel says so instead of implying they never worked.
+ */
+function stateNotRecorded(agent: AgentState, ended: boolean): boolean {
+  return ended && agent.node.level !== "operator" && agent.status === "hired";
+}
+
+function AgentLine({ agent, ended }: { agent: AgentState; ended: boolean }) {
   const n = agent.node;
   const status = agent.status;
+  const unknown = stateNotRecorded(agent, ended);
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-13 gap-y-8 py-8">
       <span className="font-medium wrap-anywhere">
@@ -24,7 +34,11 @@ function AgentLine({ agent }: { agent: AgentState }) {
       </span>
       <Label>{LEVEL_WORDS[n.level] ?? n.level}</Label>
       <span className="figure wrap-anywhere text-muted">{n.model}</span>
-      <Chip tone={STATUS_TONE[status] ?? "neutral"}>{AGENT_STATUS_WORDS[status] ?? status}</Chip>
+      {unknown ? (
+        <Chip>Final state not recorded</Chip>
+      ) : (
+        <Chip tone={STATUS_TONE[status] ?? "neutral"}>{AGENT_STATUS_WORDS[status] ?? status}</Chip>
+      )}
       {agent.allocated !== null && (
         <span className="num text-muted">held {formatMicros(agent.allocated)}</span>
       )}
@@ -50,11 +64,13 @@ function Branch({
   tree,
   state,
   depth,
+  ended,
 }: {
   id: string;
   tree: Map<string, string[]>;
   state: RunState;
   depth: number;
+  ended: boolean;
 }) {
   const agent = state.agents.get(id);
   if (!agent) return null;
@@ -64,11 +80,11 @@ function Branch({
   const indent = depth > 0 && depth <= 3 ? "pl-13 border-l border-rule ml-8" : "";
   return (
     <li className={`min-w-0 ${indent}`}>
-      <AgentLine agent={agent} />
+      <AgentLine agent={agent} ended={ended} />
       {others.length > 0 && (
         <ul>
           {others.map((k) => (
-            <Branch key={k.node.agent_id} id={k.node.agent_id} tree={tree} state={state} depth={depth + 1} />
+            <Branch key={k.node.agent_id} id={k.node.agent_id} tree={tree} state={state} depth={depth + 1} ended={ended} />
           ))}
         </ul>
       )}
@@ -79,7 +95,7 @@ function Branch({
           </summary>
           <ul>
             {operators.map((k) => (
-              <Branch key={k.node.agent_id} id={k.node.agent_id} tree={tree} state={state} depth={4} />
+              <Branch key={k.node.agent_id} id={k.node.agent_id} tree={tree} state={state} depth={4} ended={ended} />
             ))}
           </ul>
         </details>
@@ -105,6 +121,8 @@ function withFinalStatuses(state: RunState, snapshot: AgentNode[]): RunState {
  */
 export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot: AgentNode[] | null }) {
   const state = snapshot ? withFinalStatuses(live, snapshot) : live;
+  const ended = snapshot !== null;
+  const unrecorded = ended && state.agentOrder.some((id) => stateNotRecorded(state.agents.get(id)!, true));
   const tree = new Map<string, string[]>();
   const roots: string[] = [];
   for (const id of state.agentOrder) {
@@ -122,13 +140,19 @@ export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot
       ) : (
         <ul aria-label="Org chart">
           {roots.map((id) => (
-            <Branch key={id} id={id} tree={tree} state={state} depth={0} />
+            <Branch key={id} id={id} tree={tree} state={state} depth={0} ended={ended} />
           ))}
         </ul>
       )}
       <p className="mt-13 text-muted">
         Spend per agent is shown for operators only: ledger entries name a task, not an agent.
       </p>
+      {unrecorded && (
+        <p className="mt-8 text-muted">
+          The recording keeps no final state for the director, managers or auditor; operators get theirs from their
+          task results.
+        </p>
+      )}
       {state.escalations.length > 0 && (
         <div className="mt-13 border-t border-rule pt-13">
           <h3 className="mb-8 font-semibold">Reassignments and escalations ({state.escalations.length})</h3>

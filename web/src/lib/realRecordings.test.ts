@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { RecordedBanner } from "../run/RunHeader";
 import { AuditPanel, CoveragePanel, EvidencePanel } from "../run/Evidence";
 import { PackagePanel } from "../run/Outcome";
+import { TeamPanel } from "../run/Team";
 import { splitOf } from "./incidents";
 import { BUNDLE_FILE, EVENTS_FILE, indexEntryOf, provenanceOf, summaryOf, validateBundle } from "./recording";
 import { prepareEvents } from "./replay";
@@ -53,6 +54,13 @@ describe.each(folders)("the real recording %s", (folder) => {
     expect(events.length).toBeGreaterThan(0);
     expect(final.terminal).not.toBeNull();
     expect(runStatusLabel(final)).not.toBe("");
+  });
+
+  it("does not call the director, managers or auditor hired once the run has ended", () => {
+    // The org chart keeps them at "hired"; no event records their final state.
+    const html = renderToString(createElement(TeamPanel, { state: final, snapshot: bundle.org!.nodes! }));
+    expect(html).not.toContain(">Hired<");
+    expect(html).toContain("Final state not recorded");
   });
 
   it("carries the optional fields", () => {
