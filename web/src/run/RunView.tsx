@@ -65,7 +65,7 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
         <SiteHeader />
         <RecordedBanner provenance={provenance} summary={summary} notice={null} />
         <main id="run" className="mx-auto flex max-w-[1440px] flex-col items-center px-21 py-55 text-center lg:px-55">
-          <h1 className="text-heading font-semibold text-balance">{summary.title}</h1>
+          <h1 className="text-heading font-black text-balance">{summary.title}</h1>
           <p className="mt-13 text-muted">This recording has no events, so there is nothing to replay.</p>
           <a href="#/" className="mt-21 inline-block underline underline-offset-4">Back to the recordings</a>
         </main>
@@ -96,7 +96,7 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
         {announcement}
       </div>
       <div id="run" className="mx-auto flex max-w-[1440px] flex-col items-center px-21 pt-34 text-center lg:px-55">
-        <h1 className="max-w-[22ch] wrap-anywhere text-heading font-semibold tracking-tight text-balance">{summary.title}</h1>
+        <h1 className="max-w-[22ch] wrap-anywhere text-heading font-black tracking-tight text-balance">{summary.title}</h1>
         <p className="mt-13 max-w-[68ch] wrap-anywhere text-muted">{goal}</p>
       </div>
       <ReplayToolbar replay={replay} />

@@ -2,11 +2,11 @@
 
 /* Self-hosted OFL fonts (latin subset only), bundled by Vite. No font CDN. */
 @font-face {
-  font-family: "Space Grotesk";
+  font-family: "Nunito";
   font-style: normal;
   font-display: swap;
-  font-weight: 300 700;
-  src: url("@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 1000;
+  src: url("@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2") format("woff2");
 }
 @font-face {
   font-family: "JetBrains Mono";
@@ -23,10 +23,10 @@
   src: url("@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2") format("woff2");
 }
 
-/* docs/DESIGN_DIRECTION.md section 2: three hues, dark only. Every other color,
-   gradient and glow is one of them at an opacity over ink, or a mix of them.
-   The default Tailwind palette is cleared, so a utility outside these tokens
-   does not exist. */
+/* docs/DESIGN_DIRECTION.md section 2: ink, bone and Stellar Strawberry are the
+   anchors; four semantic colors mark verified, withdrawn, the auditor and
+   money. Tints are a color at 16% over ink. The default Tailwind palette is
+   cleared, so a utility outside these tokens does not exist. */
 @theme {
   --color-*: initial;
   --color-ink: #142030;
@@ -40,6 +40,16 @@
   --color-muted: color-mix(in srgb, #eae4d3 72%, #142030);
   --color-berry-tint: color-mix(in srgb, #ff5c8d 13%, #142030);
 
+  /* Semantic set, contrast recorded in the design file. */
+  --color-teal: #3ed6b0;
+  --color-teal-tint: color-mix(in srgb, #3ed6b0 16%, #142030);
+  --color-amber: #ffa53d;
+  --color-amber-tint: color-mix(in srgb, #ffa53d 16%, #142030);
+  --color-violet: #a5a8ff;
+  --color-violet-tint: color-mix(in srgb, #a5a8ff 16%, #142030);
+  --color-gold: #f2cf5b;
+  --color-gold-tint: color-mix(in srgb, #f2cf5b 16%, #142030);
+
   /* Section 3: Fibonacci spacing for margin, padding and gap. */
   --spacing-8: 8px;
   --spacing-13: 13px;
@@ -51,19 +61,19 @@
 
   /* Section 3: the golden type scale. Body 1.618, display 1.1. */
   --text-*: initial;
-  --text-body: 16px;
+  --text-body: 18px;
   --text-body--line-height: 1.618;
-  --text-title: 26px;
+  --text-title: 29px;
   --text-title--line-height: 1.272;
-  --text-heading: 42px;
+  --text-heading: 47px;
   --text-heading--line-height: 1.1;
-  --text-hero: 68px;
+  --text-hero: 76px;
   --text-hero--line-height: 1.1;
-  --text-display: 110px;
+  --text-display: 123px;
   --text-display--line-height: 1.1;
 
   --font-*: initial;
-  --font-sans: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
 
   --radius-*: initial;
@@ -89,6 +99,13 @@
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
+    font-weight: 500;
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 900;
+    letter-spacing: -0.015em;
   }
   *,
   ::before,
@@ -106,15 +123,20 @@
 }
 
 @layer components {
-  /* Mono uppercase labels, never below 16 px. */
+  /* Bold rounded labels at body size. */
   .label {
-    font-family: var(--font-mono);
     font-size: var(--text-body);
     line-height: 1.272;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: 0.02em;
   }
+  /* Counts and identifiers: Nunito with tabular figures. */
+  .figure {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  /* Money, line numbers and log text stay in JetBrains Mono. */
   .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -132,7 +154,7 @@
   }
   .struck {
     text-decoration-line: line-through;
-    text-decoration-color: var(--color-berry);
+    text-decoration-color: var(--color-amber);
     text-decoration-thickness: 2px;
   }
   .hatched {
@@ -159,6 +181,26 @@
   }
   .pill {
     border-radius: 999px;
+  }
+  /* Soft colored washes behind the hero and key sections. Low contrast, large,
+     painted on the section itself so nothing extends past the page. */
+  .wash-hero {
+    background-image:
+      radial-gradient(55% 34% at 18% 13%, color-mix(in srgb, #3ed6b0 12%, transparent), transparent),
+      radial-gradient(55% 34% at 82% 13%, color-mix(in srgb, #a5a8ff 12%, transparent), transparent),
+      radial-gradient(62% 28% at 50% 62%, color-mix(in srgb, #ff5c8d 10%, transparent), transparent);
+  }
+  .wash-teal {
+    background-image: radial-gradient(70% 55% at 50% 30%, color-mix(in srgb, #3ed6b0 9%, transparent), transparent);
+  }
+  .wash-violet {
+    background-image: radial-gradient(70% 55% at 50% 40%, color-mix(in srgb, #a5a8ff 10%, transparent), transparent);
+  }
+  .wash-amber {
+    background-image: radial-gradient(70% 55% at 50% 30%, color-mix(in srgb, #ffa53d 8%, transparent), transparent);
+  }
+  .wash-gold {
+    background-image: radial-gradient(70% 55% at 50% 30%, color-mix(in srgb, #f2cf5b 8%, transparent), transparent);
   }
   /* Strawberry to transparent, behind key objects only, never under text. */
   .glow {

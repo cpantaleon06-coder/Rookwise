@@ -23,7 +23,7 @@ function AgentLine({ agent }: { agent: AgentState }) {
         {n.level === "operator" ? n.role : (LEVEL_WORDS[n.level] ?? n.role)}
       </span>
       <Label>{LEVEL_WORDS[n.level] ?? n.level}</Label>
-      <span className="num wrap-anywhere text-muted">{n.model}</span>
+      <span className="figure wrap-anywhere text-muted">{n.model}</span>
       <Chip tone={STATUS_TONE[status] ?? "neutral"}>{AGENT_STATUS_WORDS[status] ?? status}</Chip>
       {agent.allocated !== null && (
         <span className="num text-muted">held {formatMicros(agent.allocated)}</span>
@@ -131,7 +131,7 @@ export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot
       </p>
       {state.escalations.length > 0 && (
         <div className="mt-13 border-t border-line pt-13">
-          <h3 className="mb-8 font-semibold">Reassignments and escalations ({state.escalations.length})</h3>
+          <h3 className="mb-8 font-extrabold">Reassignments and escalations ({state.escalations.length})</h3>
           <ul className="flex flex-col gap-8">
             {state.escalations.map((e, i) => (
               <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
@@ -140,7 +140,7 @@ export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot
                   <span aria-hidden="true"> → </span>
                   <span className="sr-only"> to </span>
                   <span className="font-medium">{agentName(state.agents, e.to_agent_id)}</span>
-                  {e.task_id && <span className="num text-muted"> (task {e.task_id})</span>}
+                  {e.task_id && <span className="figure text-muted"> (task {e.task_id})</span>}
                 </p>
                 <p className="mt-8 wrap-anywhere text-muted">{e.reason}</p>
               </li>
@@ -192,7 +192,7 @@ export function TaskPanel({ state }: { state: RunState }) {
             return (
               <li key={t.task.task_id} className="min-w-0 rounded-md border border-line bg-ink p-13">
                 <div className="flex flex-wrap items-center gap-8">
-                  <span className="num font-medium">{t.task.task_id}</span>
+                  <span className="figure font-medium">{t.task.task_id}</span>
                   <span className="wrap-anywhere">{t.task.role}</span>
                   <Chip tone={taskTone(t)}>{TASK_STATUS_WORDS[t.status] ?? t.status}</Chip>
                   {t.label && t.label !== "failed" && (

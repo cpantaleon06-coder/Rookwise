@@ -38,7 +38,7 @@ function claimPill(text: string, strong = false) {
 /**
  * One claim: its id, the status stamp, the text, and the cited lines as a log
  * excerpt. A cited line the check found is lit in bone; a line whose quote
- * failed is lit in Strawberry and its quote is struck through.
+ * failed is lit in amber and its quote is struck through.
  */
 function ClaimRow({
   claim,
@@ -54,7 +54,7 @@ function ClaimRow({
   const withdrawn = check ? !check.supported : false;
   return (
     <li
-      className={`min-w-0 rounded-md border p-13 sm:p-21 ${withdrawn ? "border-berry/40 bg-berry-tint" : "border-line bg-raised"}`}
+      className={`min-w-0 rounded-md border p-13 sm:p-21 ${withdrawn ? "border-amber/40 bg-amber-tint" : check?.supported ? "border-teal/40 bg-raised" : "border-line bg-raised"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-13">
         <div className="flex flex-wrap items-center gap-8">
@@ -63,10 +63,10 @@ function ClaimRow({
         </div>
         {check ? <Stamp kind={check.supported ? "verified" : "withdrawn"} /> : <Chip>Not checked</Chip>}
       </div>
-      <p className="mt-13 wrap-anywhere font-semibold sm:text-title">{claim.text}</p>
+      <p className="mt-13 wrap-anywhere font-extrabold sm:text-title">{claim.text}</p>
       {check && !check.supported && (
-        <p className="mt-8 text-berry">
-          Withdrawn: {reasonWords(String(check.reason))}. Reason code <span className="num">{check.reason}</span>.
+        <p className="mt-8 font-bold text-amber">
+          Withdrawn: {reasonWords(String(check.reason))}. Reason code <span className="figure">{check.reason}</span>.
         </p>
       )}
       <div className="mt-21">
@@ -86,7 +86,7 @@ function ClaimRow({
                 <li
                   key={`${c.source_id}-${c.line_start}-${i}`}
                   className={`min-w-0 border-b border-line px-13 py-8 last:border-b-0 ${
-                    lit ? "bg-raised shadow-[inset_3px_0_0_#eae4d3]" : failed ? "bg-berry-tint shadow-[inset_3px_0_0_#ff5c8d]" : ""
+                    lit ? "bg-teal-tint shadow-[inset_4px_0_0_#3ed6b0]" : failed ? "bg-amber-tint shadow-[inset_4px_0_0_#ffa53d]" : ""
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-8">
@@ -97,9 +97,9 @@ function ClaimRow({
                     {reasons === null || reasons === undefined ? (
                       <span className="text-muted">Citation check not recorded</span>
                     ) : lit ? (
-                      <span className="label text-bone">Citation verified</span>
+                      <span className="label text-teal">Citation verified</span>
                     ) : reason ? (
-                      <span className="label text-berry">{reasonWords(String(reason))}</span>
+                      <span className="label text-amber">{reasonWords(String(reason))}</span>
                     ) : (
                       <span className="text-muted">No check for this citation</span>
                     )}
@@ -181,7 +181,7 @@ export function EvidencePanel({
       <div className="flex flex-col gap-13">
         {inconclusive ? (
           <div>
-            <h3 className="text-title font-semibold text-berry sm:text-heading">
+            <h3 className="text-title font-black text-amber sm:text-heading">
               Inconclusive: no root cause is backed by the evidence.
             </h3>
             <p className="mt-8">
@@ -193,7 +193,7 @@ export function EvidencePanel({
           <div>
             <Label>Root cause</Label>
             {diagnosis.root_cause ? (
-              <p className="mt-8 wrap-anywhere text-title font-semibold">
+              <p className="mt-8 wrap-anywhere text-title font-black">
                 {diagnosis.root_cause}
               </p>
             ) : (
@@ -203,9 +203,9 @@ export function EvidencePanel({
         )}
         <div className="flex flex-wrap items-center gap-8">
           <Label>Category</Label>
-          <span className="num pill inline-flex min-h-[34px] items-center border border-line-strong px-13">{diagnosis.category}</span>
+          <span className="figure pill inline-flex min-h-[34px] items-center border border-line-strong px-13">{diagnosis.category}</span>
           {status && (
-            <Chip tone={status.status === "audited" ? "ok" : "danger"}>
+            <Chip tone={status.status === "audited" ? "audit" : "warn"}>
               {status.status === "audited" ? "Audited" : "Inconclusive"}
             </Chip>
           )}
@@ -213,7 +213,7 @@ export function EvidencePanel({
         {corpusCategory && (
           <p className="text-muted">
             The incident&apos;s category in the synthetic corpus is{" "}
-            <span className="num text-bone">{corpusCategory}</span>
+            <span className="figure text-bone">{corpusCategory}</span>
             {corpusCategory === diagnosis.category
               ? ", the same as the diagnosis."
               : ", not the category the run diagnosed."}
@@ -280,9 +280,9 @@ export function EvidencePanel({
 }
 
 const VERDICT_TONE: Record<string, Tone> = {
-  accepted: "ok",
-  accepted_with_warning: "neutral",
-  rejected: "danger",
+  accepted: "audit",
+  accepted_with_warning: "audit",
+  rejected: "warn",
 };
 
 export function AuditPanel({ audit }: { audit: AuditVerdict | null }) {
@@ -296,14 +296,14 @@ export function AuditPanel({ audit }: { audit: AuditVerdict | null }) {
             <Chip tone={VERDICT_TONE[audit.verdict] ?? "neutral"}>
               {VERDICT_WORDS[audit.verdict] ?? audit.verdict}
             </Chip>
-            <span className="num text-muted">{audit.model}</span>
+            <span className="figure text-muted">{audit.model}</span>
           </div>
           {audit.warning && <p className="wrap-anywhere">{audit.warning}</p>}
           <ul className="flex flex-col gap-8">
             {audit.checks.map((c, i) => (
               <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
                 <div className="flex flex-wrap items-start gap-8">
-                  <Chip tone={c.passed ? "ok" : "danger"}>{c.passed ? "Passed" : "Failed"}</Chip>
+                  <Chip tone={c.passed ? "ok" : "warn"}>{c.passed ? "Passed" : "Failed"}</Chip>
                   <p className="min-w-0 flex-1 wrap-anywhere font-medium">{c.criterion}</p>
                 </div>
                 {c.note && <p className="mt-8 wrap-anywhere text-muted">{c.note}</p>}
@@ -325,15 +325,15 @@ export function CoveragePanel({ coverage }: { coverage: Coverage }) {
       <dl className="grid grid-cols-2 divide-x divide-line sm:grid-cols-3">
         <div className="pr-13">
           <dt><Label>Slices read</Label></dt>
-          <dd className="num">{coverage.slices_read}</dd>
+          <dd className="figure">{coverage.slices_read}</dd>
         </div>
         <div className="px-13">
           <dt><Label>Empty slices</Label></dt>
-          <dd className="num">{coverage.empty_slices}</dd>
+          <dd className="figure">{coverage.empty_slices}</dd>
         </div>
         <div className="col-span-2 mt-13 border-t border-line pt-13 sm:col-span-1 sm:mt-0 sm:border-t-0 sm:pl-13 sm:pt-0">
           <dt><Label>Unread line ranges</Label></dt>
-          <dd className="num">{unread.length}</dd>
+          <dd className="figure">{unread.length}</dd>
         </div>
       </dl>
       <div className="mt-13">
@@ -364,7 +364,7 @@ export function CoveragePanel({ coverage }: { coverage: Coverage }) {
           ) : coverage.empty_sources.length === 0 ? (
             <span className="text-muted">None</span>
           ) : (
-            <span className="num wrap-anywhere">{coverage.empty_sources.join(", ")}</span>
+            <span className="figure wrap-anywhere">{coverage.empty_sources.join(", ")}</span>
           )}
         </p>
       </div>
@@ -372,7 +372,16 @@ export function CoveragePanel({ coverage }: { coverage: Coverage }) {
   );
 }
 
-/** Shingo's labels, for the safeguards that fired. */
+/** Each Shingo label in the color of what it guards. */
+const KIND_PILL: Record<SafeguardRow["kind"], string> = {
+  Contact: "bg-teal-tint text-teal",
+  Control: "bg-gold-tint text-gold",
+  Sequence: "bg-berry-tint text-berry",
+  Warning: "bg-amber-tint text-amber",
+  "Second check": "bg-violet-tint text-violet",
+};
+
+/** Shingo's labels, for the safeguards that fired. A filled dot means it caught something. */
 export function SafeguardsPanel({ rows, revealed }: { rows: SafeguardRow[]; revealed: boolean }) {
   return (
     <Panel id="safeguards" title="Safeguards that fired in this run">
@@ -386,16 +395,17 @@ export function SafeguardsPanel({ rows, revealed }: { rows: SafeguardRow[]; reve
             <li key={row.key} className="min-w-0 rounded-md border border-line bg-ink p-13">
               <div className="flex flex-wrap items-center justify-between gap-8">
                 <span
-                  className={`label pill inline-flex min-h-[34px] items-center gap-8 px-13 ${
-                    row.caught ? "border border-berry text-berry" : "border border-line-strong text-bone"
-                  }`}
+                  className={`label pill inline-flex min-h-[34px] items-center gap-8 px-13 ${KIND_PILL[row.kind]}`}
                 >
-                  <span aria-hidden="true" className={`size-2 rounded-full ${row.caught ? "bg-berry" : "bg-bone"}`} />
+                  <span aria-hidden="true" className={`size-2.5 rounded-full ${row.caught ? "bg-current" : "border-2 border-current"}`} />
                   {row.kind}
+                  {row.caught && <span className="sr-only"> (caught something)</span>}
                 </span>
-                {row.value !== null && <span className="num text-title">{row.value}</span>}
+                {row.value !== null && (
+                  <span className={`text-title ${row.key === "budget" ? "num text-gold" : "figure"}`}>{row.value}</span>
+                )}
               </div>
-              <p className="mt-8 font-semibold">{row.title}</p>
+              <p className="mt-8 font-extrabold">{row.title}</p>
               {row.details.length > 0 && (
                 <ul className="mt-8 flex flex-col gap-8">
                   {row.details.map((d) => (

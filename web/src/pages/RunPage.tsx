@@ -57,7 +57,7 @@ export function RunPage({ folder }: { folder: string }) {
           </div>
         ) : (
           <div role="alert" className="max-w-[60ch] rounded-lg border border-line bg-berry-tint p-21">
-            <h1 className="text-title font-semibold">This recording could not be loaded.</h1>
+            <h1 className="text-title font-black">This recording could not be loaded.</h1>
             <p className="mt-13 wrap-anywhere">{state.error.message}</p>
             <p className="mt-8 text-muted">
               {state.error.kind === "invalid_name"

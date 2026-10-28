@@ -1,26 +1,31 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { atLeastPercent, formatMicros, formatUsd, percentOf, type Micros } from "../lib/money";
 
-export type Tone = "ok" | "warn" | "danger" | "info" | "neutral";
+export type Tone = "ok" | "warn" | "danger" | "info" | "audit" | "money" | "neutral";
 
-// Three hues only (docs/DESIGN_DIRECTION.md section 2): bone for what held,
-// Strawberry for what failed or needs attention, muted bone for the rest.
+// docs/DESIGN_DIRECTION.md section 2: teal for what held, amber for what was
+// withdrawn or needs a look, Strawberry for failures and actions, violet for
+// the auditor, gold for money. Every chip also carries a word.
 const DOT: Record<Tone, string> = {
-  ok: "bg-bone",
-  warn: "border-2 border-berry",
+  ok: "bg-teal",
+  warn: "bg-amber",
   danger: "bg-berry",
   info: "border-2 border-bone",
+  audit: "bg-violet",
+  money: "bg-gold",
   neutral: "bg-muted",
 };
 const CHIP: Record<Tone, string> = {
-  ok: "border border-bone text-bone",
-  warn: "border border-berry text-berry",
+  ok: "bg-teal-tint text-teal",
+  warn: "bg-amber-tint text-amber",
   danger: "bg-berry-tint text-berry",
   info: "bg-raised text-bone",
+  audit: "bg-violet-tint text-violet",
+  money: "bg-gold-tint text-gold",
   neutral: "border border-line-strong text-muted",
 };
 
-/** A dot plus an uppercase word. The word carries the meaning. */
+/** A dot plus a word. The word carries the meaning. */
 export function Chip({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   return (
     <span className={`label inline-flex max-w-full items-center gap-8 rounded-full px-13 min-h-[34px] ${CHIP[tone]}`}>
@@ -46,13 +51,13 @@ function CrossIcon() {
   );
 }
 
-/** VERIFIED: bone fill, check. WITHDRAWN: Strawberry fill, cross. Ink text on both. */
+/** VERIFIED: teal fill, check. WITHDRAWN: amber fill, cross. Ink text on both. */
 export function Stamp({ kind, className = "" }: { kind: "verified" | "withdrawn"; className?: string }) {
   const verified = kind === "verified";
   return (
     <span
-      className={`label inline-flex shrink-0 items-center gap-8 rounded-sm px-13 min-h-[34px] font-bold text-ink ${
-        verified ? "bg-bone" : "bg-berry"
+      className={`label inline-flex shrink-0 items-center gap-8 rounded-full px-13 min-h-[34px] font-black uppercase tracking-wider text-ink ${
+        verified ? "bg-teal" : "bg-amber"
       } ${className}`}
     >
       {verified ? <CheckIcon /> : <CrossIcon />}
@@ -86,7 +91,7 @@ export function Panel({
       className={`card min-w-0 scroll-mt-144 rounded-lg p-21 sm:p-34 ${className}`}
     >
       <div className="mb-21 flex flex-wrap items-baseline justify-between gap-13">
-        <h2 id={headingId} className="text-title font-semibold">
+        <h2 id={headingId} className="text-title font-black">
           {title}
         </h2>
         {aside}
@@ -104,7 +109,7 @@ type ButtonProps = {
 
 export function buttonClass(variant: "primary" | "secondary" | "ghost" = "secondary"): string {
   const base =
-    "inline-flex min-h-11 shrink-0 items-center justify-center gap-8 whitespace-nowrap rounded-full px-21 font-medium transition-colors duration-[120ms] ease-rw disabled:cursor-not-allowed";
+    "inline-flex min-h-11 shrink-0 items-center justify-center gap-8 whitespace-nowrap rounded-full px-21 font-extrabold transition-colors duration-[120ms] ease-rw disabled:cursor-not-allowed";
   if (variant === "primary") {
     return `${base} bg-berry text-ink hover:bg-bone disabled:opacity-50 disabled:hover:bg-berry`;
   }
@@ -137,7 +142,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
 }
 
 /**
- * The budget meter: spent solid, reserved hatched, the cap as the end. Bone
+ * The budget meter: spent solid, reserved hatched, the cap as the end. Gold
  * below 80 percent, Strawberry from 80 percent, on a stop or past the cap.
  * Widths come from integer micro-USD math.
  */
@@ -176,7 +181,7 @@ export function Meter({
       className={`meter-track relative h-2.5 w-full overflow-hidden rounded-full bg-track ${stale ? "outline outline-1 outline-dashed outline-line-strong" : ""}`}
     >
       <div
-        className={`absolute inset-y-0 left-0 transition-[width] duration-200 ease-rw ${alert ? "bg-berry" : "bg-bone"}`}
+        className={`absolute inset-y-0 left-0 transition-[width] duration-200 ease-rw ${alert ? "bg-berry" : "bg-gold"}`}
         style={{ width: `${spentPct}%` }}
       />
       <div
