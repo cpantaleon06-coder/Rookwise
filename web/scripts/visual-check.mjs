@@ -56,8 +56,8 @@ async function overflow(browser) {
       const page = await browser.newPage({ viewport: { width, height: 844 } });
       await page.goto(BASE + route);
       await page.waitForLoadState("networkidle");
-      // The landing is complete once the rings (drawn from the loaded recording) exist.
-      if (route === "#/") await page.locator("#how-it-works svg").first().waitFor({ timeout: 20000 });
+      // The landing is complete once Table 1 (built from the loaded recording) exists.
+      if (route === "#/") await page.locator("#method table").first().waitFor({ timeout: 20000 });
       if (route === RUN) await finishReplay(page);
       await page.waitForTimeout(500);
       const { scroll, inner } = await page.evaluate(() => ({
@@ -86,12 +86,11 @@ async function shots(browser) {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(800);
     await page.screenshot({ path: join(out, `${width}-landing-hero.png`) });
-    await page.locator("#hero-object").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(400);
-    await page.locator("#hero-object").screenshot({ path: join(out, `${width}-landing-hero-object.png`) });
-    for (const id of ["poka-yoke", "how-it-works", "results"]) {
+    await page.locator("#abstract").screenshot({ path: join(out, `${width}-landing-abstract-figure.png`) });
+    await page.locator("#method table").first().waitFor({ timeout: 20000 });
+    for (const id of ["abstract", "method", "results", "limitations", "reproduce"]) {
       await page.locator(`#${id}`).scrollIntoViewIfNeeded();
-      await page.waitForTimeout(2600);
+      await page.waitForTimeout(400);
       await page.locator(`#${id}`).screenshot({ path: join(out, `${width}-landing-${id}.png`) });
     }
     await page.screenshot({ path: join(out, `${width}-landing-full.png`), fullPage: true });

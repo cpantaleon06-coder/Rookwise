@@ -110,7 +110,7 @@ export function ApproveControls({ onApprove, onReject }: { onApprove: () => void
               onBlur={cancel}
               onContextMenu={(e) => e.preventDefault()}
             >
-              <ProgressRing value={progress} size={39} stroke={4} tone="ink" />
+              <ProgressRing value={progress} size={39} stroke={4} tone="bg" />
               Hold to approve
             </button>
           )}
@@ -126,7 +126,7 @@ export function ApproveControls({ onApprove, onReject }: { onApprove: () => void
           </p>
           <button
             type="button"
-            className="min-h-11 rounded-full px-13 text-bone underline underline-offset-4 hover:text-berry"
+            className="ui min-h-11 rounded-sm px-13 text-fg underline hover:decoration-2"
             onClick={() => setStep("confirm")}
           >
             Approve in two steps instead

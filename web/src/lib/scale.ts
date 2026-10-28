@@ -12,12 +12,14 @@ export const TYPE_SCALE = [18, 29, 47, 76, 123] as const;
 /** The palette anchors: ink, bone and Stellar Strawberry. */
 export const ANCHORS = { ink: "#142030", bone: "#eae4d3", strawberry: "#ff5c8d" } as const;
 
-/** The semantic set, each used for one meaning only. */
+/**
+ * The semantic marks, one shade per theme: ink is the run view (bone on ink),
+ * paper is the landing (ink on bone). Withdrawn is Strawberry on ink and a deep
+ * shade of it on paper, where Strawberry itself is too light for text.
+ */
 export const SEMANTIC = {
-  verified: "#3ed6b0",
-  withdrawn: "#ffa53d",
-  auditor: "#a5a8ff",
-  money: "#f2cf5b",
+  ink: { supported: "#7ccfa3", withdrawn: "#ff5c8d", auditor: "#aeb2f0", cost: "#d9aa52" },
+  paper: { supported: "#1a5e3e", withdrawn: "#a3204f", auditor: "#3b3f8f", cost: "#6e4a0c" },
 } as const;
 
 export const LINE_HEIGHT = { body: 1.618, display: 1.1 } as const;

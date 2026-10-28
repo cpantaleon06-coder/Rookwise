@@ -39,9 +39,10 @@ describe("the type scale", () => {
 });
 
 describe("the palette", () => {
-  it("names only the three anchors and the four semantic colors", () => {
+  it("names only the three anchors and the semantic marks of both themes", () => {
     const hexes = new Set([...CSS.matchAll(/#[0-9a-f]{6}\b/gi)].map((m) => m[0].toLowerCase()));
-    expect([...hexes].sort()).toEqual([...Object.values(ANCHORS), ...Object.values(SEMANTIC)].sort());
+    const marks = [...Object.values(SEMANTIC.ink), ...Object.values(SEMANTIC.paper)];
+    expect([...hexes].sort()).toEqual([...new Set([...Object.values(ANCHORS), ...marks])].sort());
   });
 });
 
