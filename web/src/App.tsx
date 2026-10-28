@@ -34,6 +34,11 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  // Paper (ink on bone) for the landing, ink (bone on ink) for a run.
+  useEffect(() => {
+    document.documentElement.dataset.theme = route.page === "run" ? "ink" : "paper";
+  }, [route.page]);
+
   useEffect(() => {
     if (route.page === "run") {
       window.scrollTo(0, 0);
