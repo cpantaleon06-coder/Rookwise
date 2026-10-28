@@ -1,57 +1,70 @@
 # Rookwise
 
-Rookwise investigates operational incidents for small teams that have no dedicated SRE, under a hard budget the user sets before the run. Cheap models read the logs in slices, a strong model judges, deterministic code checks every cited line, an independent auditor reviews the result, and a human decides. In v1 Rookwise only reads and recommends: it executes nothing.
+**An incident answer you can check, line by line.**
 
-Built for the Nebius x NVIDIA Global AI Hackathon 2026 on NVIDIA Nemotron models served by Nebius Token Factory.
+Rookwise investigates an outage for small teams that have no dedicated SRE, under a hard budget set before the run. Cheap models read the logs in slices, a strong model judges, plain code checks every cited line, an independent auditor reviews what remains, and a human decides. Version 1 only reads and recommends: it executes nothing and holds no credentials.
 
-> Every number in the "Results" section comes from the measured run files in `benchmarks/results/runs/`, aggregated by `release/results_json.py`.
+Built for the Nebius x NVIDIA Global AI Hackathon 2026 (track: Best Apps and Agents) on NVIDIA Nemotron models served by Nebius Token Factory.
+
+- **Live demo (replays a recorded real run, free, no sign-in):** https://web-one-weld-82.vercel.app/
+- **Demo video:** [[VIDEO_URL]]
+- **Source and license:** this repository, MIT.
 
 ## The problem
 
-When a service breaks at 3 a.m., nobody on a small team has time to read 20,000 log lines across three services. An agent could, but a team has two reasons not to trust one:
+When a service breaks at 3 a.m., nobody on a small team has time to read twenty thousand log lines across three services. An AI agent could, but a team has two reasons not to trust one:
 
 1. **Trust.** An agent can state a root cause with confidence and cite log lines that do not exist.
-2. **Cost.** An agent run has no price tag up front. The bill arrives after the run.
+2. **Cost.** An agent run usually has no price tag up front. The bill arrives after the run.
 
-## What Rookwise does about it
+## Why small teams
 
-- **Every claim cites a line, and code checks it.** Each claim in a diagnosis cites a source, a line range and an exact quote. `core/evidence.py` (no model involved) verifies that the source exists, the lines exist and the quote is really there (after whitespace normalization only). A claim is supported only if all of its citations pass. Claims that fail are withdrawn from the diagnosis, shown with their reason, and never hidden.
-- **A budget set before the run.** A ledger reserves money before every model call and refuses calls that do not fit, so a run cannot pass its cap through retries or rounding. Money is exact (integer micro-USD). Every run reports predicted versus real cost.
-- **Cheap models read, a strong model judges.** The volume goes to the cheapest model; the strong model only sees consolidated findings.
-- **An independent auditor and a human.** A separate model context reviews the supported claims against a fixed rubric. A person approves or rejects the recommendation.
-- **Honest about what it did not read.** The report lists unread slices.
+A large company can absorb a wrong diagnosis. A team of five cannot: there is no on-call rotation to catch it, no budget to rerun it, and no room to be wrong twice. So Rookwise does not ask you to trust the model. It makes mistakes hard to make, and visible when they happen. This is the project's argument, not a statistic.
 
-Verified citations mean the evidence exists. They do not prove the diagnosis is correct, which is why accuracy is measured separately (see "Results").
+## Built on poka-yoke
+
+Poka-yoke is Japanese for mistake-proofing. Shigeo Shingo formalized it within the Toyota Production System in the 1960s: a process should make errors hard to commit and easy to see, instead of asking people to be careful. The name comes from a shogi term for avoiding an unthinkably bad move (source: [Wikipedia, Poka-yoke](https://en.wikipedia.org/wiki/Poka-yoke)). Rookwise applies the same idea to AI-assisted investigation. The labels below borrow Shingo's vocabulary; this is an analogy, not a certification.
+
+| Safeguard | Kind | What it does |
+|---|---|---|
+| Every claim is checked by code | contact | A claim stands only if its quote is in the cited lines. Otherwise it is withdrawn and shown with the reason. |
+| The budget cannot be exceeded | control | Money is reserved before each call. A call that does not fit is refused. There is no bill after the fact. |
+| The steps cannot be skipped | sequence | Plan, read, consolidate, judge, verify, audit, approve, in that order. If nothing survives verification, no audit runs and the result is inconclusive. |
+| Unread evidence is declared | warning | The report lists the slices that were never read and warns when coverage is low. |
+| A second reader audits | second check | A separate model, in a separate context, reviews what remains against a fixed rubric. |
+| A human decides, nothing executes | control | Rookwise v1 only reads and recommends. It holds no credentials and cannot change your systems. |
 
 ## How it works
 
 1. **Intake.** The user picks the evidence (logs, metrics, deploy diff, runbook, ticket) and sets the USD cap.
-2. **Plan.** The director reads the ticket, the runbook and an inventory of the sources and plans the investigation as blocks of tasks.
+2. **Plan.** The director reads the ticket, the runbook and an inventory of the sources, and plans the investigation as blocks of tasks.
 3. **Read.** Operators each read one slice of the evidence (slices are cut deterministically, with absolute line numbers) and return findings with citations.
 4. **Consolidate.** One manager per block merges its operators' findings.
 5. **Judge.** The director writes the diagnosis: root cause, category, supporting claims and a remediation plan.
-6. **Verify.** Deterministic code checks every citation. Unsupported claims are withdrawn.
+6. **Verify.** Deterministic code checks every citation (the source exists, the lines exist, the quote is there after whitespace normalization). Unsupported claims are withdrawn.
 7. **Audit.** The auditor reviews what remains. If nothing supported remains, the result is inconclusive and no audit call is made.
-8. **Approve.** The human reads the diagnosis, the evidence check, the audit and the cost report.
+8. **Approve.** A person reads the diagnosis, the evidence check, the audit and the cost report, then approves or rejects.
 
-If an operator fails, the harness retries with backoff, repairs invalid output with the exact validation error, and escalates to the next model on a ladder. Every step is recorded.
+If an operator fails, the harness retries with backoff, repairs invalid output using the exact validation error, and escalates to the next model on a ladder. Every step is recorded and can be replayed offline at no cost.
 
 ## How we use NVIDIA Nemotron and Nebius Token Factory
 
-Every model call in Rookwise goes to the Nebius Token Factory chat completions API (OpenAI-compatible) through one harness. All models are NVIDIA Nemotron:
+Every model call goes to the Nebius Token Factory chat completions API (OpenAI-compatible) through one harness. All models are NVIDIA Nemotron:
 
 | Level | Model | Why |
 |---|---|---|
-| Director (plan, diagnosis) | Nemotron-3-Ultra-550b-a55b | Judgment over consolidated findings |
-| Auditor | Nemotron-3-Ultra-550b-a55b | Independent review in a separate context |
-| Managers, escalation of failed tasks | Nemotron-3-Super-120b-a12b | Consolidation, second try |
+| Director (plan, diagnosis) | Nemotron-3-Ultra | Judgment over consolidated findings |
+| Auditor | Nemotron-3-Ultra | Independent review in a separate context |
+| Managers, escalation of failed tasks | Nemotron-3-Super | Consolidation, second try |
 | Operators | Nemotron-3.5-Lightning | Reads the volume at low cost |
 
-Token Factory prices (per 1M tokens, input / output, read from the console on 2026-10-12): Ultra 1.00 / 3.00, Super 0.30 / 0.90, Lightning 0.06 / 0.24. Ultra costs about 16.7 times Lightning per input token, which is why the cheap model reads the volume. Prices live in `config/prices.json` and are never hard-coded.
+Token Factory prices per 1M tokens (input / output), read from the Nebius console on 2026-10-12: Ultra 1.00 / 3.00, Super 0.30 / 0.90, Lightning 0.06 / 0.24 USD. Ultra costs about 16.7 times Lightning per input token, which is why the cheap model reads the volume. Prices live in `config/prices.json` and are never hard-coded.
 
-What Token Factory made possible: one OpenAI-compatible endpoint for four Nemotron sizes lets a run mix a 550B-class director with small operators and price every call per token, so the ledger can reserve money before each call. Rate limits per model are read from the `x-ratelimit-*` headers and stored in `config/rate_limits.json`. We also tested structured outputs (`json_schema`) and reasoning controls; what we found is written up in `FEEDBACK.md` and `docs/HARNESS_RESEARCH.md`.
+**Where Token Factory sped up the work.** One OpenAI-compatible endpoint serves several Nemotron sizes, so a single run can mix a large director with small operators and price every call per token. That is what lets the ledger reserve money before each call. Per-model rate limits are read from the `x-ratelimit-*` response headers. We also tested structured output and reasoning controls on all four Nemotron models; what we found, with the calls that show it, is in [`FEEDBACK.md`](FEEDBACK.md) and [`docs/HARNESS_RESEARCH.md`](docs/HARNESS_RESEARCH.md).
 
-Tavily: operators have a web search tool for error signatures and advisories (`core/tools/tavily.py`). None of the 18 benchmark runs and neither published recording called it.
+Other Nebius services: none. Rookwise uses Token Factory only.
+
+Tavily: a web search tool for error signatures exists in the code (`core/tools/tavily.py`), but no published run used it, so we do not claim it.
 
 ## Quick start
 
