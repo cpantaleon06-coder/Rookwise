@@ -11,7 +11,7 @@ import { BudgetPanel } from "./Budget";
 import { AuditPanel, CoveragePanel, EvidencePanel, isInconclusive, SafeguardsPanel } from "./Evidence";
 import { FeedPanel } from "./Feed";
 import { ApprovalGate, ChatPanel, PackagePanel, StopBanner, TerminalBanner } from "./Outcome";
-import { RecordedBanner, ReplayToolbar, RunHeader } from "./RunHeader";
+import { ProvenanceLine, RecordedBanner, ReplayToolbar, RunHeader } from "./RunHeader";
 import { TaskPanel, TeamPanel } from "./Team";
 import { useReplay } from "./useReplay";
 
@@ -64,10 +64,10 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
       <>
         <SiteHeader />
         <RecordedBanner provenance={provenance} summary={summary} notice={null} />
-        <main id="run" className="mx-auto flex max-w-[1440px] flex-col items-center px-21 py-55 text-center lg:px-55">
-          <h1 className="text-heading font-black text-balance">{summary.title}</h1>
+        <main id="run" className="mx-auto flex max-w-[1100px] flex-col items-center px-21 py-55 text-center">
+          <h1 className="text-heading text-balance">{summary.title}</h1>
           <p className="mt-13 text-muted">This recording has no events, so there is nothing to replay.</p>
-          <a href="#/" className="mt-21 inline-block underline underline-offset-4">Back to the recordings</a>
+          <a href="#/" className="ui mt-21 inline-block underline">Back to the recordings</a>
         </main>
       </>
     );
@@ -84,24 +84,27 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
       <SkipLink target="run">Skip to the run</SkipLink>
       <SiteHeader />
       <RecordedBanner provenance={provenance} summary={summary} notice={state.modeNotice} />
-      <RunHeader
-        status={status}
-        goal={goal}
-        simulatedCase={state.simulatedCase ?? bundle.run.simulated_case}
-        budget={{ spent, held, cap, stopped: state.stops.length > 0 }}
-        decisionNeeded={decisionNeeded}
-        agents={agents}
-      />
+      <div id="run" className="mx-auto max-w-[1100px] px-21 pt-34 text-center">
+        <p className="label text-muted">Recorded investigation</p>
+        <h1 className="mt-8 wrap-anywhere text-title text-balance sm:text-heading">{summary.title}</h1>
+        <p className="measure mx-auto mt-13 wrap-anywhere text-muted">{goal}</p>
+        <ProvenanceLine bundle={bundle} summary={summary} folder={folder} />
+      </div>
+      <div className="px-21">
+        <RunHeader
+          status={status}
+          budget={{ spent, held, cap, stopped: state.stops.length > 0 }}
+          decisionNeeded={decisionNeeded}
+          agents={agents}
+          escalations={state.escalations.length}
+        />
+      </div>
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
-      <div id="run" className="mx-auto flex max-w-[1440px] flex-col items-center px-21 pt-34 text-center lg:px-55">
-        <h1 className="max-w-[22ch] wrap-anywhere text-heading font-black tracking-tight text-balance">{summary.title}</h1>
-        <p className="mt-13 max-w-[68ch] wrap-anywhere text-muted">{goal}</p>
-      </div>
       <ReplayToolbar replay={replay} />
-      <div className="mx-auto grid max-w-[1440px] gap-21 px-21 py-34 lg:grid-cols-[1.618fr_1fr] lg:gap-34 lg:px-55">
-        <main className="flex min-w-0 flex-col gap-21 lg:gap-34">
+      <div className="mx-auto grid max-w-[1100px] gap-x-55 gap-y-34 px-21 py-34 lg:grid-cols-[minmax(0,1.618fr)_minmax(0,1fr)]">
+        <main className="flex min-w-0 flex-col gap-34">
           <TerminalBanner state={state} />
           <StopBanner state={state} />
           <EvidencePanel
@@ -113,10 +116,10 @@ export function RunView({ recording }: { recording: LoadedRecording }) {
           />
           <ApprovalGate gateKey={gateKey} revealed={revealed} pkg={pkg} inconclusive={inconclusive} />
           {revealed && pkg && <PackagePanel pkg={pkg} partial={partial} />}
-          <TaskPanel state={state} />
           <FeedPanel state={state} done={done} />
+          <TaskPanel state={state} />
         </main>
-        <aside aria-label="Safeguards, budget and team" className="flex min-w-0 flex-col gap-21 lg:gap-34">
+        <aside aria-label="Margin notes: safeguards, audit, budget and team" className="ui flex min-w-0 flex-col gap-34">
           <SafeguardsPanel rows={safeguards} revealed={revealed} />
           <AuditPanel audit={audit} />
           {revealed && pkg?.coverage && <CoveragePanel coverage={pkg.coverage} />}

@@ -23,61 +23,60 @@ function NotRecorded() {
   return <span className="text-muted">Not recorded</span>;
 }
 
-function claimPill(text: string, strong = false) {
-  return (
-    <span
-      className={`label pill inline-flex min-h-[34px] items-center whitespace-nowrap px-13 ${
-        strong ? "bg-bone text-ink" : "border border-line-strong text-bone"
-      }`}
-    >
-      {text}
-    </span>
-  );
-}
-
 /**
- * One claim: its id, the status stamp, the text, and the cited lines as a log
- * excerpt. A cited line the check found is lit in bone; a line whose quote
- * failed is lit in amber and its quote is struck through.
+ * One claim, set as a paragraph of the report: its id, the verdict mark, the
+ * text, and the cited lines as a log excerpt. A cited line the check found
+ * gets a quiet supported background that fades in; a withdrawn claim's text is
+ * struck through, the line drawn left to right once, and its reason sits in a
+ * numbered footnote under the list.
  */
 function ClaimRow({
   claim,
   check,
   rootCause,
+  note,
 }: {
   claim: DiagnosisClaim;
   check: ClaimCheck | undefined;
   rootCause: boolean;
+  /** The footnote number of a withdrawn claim. */
+  note: number | null;
 }) {
   const citations = claim.citations;
   const reasons = check?.citation_reasons;
   const withdrawn = check ? !check.supported : false;
   return (
     <li
-      className={`min-w-0 rounded-md border p-13 sm:p-21 ${withdrawn ? "border-amber/40 bg-amber-tint" : check?.supported ? "border-teal/40 bg-raised" : "border-line bg-raised"}`}
+      className={`min-w-0 border-l-2 pl-21 ${
+        withdrawn ? "border-withdrawn" : check?.supported ? "border-supported" : "border-rule"
+      }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-13">
-        <div className="flex flex-wrap items-center gap-8">
-          {claimPill(claim.claim_id)}
-          {rootCause && claimPill("Root cause rests on this", true)}
-        </div>
+      <div className="ui flex flex-wrap items-baseline justify-between gap-13">
+        <p className="flex flex-wrap items-baseline gap-x-13">
+          <span className="label text-fg">{claim.claim_id}</span>
+          {rootCause && <span className="label text-muted">Root cause rests on this</span>}
+        </p>
         {check ? <Stamp kind={check.supported ? "verified" : "withdrawn"} /> : <Chip>Not checked</Chip>}
       </div>
-      <p className="mt-13 wrap-anywhere font-extrabold sm:text-title">{claim.text}</p>
-      {check && !check.supported && (
-        <p className="mt-8 font-bold text-amber">
-          Withdrawn: {reasonWords(String(check.reason))}. Reason code <span className="figure">{check.reason}</span>.
-        </p>
-      )}
-      <div className="mt-21">
+      <p className="mt-8 wrap-anywhere">
+        {withdrawn ? <span className="struck strike-draw">{claim.text}</span> : claim.text}
+        {withdrawn && note !== null && (
+          <sup className="ui ml-8 text-withdrawn">
+            <a href={`#note-${claim.claim_id}`} aria-label={`Note ${note}: why ${claim.claim_id} was withdrawn`}>
+              {note}
+            </a>
+          </sup>
+        )}
+      </p>
+      <div className="mt-13">
         {citations === null || citations === undefined ? (
-          <p>
+          <p className="ui">
             <Label>Citations</Label> <NotRecorded />
           </p>
         ) : citations.length === 0 ? (
-          <p className="text-muted">No citation given.</p>
+          <p className="ui text-muted">No citation given.</p>
         ) : (
-          <ol aria-label={`Lines cited by ${claim.claim_id}`} className="overflow-hidden rounded-sm border border-line bg-ink">
+          <ol aria-label={`Lines cited by ${claim.claim_id}`} className="border-y border-rule">
             {citations.map((c, i) => {
               const reason = reasons ? reasons[i] : undefined;
               const failed = !!reason && reason !== "ok";
@@ -85,11 +84,11 @@ function ClaimRow({
               return (
                 <li
                   key={`${c.source_id}-${c.line_start}-${i}`}
-                  className={`min-w-0 border-b border-line px-13 py-8 last:border-b-0 ${
-                    lit ? "bg-teal-tint shadow-[inset_4px_0_0_#3ed6b0]" : failed ? "bg-amber-tint shadow-[inset_4px_0_0_#ffa53d]" : ""
+                  className={`min-w-0 border-b border-rule px-13 py-8 last:border-b-0 ${
+                    lit ? "verified-fade bg-supported-tint" : failed ? "bg-withdrawn-tint" : ""
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-8">
+                  <div className="ui flex flex-wrap items-baseline justify-between gap-8">
                     <span className="num wrap-anywhere text-muted">
                       {c.source_id} L{c.line_start}
                       {c.line_end !== c.line_start ? ` to L${c.line_end}` : ""}
@@ -97,14 +96,19 @@ function ClaimRow({
                     {reasons === null || reasons === undefined ? (
                       <span className="text-muted">Citation check not recorded</span>
                     ) : lit ? (
-                      <span className="label text-teal">Citation verified</span>
+                      <span className="label text-supported">
+                        <span aria-hidden="true" className="mr-8">✓</span>Citation verified
+                      </span>
                     ) : reason ? (
-                      <span className="label text-amber">{reasonWords(String(reason))}</span>
+                      <span className="label text-withdrawn">
+                        <span aria-hidden="true" className="mr-8">✕</span>
+                        <span className="num">{String(reason)}</span>
+                      </span>
                     ) : (
                       <span className="text-muted">No check for this citation</span>
                     )}
                   </div>
-                  <p className={`quote mt-8 ${failed ? "struck" : ""}`}>{c.quote}</p>
+                  <p className="quote mt-8">{c.quote}</p>
                 </li>
               );
             })}
@@ -112,6 +116,56 @@ function ClaimRow({
         )}
       </div>
     </li>
+  );
+}
+
+/** The footnotes of the withdrawn claims: the exact reason code and the line that failed. */
+function WithdrawalNotes({
+  claims,
+  checks,
+  notes,
+}: {
+  claims: DiagnosisClaim[];
+  checks: Map<string, ClaimCheck>;
+  notes: Map<string, number>;
+}) {
+  const withdrawn = claims.filter((c) => notes.has(c.claim_id));
+  if (withdrawn.length === 0) return null;
+  return (
+    <section aria-label="Notes on withdrawn claims" className="ui mt-21 border-t border-rule pt-13">
+      <Label>Notes</Label>
+      <ol className="mt-8 flex flex-col gap-13">
+        {withdrawn.map((claim) => {
+          const check = checks.get(claim.claim_id)!;
+          const reasons = check.citation_reasons ?? [];
+          const failing = (claim.citations ?? []).filter((_, i) => reasons[i] && reasons[i] !== "ok");
+          return (
+            <li key={claim.claim_id} id={`note-${claim.claim_id}`} className="grid grid-cols-[21px_1fr] gap-x-8">
+              <span className="text-withdrawn">{notes.get(claim.claim_id)}.</span>
+              <div className="min-w-0">
+                <p>
+                  {claim.claim_id} withdrawn. Reason code <span className="num">{String(check.reason)}</span>:{" "}
+                  {reasonWords(String(check.reason)).toLowerCase()}.
+                </p>
+                {failing.length > 0 && (
+                  <p className="mt-8 text-muted">
+                    Failed {failing.length === 1 ? "line" : "lines"}:{" "}
+                    {failing.map((c, i) => (
+                      <span key={i} className="num wrap-anywhere">
+                        {i > 0 ? ", " : ""}
+                        {c.source_id} L{c.line_start}
+                        {c.line_end !== c.line_start ? ` to L${c.line_end}` : ""}
+                      </span>
+                    ))}
+                    , shown above in the claim&apos;s cited lines.
+                  </p>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -175,13 +229,17 @@ export function EvidencePanel({
     return filter === "verified" ? r?.supported === true : r?.supported === false;
   });
 
+  // Footnote numbers for the withdrawn claims, in the order they are shown.
+  const notes = new Map<string, number>();
+  for (const c of ordered) if (checks.get(c.claim_id)?.supported === false) notes.set(c.claim_id, notes.size + 1);
+
   const status = pkg?.diagnosis_status;
   return (
     <Panel id="evidence" title="Diagnosis and evidence">
       <div className="flex flex-col gap-13">
         {inconclusive ? (
           <div>
-            <h3 className="text-title font-black text-amber sm:text-heading">
+            <h3 className="text-title text-withdrawn">
               Inconclusive: no root cause is backed by the evidence.
             </h3>
             <p className="mt-8">
@@ -193,7 +251,7 @@ export function EvidencePanel({
           <div>
             <Label>Root cause</Label>
             {diagnosis.root_cause ? (
-              <p className="mt-8 wrap-anywhere text-title font-black">
+              <p className="mt-8 wrap-anywhere text-title">
                 {diagnosis.root_cause}
               </p>
             ) : (
@@ -203,7 +261,7 @@ export function EvidencePanel({
         )}
         <div className="flex flex-wrap items-center gap-8">
           <Label>Category</Label>
-          <span className="figure pill inline-flex min-h-[34px] items-center border border-line-strong px-13">{diagnosis.category}</span>
+          <span className="num">{diagnosis.category}</span>
           {status && (
             <Chip tone={status.status === "audited" ? "audit" : "warn"}>
               {status.status === "audited" ? "Audited" : "Inconclusive"}
@@ -213,7 +271,7 @@ export function EvidencePanel({
         {corpusCategory && (
           <p className="text-muted">
             The incident&apos;s category in the synthetic corpus is{" "}
-            <span className="figure text-bone">{corpusCategory}</span>
+            <span className="figure text-fg">{corpusCategory}</span>
             {corpusCategory === diagnosis.category
               ? ", the same as the diagnosis."
               : ", not the category the run diagnosed."}
@@ -247,7 +305,7 @@ export function EvidencePanel({
         </p>
       </div>
 
-      <div role="radiogroup" aria-label="Show claims" className="mt-21 flex flex-wrap items-center gap-8">
+      <div role="radiogroup" aria-label="Show claims" className="ui mt-21 flex flex-wrap items-center gap-8">
         <Label className="mr-8">Show</Label>
         {(["all", "verified", "withdrawn"] as const).map((f) => (
           <button
@@ -256,25 +314,27 @@ export function EvidencePanel({
             role="radio"
             aria-checked={filter === f}
             onClick={() => setFilter(f)}
-            className={`label pill inline-flex min-h-11 items-center px-21 ${
-              filter === f ? "bg-bone text-ink" : "border border-line-strong text-bone hover:bg-raised"
+            className={`inline-flex min-h-11 items-center rounded-sm px-13 font-semibold ${
+              filter === f ? "bg-fg text-bg" : "border border-rule-strong text-fg hover:border-fg"
             }`}
           >
             {f}
           </button>
         ))}
       </div>
-      <ul className="mt-13 flex flex-col gap-13">
+      <ul className="mt-21 flex flex-col gap-34">
         {visible.map((claim) => (
           <ClaimRow
             key={claim.claim_id}
             claim={claim}
             check={checks.get(claim.claim_id)}
             rootCause={rootSet.has(claim.claim_id)}
+            note={notes.get(claim.claim_id) ?? null}
           />
         ))}
-        {visible.length === 0 && <li className="text-muted">No claim matches this filter.</li>}
+        {visible.length === 0 && <li className="ui text-muted">No claim matches this filter.</li>}
       </ul>
+      <WithdrawalNotes claims={visible} checks={checks} notes={notes} />
     </Panel>
   );
 }
@@ -301,7 +361,7 @@ export function AuditPanel({ audit }: { audit: AuditVerdict | null }) {
           {audit.warning && <p className="wrap-anywhere">{audit.warning}</p>}
           <ul className="flex flex-col gap-8">
             {audit.checks.map((c, i) => (
-              <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
+              <li key={i} className="min-w-0 rounded-md border border-rule bg-bg p-13">
                 <div className="flex flex-wrap items-start gap-8">
                   <Chip tone={c.passed ? "ok" : "warn"}>{c.passed ? "Passed" : "Failed"}</Chip>
                   <p className="min-w-0 flex-1 wrap-anywhere font-medium">{c.criterion}</p>
@@ -322,7 +382,7 @@ export function CoveragePanel({ coverage }: { coverage: Coverage }) {
   const unread = coverage.unread_slices ?? [];
   return (
     <Panel id="coverage" title="Coverage">
-      <dl className="grid grid-cols-2 divide-x divide-line sm:grid-cols-3">
+      <dl className="grid grid-cols-2 divide-x divide-rule sm:grid-cols-3">
         <div className="pr-13">
           <dt><Label>Slices read</Label></dt>
           <dd className="figure">{coverage.slices_read}</dd>
@@ -331,7 +391,7 @@ export function CoveragePanel({ coverage }: { coverage: Coverage }) {
           <dt><Label>Empty slices</Label></dt>
           <dd className="figure">{coverage.empty_slices}</dd>
         </div>
-        <div className="col-span-2 mt-13 border-t border-line pt-13 sm:col-span-1 sm:mt-0 sm:border-t-0 sm:pl-13 sm:pt-0">
+        <div className="col-span-2 mt-13 border-t border-rule pt-13 sm:col-span-1 sm:mt-0 sm:border-t-0 sm:pl-13 sm:pt-0">
           <dt><Label>Unread line ranges</Label></dt>
           <dd className="figure">{unread.length}</dd>
         </div>
@@ -372,16 +432,16 @@ export function CoveragePanel({ coverage }: { coverage: Coverage }) {
   );
 }
 
-/** Each Shingo label in the color of what it guards. */
-const KIND_PILL: Record<SafeguardRow["kind"], string> = {
-  Contact: "bg-teal-tint text-teal",
-  Control: "bg-gold-tint text-gold",
-  Sequence: "bg-berry-tint text-berry",
-  Warning: "bg-amber-tint text-amber",
-  "Second check": "bg-violet-tint text-violet",
+/** Each Shingo label in the mark of what it guards. */
+const KIND_MARK: Record<SafeguardRow["kind"], string> = {
+  Contact: "text-supported",
+  Control: "text-cost",
+  Sequence: "text-fg",
+  Warning: "text-withdrawn",
+  "Second check": "text-auditor",
 };
 
-/** Shingo's labels, for the safeguards that fired. A filled dot means it caught something. */
+/** Shingo's labels, for the safeguards that fired, set as margin notes. "Caught" means it stopped something. */
 export function SafeguardsPanel({ rows, revealed }: { rows: SafeguardRow[]; revealed: boolean }) {
   return (
     <Panel id="safeguards" title="Safeguards that fired in this run">
@@ -390,22 +450,19 @@ export function SafeguardsPanel({ rows, revealed }: { rows: SafeguardRow[]; reve
       ) : rows.length === 0 ? (
         <p className="text-muted">This recording carries none of the fields the safeguards report.</p>
       ) : (
-        <ul className="flex flex-col gap-13">
+        <ol className="flex flex-col gap-13">
           {rows.map((row) => (
-            <li key={row.key} className="min-w-0 rounded-md border border-line bg-ink p-13">
-              <div className="flex flex-wrap items-center justify-between gap-8">
-                <span
-                  className={`label pill inline-flex min-h-[34px] items-center gap-8 px-13 ${KIND_PILL[row.kind]}`}
-                >
-                  <span aria-hidden="true" className={`size-2.5 rounded-full ${row.caught ? "bg-current" : "border-2 border-current"}`} />
+            <li key={row.key} className="min-w-0 border-b border-rule pb-13 last:border-b-0">
+              <p className="flex flex-wrap items-baseline justify-between gap-8">
+                <span className={`label ${KIND_MARK[row.kind]}`}>
                   {row.kind}
-                  {row.caught && <span className="sr-only"> (caught something)</span>}
+                  {row.caught && <span className="ml-8 text-muted">caught</span>}
                 </span>
                 {row.value !== null && (
-                  <span className={`text-title ${row.key === "budget" ? "num text-gold" : "figure"}`}>{row.value}</span>
+                  <span className={row.key === "budget" ? "num text-cost" : "figure font-semibold"}>{row.value}</span>
                 )}
-              </div>
-              <p className="mt-8 font-extrabold">{row.title}</p>
+              </p>
+              <p className="mt-8">{row.title}</p>
               {row.details.length > 0 && (
                 <ul className="mt-8 flex flex-col gap-8">
                   {row.details.map((d) => (
@@ -417,7 +474,7 @@ export function SafeguardsPanel({ rows, revealed }: { rows: SafeguardRow[]; reve
               )}
             </li>
           ))}
-        </ul>
+        </ol>
       )}
     </Panel>
   );

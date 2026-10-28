@@ -61,7 +61,7 @@ function Branch({
   const kids = (tree.get(id) ?? []).map((k) => state.agents.get(k)!).filter(Boolean);
   const operators = kids.filter((k) => k.node.level === "operator");
   const others = kids.filter((k) => k.node.level !== "operator");
-  const indent = depth > 0 && depth <= 3 ? "pl-13 border-l border-line ml-8" : "";
+  const indent = depth > 0 && depth <= 3 ? "pl-13 border-l border-rule ml-8" : "";
   return (
     <li className={`min-w-0 ${indent}`}>
       <AgentLine agent={agent} />
@@ -73,7 +73,7 @@ function Branch({
         </ul>
       )}
       {operators.length > 0 && (
-        <details open={operators.length <= 6} className="ml-8 border-l border-line pl-13">
+        <details open={operators.length <= 6} className="ml-8 border-l border-rule pl-13">
           <summary className="min-h-11 cursor-pointer py-8 text-muted">
             {operators.length} {operators.length === 1 ? "operator" : "operators"}: {statusCounts(operators)}
           </summary>
@@ -130,11 +130,11 @@ export function TeamPanel({ state: live, snapshot }: { state: RunState; snapshot
         Spend per agent is shown for operators only: ledger entries name a task, not an agent.
       </p>
       {state.escalations.length > 0 && (
-        <div className="mt-13 border-t border-line pt-13">
-          <h3 className="mb-8 font-extrabold">Reassignments and escalations ({state.escalations.length})</h3>
+        <div className="mt-13 border-t border-rule pt-13">
+          <h3 className="mb-8 font-semibold">Reassignments and escalations ({state.escalations.length})</h3>
           <ul className="flex flex-col gap-8">
             {state.escalations.map((e, i) => (
-              <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
+              <li key={i} className="min-w-0 rounded-md border border-rule bg-bg p-13">
                 <p className="wrap-anywhere">
                   <span className="font-medium">{agentName(state.agents, e.from_agent_id)}</span>
                   <span aria-hidden="true"> → </span>
@@ -190,7 +190,7 @@ export function TaskPanel({ state }: { state: RunState }) {
           {tasks.map((t) => {
             const errors = t.attempts.flatMap((a) => a.validation_errors);
             return (
-              <li key={t.task.task_id} className="min-w-0 rounded-md border border-line bg-ink p-13">
+              <li key={t.task.task_id} className="min-w-0 rounded-md border border-rule bg-bg p-13">
                 <div className="flex flex-wrap items-center gap-8">
                   <span className="figure font-medium">{t.task.task_id}</span>
                   <span className="wrap-anywhere">{t.task.role}</span>
@@ -207,7 +207,7 @@ export function TaskPanel({ state }: { state: RunState }) {
                       .join(", ")})`}
                   {t.spent > 0n && (
                     <>
-                      ; spent <span className="num text-bone">{formatMicros(t.spent)}</span>
+                      ; spent <span className="num text-fg">{formatMicros(t.spent)}</span>
                     </>
                   )}
                 </p>

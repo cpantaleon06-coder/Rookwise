@@ -7,7 +7,7 @@ import type { CostReport, LedgerEntry } from "../lib/types";
 
 function Pill({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-flex max-w-full flex-wrap items-center gap-8 rounded-full border border-line bg-ink px-13 min-h-[34px]">
+    <span className="inline-flex max-w-full flex-wrap items-baseline gap-8 border-b border-rule py-8">
       <span className="label text-muted">{label}</span>
       <span className="num">{value}</span>
     </span>
@@ -19,8 +19,8 @@ function Bar({ label, value, max }: { label: string; value: Micros; max: Micros 
     <div className="grid grid-cols-[5.5rem_1fr] items-center gap-13">
       <Label>{label}</Label>
       <div className="flex min-w-0 items-center gap-8">
-        <div className="h-2 min-w-0 flex-1 rounded-full bg-track">
-          <div className="h-2 rounded-full bg-gold" style={{ width: `${percentOf(value, max)}%` }} />
+        <div className="h-2 min-w-0 flex-1 rounded-sm bg-track">
+          <div className="h-2 rounded-sm bg-cost" style={{ width: `${percentOf(value, max)}%` }} />
         </div>
         <span className="num shrink-0">{formatMicros(value)}</span>
       </div>
@@ -110,8 +110,8 @@ export function BudgetPanel({
           </div>
           <Meter spent={spent} held={held} cap={cap} stopped={state.stops.length > 0} />
 
-          <div className="border-t border-line pt-13">
-            <h3 className="mb-13 font-extrabold">Predicted versus real</h3>
+          <div className="border-t border-rule pt-13">
+            <h3 className="mb-13 font-semibold">Predicted versus real</h3>
             {report ? (
               <PredictedVersusReal
                 predicted={toMicros(report.predicted_usd)}
@@ -124,8 +124,8 @@ export function BudgetPanel({
             {report && <p className="mt-8 text-muted">From the run&apos;s cost report.</p>}
           </div>
 
-          <div className="border-t border-line pt-13">
-            <h3 className="mb-8 font-extrabold">By level</h3>
+          <div className="border-t border-rule pt-13">
+            <h3 className="mb-8 font-semibold">By level</h3>
             {Object.keys(levels).length === 0 ? (
               <p className="text-muted">Nothing charged yet.</p>
             ) : (
@@ -142,11 +142,11 @@ export function BudgetPanel({
           </div>
 
           {state.stops.length > 0 && (
-            <div className="border-t border-line pt-13">
-              <h3 className="mb-8 font-extrabold text-berry">Stops ({state.stops.length})</h3>
+            <div className="border-t border-rule pt-13">
+              <h3 className="mb-8 font-semibold text-accent">Stops ({state.stops.length})</h3>
               <ul className="flex flex-col gap-8">
                 {state.stops.map((s, i) => (
-                  <li key={i} className="rounded-md bg-berry-tint p-13">
+                  <li key={i} className="rounded-md bg-withdrawn-tint p-13">
                     <span className="font-medium">{agentName(state.agents, s.agent_id)}</span> stopped on its{" "}
                     {s.scope} cap of <Usd value={s.cap_usd} />: it needed <Usd value={s.requested_usd} />{" "}
                     with <Usd value={s.committed_usd} /> committed.
@@ -156,31 +156,31 @@ export function BudgetPanel({
             </div>
           )}
 
-          <p className="border-t border-line pt-13">
+          <p className="border-t border-rule pt-13">
             {estimated === 0
               ? "Every charge so far used the usage the model reported."
               : `${estimated} ${estimated === 1 ? "charge was" : "charges were"} estimated (no usage returned).`}
           </p>
 
           {allocations.length > 0 && (
-            <details className="border-t border-line pt-13">
-              <summary className="min-h-11 cursor-pointer font-extrabold">
+            <details className="border-t border-rule pt-13">
+              <summary className="min-h-11 cursor-pointer font-semibold">
                 Sub-budgets ({allocations.length})
               </summary>
               <ul className="mt-8 flex flex-col gap-8">
                 {allocations.map((a) => (
-                  <li key={a.node.agent_id} className="rounded-md border border-line bg-ink p-13">
+                  <li key={a.node.agent_id} className="rounded-md border border-rule bg-bg p-13">
                     <p className="font-medium wrap-anywhere">{agentName(state.agents, a.node.agent_id)}</p>
                     <p className="text-muted">
-                      Held <span className="num text-bone">{formatMicros(a.allocated ?? 0n)}</span>
+                      Held <span className="num text-fg">{formatMicros(a.allocated ?? 0n)}</span>
                       {a.released !== null && (
                         <>
-                          , released <span className="num text-bone">{formatMicros(a.released)}</span>
+                          , released <span className="num text-fg">{formatMicros(a.released)}</span>
                         </>
                       )}
                       {a.node.level === "operator" && (
                         <>
-                          , spent <span className="num text-bone">{formatMicros(a.spent)}</span>
+                          , spent <span className="num text-fg">{formatMicros(a.spent)}</span>
                         </>
                       )}
                     </p>
@@ -190,8 +190,8 @@ export function BudgetPanel({
             </details>
           )}
 
-          <details className="border-t border-line pt-13">
-            <summary className="min-h-11 cursor-pointer font-extrabold">
+          <details className="border-t border-rule pt-13">
+            <summary className="min-h-11 cursor-pointer font-semibold">
               Ledger ({ledger.length} {ledger.length === 1 ? "entry" : "entries"})
             </summary>
             <p className="mt-8 text-muted">
@@ -201,7 +201,7 @@ export function BudgetPanel({
             </p>
             <ol className="mt-8 flex flex-col gap-8">
               {ledger.map((e, i) => (
-                <li key={i} className="min-w-0 rounded-md border border-line bg-ink p-13">
+                <li key={i} className="min-w-0 rounded-md border border-rule bg-bg p-13">
                   <div className="flex flex-wrap justify-between gap-8">
                     <span className="font-medium">
                       {LEVEL_WORDS[e.level] ?? e.level} <span className="figure text-muted">{e.task_id}</span>

@@ -49,15 +49,15 @@ export function RunPage({ folder }: { folder: string }) {
         {state.kind === "loading" ? (
           <div role="status" className="flex flex-col gap-13">
             <p className="text-muted">Loading the recording “{folder}”.</p>
-            <Skeleton className="h-24 w-full rounded-full" />
+            <Skeleton className="h-24 w-full rounded-sm" />
             <div className="grid gap-21 lg:grid-cols-[1.618fr_1fr]">
               <Skeleton className="h-96 rounded-lg" />
               <Skeleton className="h-96 rounded-lg" />
             </div>
           </div>
         ) : (
-          <div role="alert" className="max-w-[60ch] rounded-lg border border-line bg-berry-tint p-21">
-            <h1 className="text-title font-black">This recording could not be loaded.</h1>
+          <div role="alert" className="max-w-[60ch] rounded-lg border border-rule bg-withdrawn-tint p-21">
+            <h1 className="text-title font-semibold">This recording could not be loaded.</h1>
             <p className="mt-13 wrap-anywhere">{state.error.message}</p>
             <p className="mt-8 text-muted">
               {state.error.kind === "invalid_name"

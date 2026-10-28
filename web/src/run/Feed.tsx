@@ -39,8 +39,8 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
             role="radio"
             aria-checked={filter === f.id}
             onClick={() => setFilter(f.id)}
-            className={`label inline-flex min-h-11 items-center rounded-full px-13 ${
-              filter === f.id ? "bg-bone text-ink" : "border border-line-strong hover:bg-raised"
+            className={`label inline-flex min-h-11 items-center rounded-sm px-13 ${
+              filter === f.id ? "bg-fg text-bg" : "border border-rule-strong hover:bg-subtle"
             }`}
           >
             {f.label}
@@ -63,7 +63,7 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
         aria-live={announce ? "polite" : "off"}
         aria-label="Run events"
         tabIndex={0}
-        className="mt-13 max-h-[28rem] overflow-y-auto rounded-md border border-line"
+        className="mt-13 max-h-[28rem] overflow-y-auto rounded-md border border-rule"
       >
         {rows.length === 0 && <li className="p-13 text-muted">No event to show yet.</li>}
         {rows.map((event) => {
@@ -72,8 +72,8 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
           return (
             <li
               key={event.id}
-              className={`grid grid-cols-[4.5rem_1fr] gap-8 border-b border-line px-13 py-8 last:border-b-0 ${
-                terminal || stop ? (event.type === "run_failed" || stop ? "bg-berry-tint" : "bg-raised") : ""
+              className={`reveal grid grid-cols-[4.5rem_1fr] gap-8 border-b border-rule px-13 py-8 last:border-b-0 ${
+                terminal || stop ? (event.type === "run_failed" || stop ? "bg-withdrawn-tint" : "bg-subtle") : ""
               }`}
             >
               <span className="figure text-muted">{elapsed(start, event.ts)}</span>
