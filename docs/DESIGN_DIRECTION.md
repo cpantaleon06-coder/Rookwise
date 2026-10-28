@@ -1,235 +1,109 @@
 # Design direction
 
-This file records what the web redesign took from the reference images, the palette with its
-contrast ratios, the shape language, the golden-ratio rules, the screenshot self-review and every
-place the build departs from the brief.
+The web app reads like a careful technical report with live figures: a single reading column,
+numbered sections, numbered figures and tables with source lines, hairline rules and whitespace.
+Earlier directions (a rounded, glowing landing and a colorful pass) are superseded; their notes
+were removed from this file and live in the git history.
 
-## 1. References
+## 1. Principles
 
-The images live in `design-refs/` at the repository root (gitignored, not shipped). No other
-reference folder exists.
+- **One reading column.** The landing is one column of 68 characters (62 to 72 at the body size),
+  centered, with generous margins. Tables and figures stay inside it.
+- **Numbered structure.** Abstract, then 1 Problem, 2 Method, 3 Results, 4 Limitations,
+  5 Reproduce, then the demo link.
+- **Every figure and table has a caption and a source line** that names the file it was built
+  from: a recording in `web/public/recordings/` or the run files in `benchmarks/results/runs/`.
+- **No decoration.** No cards, drop shadows, pill buttons, large rounded boxes, gradient washes,
+  glows or mascots. Hairline rules, whitespace, small caps labels. Border radius 2 to 4 px.
+- **Tables in booktabs style:** a top rule, a thin rule under the header, a bottom rule, no
+  vertical lines; lining, tabular figures.
+- **Buttons** are flat rectangles (primary) or underlined text actions (secondary), with a focus
+  ring of a solid outline plus an accent halo.
+- **Symmetry and spacing:** a central vertical axis for the header, title blocks and actions;
+  margin, padding and gap only on the Fibonacci scale 8, 13, 21, 34, 55, 89, 144 px.
+- **Trust signals, from data only:** the run view shows a provenance line (run id, recorded date,
+  the commit the run was recorded at, the models, "Synthetic incident"), keeps "Recorded run, not
+  live" and "Executes nothing" visible, and shows each withdrawn claim with its exact reason code
+  and the failing log line. Nothing is invented: a field the recording lacks is left out.
 
-| File | Bytes |
-|---|---|
-| AI Landing Page Design.jpg | 77746 |
-| Corporate Landing Pages_ 1097 Examples & Inspiration _ Lapa Ninja.jpg | 121655 |
-| Daniella.jpg | 45988 |
-| Modern Presentation Design _ Graphic Design & Data Visualization.jpg | 53195 |
-| Zenixa – UI_UX Case Study for Creative Agency.jpg | 61470 |
-| download (2).jpg | 48176 |
-| download (3).jpg | 29931 |
-| download (4).jpg | 38571 |
-| download (5).jpg | 84667 |
+## 2. Color
 
-### Visual devices and where Rookwise adopts them
+Two themes over the same anchors: **paper** (ink on bone) for the landing and **ink** (bone on ink)
+for the run view. Ink `#142030`, bone `#EAE4D3` and Stellar Strawberry `#FF5C8D` are the anchors.
+Strawberry is used sparingly: link underlines, the withdrawn mark, the decision accent.
 
-The first version of this file listed gradients, glows, dotted art and tickers under "not
-taken". Those are the devices that make the references work, so the redesign now uses them,
-built only from the three hues. No single reference's composition, text, logo or asset is
-reproduced; the site combines their vocabulary into one design of its own.
+Muted semantic marks appear only where they carry a meaning, and always next to a word and a
+symbol:
 
-| Reference | Devices it uses | Where Rookwise adopts the device |
-|---|---|---|
-| AI Landing Page Design.jpg | Pill badge over a centered headline; filled pill button beside an outline pill; luminous wave lines behind the hero; logo strip; dark cards with 20 px radii, 1 px light borders and a top-lit gradient; a 2x2 bento | Hero buttons as pills (Strawberry fill plus outline); two mirrored glowing arcs behind the hero object; every card uses the top-lit ink gradient and a 1 px bone border. Logo strip not adopted: no third-party logos, so "NVIDIA Nemotron" and "Nebius Token Factory" stay plain text in the footer |
-| Lapa Ninja (corporate landing) | One hue on a plain field; engraving illustration framing a centered serif headline; a ticker band of news under the hero; a large statement paragraph | The ticker band under the hero, filled with real facts of the loaded run; the large centered statement of "Why it exists"; one-hue discipline (here three hues). Engraving art not adopted: it is a raster illustration style |
-| Daniella.jpg | A figure made of tiny glyphs and dots with a warm core on pure black; dark pill button with a circled arrow; very sparse layout | The hero's central object: the rook drawn as a dot-matrix figure with a Strawberry core; generous empty space around few objects |
-| Modern Presentation Design.jpg | Giant numerals as the display element; small corner labels; floating pill captions on the numerals; soft color glow behind shapes | Results: giant numerals (2, 0, 1 of 3) at 110 px with small mono captions and pill labels for each configuration; a Strawberry glow behind the leading result |
-| Zenixa.jpg | Big pills used as shapes (a row of rounded capsules); pill nav; a black card with 34 px radius; small dot tags over section titles; a striped globe | Pills as shapes: Shingo labels, limits and the run status are capsules; rounded cards with 34 px radii; a dot tag above each section title. The giant background wordmark is not adopted: it would compete with the hero object |
-| download (2).jpg | Monospace nav with slashes; thin crosshair grid lines framing the page; a pixel or voxel figure; a status chip; a stats row with mono labels split by 1 px lines | The hero frame: 1 px grid lines at very low opacity with crosshair marks at the corners; mono labels for every figure; the ticker's facts in mono with separators |
-| download (3).jpg | Header with the mark centered and links split left and right; a two-tone headline; a halftone dome with a warm glow; floating pill labels with colored dots | The symmetric header (rook centered, pill links split evenly); the two-tone H1; floating pills around the hero object, each with a status dot and real data |
-| download (4).jpg | Strict mirror symmetry about the vertical axis; dotted figures reaching toward a glowing central object; a centered pill nav | Mirrored pills and arcs around the central rook; the evidence check and the human gate as two mirrored pills left and right of the hierarchy rings; the VERIFIED and WITHDRAWN cards mirrored |
-| download (5).jpg | Light shapes curving in from both sides toward a centered icon tile; small pill tags over centered titles; rounded dark cards in grids with gradient fills; a round node on a soft halo | Concentric rings for "How it works" with a round director node on a halo at the center; tag pills over centered titles; gradient cards in even grids |
-
-### Still not adopted
-
-- No raster images, photographs, portraits, 3D renders or engravings: every shape is CSS or
-  SVG generated in code.
-- No third-party logos or logo strips.
-- No hue outside ink, Stellar Strawberry and bone (no green, lime, blue, violet or white).
-- No giant background wordmark and no glass blur over content.
-
-## 2. Palette
-
-Visual pass 2 keeps the three anchors and adds a small semantic set (section 2.1). Everything
-below the anchors table still holds for ink, bone and Stellar Strawberry.
-
-
-Three hues and nothing else, including charts, states, gradients, glows and the favicon.
-
-| Token | Value | Role |
-|---|---|---|
-| Ink | `#142030` | Page background, text on Strawberry and on bone fills |
-| Stellar Strawberry | `#FF5C8D` | Primary action, WITHDRAWN, warnings, glow, focus ring |
-| Bone | `#EAE4D3` | Text, VERIFIED, lines, dots |
-
-Gradients and glows are allowed when built only from these three hues by opacity or mixing.
-
-| Token | Recipe |
-|---|---|
-| card | linear gradient from bone 8% over ink (top) to bone 4% over ink (bottom) |
-| raised | bone 8% over ink (`#25303d`) |
-| track | bone 13% over ink (`#303945`), bars and rings only, never under text |
-| line | bone 14% over ink |
-| line-strong | bone 38% over ink |
-| muted text | bone 72% over ink (`#aeada5`) |
-| berry-tint | Strawberry 13% over ink (`#33283c`) |
-| glow | radial gradient, Strawberry at 30 to 45% to transparent; never under text |
-| grid lines | bone at 6% opacity, 1 px |
-
-### Contrast against the brightest background pixel
-
-Every text color is checked against the brightest pixel it can sit on. For a card that is its
-top edge (bone 8% over ink). No text sits over the glow.
-
-| Text on brightest background | Ratio |
-|---|---|
-| bone on ink | 12.93:1 |
-| ink on bone (VERIFIED, active pills) | 12.93:1 |
-| ink on Strawberry (primary button, WITHDRAWN) | 5.60:1 |
-| Strawberry on ink | 5.60:1 |
-| bone on card top / raised (bone 8%) | 10.54:1 |
-| muted on card top / raised | 5.94:1 |
-| Strawberry on card top / raised | 4.57:1 |
-| bone on berry-tint | 10.95:1 |
-| Strawberry on berry-tint | 4.75:1 |
-| muted on berry-tint | 6.17:1 |
-| line-strong on ink (control borders, non-text) | 3.00:1 |
-
-Strawberry on bone 12% would fall to 4.06:1, so no card gradient goes above bone 8%, and
-Strawberry text never sits on the track tint.
-
-### 2.1 Semantic colors (visual pass 2)
-
-Four colors, each with one meaning, defined as Tailwind theme variables in `web/src/index.css`
-(`--color-teal`, `--color-amber`, `--color-violet`, `--color-gold`, and a `-tint` of each at 16%
-over ink). Every use also carries an icon or a word, so color is never the only signal.
-
-| Token | Value | Meaning | Where |
+| Meaning | Symbol | Paper | Ink |
 |---|---|---|---|
-| teal | `#3ED6B0` | Verified: a supported claim, a passed check | VERIFIED stamp, verified claim rows and cited lines, "Citation verified", the proof line in the hero, Contact and Sequence labels, the leading result |
-| amber | `#FFA53D` | Withdrawn: a claim removed by the check, a warning | WITHDRAWN stamp, withdrawn rows, failed cited lines and their strikethrough, Warning labels, Limits |
-| violet | `#A5A8FF` | The auditor, the second check | Audit verdict and status chips, Second check labels, the auditor node and ring, the recorded-run banner and pill |
-| gold | `#F2CF5B` | Budget and money, used sparingly | Budget ring in the run strip, the budget meter and ledger bars, the money pill and ticker items, mean cost in Results, Control labels |
+| Supported (claim verified) | ✓ | `#1A5E3E` deep green | `#7CCFA3` |
+| Withdrawn (claim removed by the check) | ✕, strikethrough, footnote | `#A3204F` deep strawberry | `#FF5C8D` Strawberry |
+| Auditor (second check) | ◇ | `#3B3F8F` indigo | `#AEB2F0` |
+| Cost (money) | $ | `#6E4A0C` ochre | `#D9AA52` |
 
-Strawberry stays the action color: the primary button, "Decision needed", "You decide", focus
-rings and the hero glow.
+Strawberry itself is 2.31:1 on bone, too light for text, so on paper the withdrawn mark uses a deep
+shade of it. Tints are the mark at 10% over bone (paper) or 14% over ink (ink).
 
-Contrast, WCAG 2.x, computed against the brightest pixel each text can sit on:
+### Contrast (WCAG 2.x, computed)
 
-| Color | as text on ink | as text on card top (bone 8%) | ink text on a fill of it | as text on its own tint | bone on its tint | muted on its tint |
-|---|---|---|---|---|---|---|
-| teal | 8.95:1 | 7.30:1 | 8.95:1 | 6.37:1 | 9.20:1 | 5.19:1 |
-| amber | 8.37:1 | 6.82:1 | 8.37:1 | 6.17:1 | 9.53:1 | 5.37:1 |
-| violet | 7.54:1 | 6.15:1 | 7.54:1 | 5.51:1 | 9.45:1 | 5.33:1 |
-| gold | 10.83:1 | 8.83:1 | 10.83:1 | 7.41:1 | 8.84:1 | 4.99:1 |
-| Strawberry | 5.60:1 | 4.57:1 | 5.60:1 | 4.75:1 (13% tint) | 10.95:1 | 6.17:1 |
+| Pair | Paper | Ink |
+|---|---|---|
+| Body text on background | 12.93:1 | 12.93:1 |
+| Muted text on background | 5.77:1 | 7.29:1 |
+| Primary button text on its fill | 12.93:1 | 12.93:1 |
+| Strong rule on background (non-text, 3:1) | 3.51:1 | 3.19:1 |
+| Supported on background / on its tint | 6.09 / 5.29 | 8.84 / 6.54 |
+| Withdrawn on background / on its tint | 5.75 / 4.90 | 5.60 / 4.71 |
+| Auditor on background / on its tint | 7.21 / 6.21 | 8.15 / 6.16 |
+| Cost on background / on its tint | 6.25 / 5.43 | 7.68 / 5.95 |
+| Body text on any mark tint (lowest) | 11.03:1 | 9.55:1 |
+| Muted text on any mark tint (lowest) | 4.92:1 | 5.39:1 |
 
-Washes: soft radial gradients painted on the hero and on the poka-yoke, how-it-works and
-results sections, so nothing extends past the page. Brightest wash pixels and the text over them:
+Every text pair clears 4.5:1.
 
-| Wash (peak) | bone | muted | teal text |
-|---|---|---|---|
-| teal 12% | 10.08:1 | 5.68:1 | 6.98:1 |
-| violet 12% | 10.35:1 | 5.83:1 | 7.17:1 |
-| Strawberry 10% | 11.46:1 | 6.46:1 | 7.93:1 |
-| amber 8% | 11.20:1 | 6.31:1 | 7.76:1 |
+## 3. Type
 
-Hues per screen (accents, not counting ink and bone): hero teal, amber, violet, gold and the
-Strawberry button (the four semantic pills and the action share the first screen; see
-deviations); poka-yoke teal, gold, amber, violet; how it works violet, teal, Strawberry;
-results teal and gold; run evidence teal, amber, violet.
+All SIL Open Font License 1.1, self-hosted through Fontsource npm packages, latin subset only.
 
-## 3. Shape language, golden ratio and symmetry
+- **Source Serif 4** (variable): headings and long prose. Body 18 px, line height 1.618.
+- **IBM Plex Sans** 400 and 600: labels (small caps), table headers, captions, buttons, notes.
+- **IBM Plex Mono** 400: log lines, citations, line numbers and money.
 
-- **Radii:** Fibonacci 13, 21, 34, 55 for cards and panels; full pills for navigation, buttons,
-  tags and chips; circles for status dots, rings and progress.
-- **Borders:** 1 px at bone 14% (or bone 38% on controls).
-- **Depth:** the top-lit card gradient, and a Strawberry radial glow behind key objects only (the
-  hero rook, the director node, the leading result).
-- **Spacing** (margin, padding and gap only): 8, 13, 21, 34, 55, 89, 144 px.
-- **Type:** 18, 29, 47, 76, 123 px since visual pass 2 (was 16, 26, 42, 68, 110). Each step is
-  about 1.618 times the last. Body line height 1.618; display 1.1. Body weight 500, headings 900.
-- **Layout:** two-column layouts are `1.618fr 1fr`; one central vertical axis; mirrored pairs.
-- **Grids:** 2x3 or 3x2 or 3x1; never 5.
-- **Mark:** the rook, 21 by 34 units, symmetric about x = 10.5. The hero draws it again as a dot
-  matrix sampled from the same polygon.
-- **Fonts (SIL OFL 1.1, self-hosted):** Nunito (variable) for headings, interface and body since
-  visual pass 2; JetBrains Mono only for log lines, citations, line numbers and money.
+Sizes follow the golden scale 18, 29, 47, 76, 123 px (`web/src/lib/scale.ts`, checked by
+`scale.test.ts`). Tables use lining, tabular figures.
 
-## 4. Self-review
+## 4. Motion
 
-Screenshots at 1280 and 390 px of the landing (hero, hero object, poka-yoke, how it works,
-results, full page) and of the run view (top, evidence, safeguards, approval), taken with
-`npm run screenshots` into `web/screenshots-local/` (not committed) and compared with the nine
-references.
+150 to 300 ms, ease-out, no bounce, no parallax. Reduced motion renders the final state.
 
-### Round 1
+- Replay steps reveal in sequence: each new feed row fades in with a 6 px rise (220 ms).
+- A verified citation's line gets its supported background through a 300 ms fade.
+- A withdrawn claim's strikethrough is drawn left to right once (300 ms).
+- The budget bar's width eases (300 ms) as spend accumulates in the replay.
+- Hold to approve keeps its 1.618 s hold with a progress ring, plus Space or Enter held down, and a
+  two-step Approve then Confirm path announced to screen readers; with reduced motion only the two
+  steps are offered.
 
-| Question | Answer |
-|---|---|
-| Does the hero have a central object with depth and a glow? | Yes, but at 1280 by 900 it sat entirely below the fold: the three-line H1 and stacked buttons pushed it down. |
-| Are cards and buttons visibly round? | Yes: 34 px cards, pill buttons, pill nav, pill tags. |
-| Do pills and ticker exist? | Yes: four floating pills with real data (c1 verified, c2 withdrawn: quote_not_found, $0.188152 of $0.500000 cap, 60 slices read, 0 unread) and the ticker. |
-| Is there a giant numeral? | Yes: 2, 0 and 1 at 110 px in Results. |
-| One original design, not a copy? | Yes: the dot-matrix rook, the rings and the stamp cards appear in no reference. |
-| Does anything look flat or empty? | The hero first screen had no object. The run strip's team diagram was a grey speck at 55 px. Poka-yoke cards in a row had different heights. On a phone the two gate pills stacked instead of mirroring, and the strip was three rows of pills. |
+## 5. The run view
 
-Fixes: H1 to two lines at 1280 (21ch), buttons side by side with the note centered under both,
-smaller gaps, so the rook's crown shows on the first screen; a compact mode for the strip's rings
-(nodes 2.6 times larger); fewer strip pills; poka-yoke cards stretch to equal heights; gate pills
-side by side on phones; a larger glow behind the rings; root cause at 26 px.
+A document, not a dashboard of cards: a recorded-run line, the title and goal, the provenance
+line, a ruled status line (team, budget, status), the replay controls, then a main column
+(diagnosis and evidence, the approval gate, the delivery package, the steps, the tasks) and a
+margin column of notes (safeguards that fired, audit, coverage, budget ledger, team, chat).
 
-### Round 2
+The team line shows only what the recording holds. Operators get a final state from their task
+results (for inc-03-run2: 60 done, 7 failed, 7 escalations). The recording keeps no final state for
+the director, managers or auditor (their org entries stay at "hired"), so for them the line shows
+the count and the model only.
 
-| Question | Answer |
-|---|---|
-| Does the hero have a central object with depth and a glow? | Yes. The rook's crown, glow and arcs show on the first 1280 by 900 screen; the full object sits on the grid frame with crosshairs. |
-| Are cards and buttons visibly round? | Yes, at both widths. |
-| Do pills and ticker exist? | Yes. On phones the four pills stack under the rook instead of floating. |
-| Is there a giant numeral? | Yes. |
-| One original design, not a copy? | Yes. |
-| Does anything look flat or empty? | Two small issues: on a phone the "Evidence check" pill wrapped inside its capsule, and claim pills ("Root cause rests on this") wrapped inside theirs. Fixed with no-wrap and smaller inner padding on phones. The long section gaps (144 px) read as calm at 1280, not empty. |
+## 6. Deviations
 
-## 5. Deviations
-
-- **Section titles not in the brief:** "Three configurations, the same cap" (Results), "What this
-  does not show" (Limits), and the tag pills ("Real model runs, replayed", "Mistake-proofing",
-  "Results, test split"). The brief gave no titles for these.
-- **Prices per 1M tokens:** not shown; the recording files carry none.
-- **Hierarchy legend:** the rings carry no text inside the SVG (it would shrink below 16 px on a
-  phone). Model names sit in a 2x2 legend of rounded cards under the rings.
-- **Cards 1:1.618:** the six safeguard cards hold more text than a 1.618:1 box fits at 1280, so
-  they stretch to equal heights instead of keeping the ratio.
-- **Strip pills:** "Recorded" moved out of the strip (the banner above says it) and "Synthetic
-  incident" became "Synthetic", so the strip stays one row at 1280.
-- **Run view section links** (the old tabs) are gone; the strip's "Decision needed" pill still
-  jumps to the approval gate.
-- **Live runs control:** only on the landing; the shorter run banner no longer repeats it.
-- **No text below 16 px** anywhere, so the references' tiny corner labels are 16 px mono.
-- **The 394 px overflow** at a 390 px viewport came from the WITHDRAWN stamp: its paused animation
-  held the first keyframe (`scale(1.618)`), which reached 3.6 px past the right edge. The stamps
-  now rest in their final state, the animation only plays on top, and each stamp scales from its
-  inner side. No `overflow-x: hidden` was added; `npm run check:overflow` fails if the page is
-  wider than 360 or 390 px.
-- **Every recorded run:** a row of pill links under the stamp cards, so inc-01-run3 stays
-  reachable from the landing.
-
-## 6. Visual pass 2
-
-Nunito replaces Space Grotesk; the type scale moves up one notch (18 px body); the semantic set
-of section 2.1 adds color; washes sit behind the hero and three sections; the hero now states
-what Rookwise is, for whom, and its proof point, with one large Strawberry action ("Watch a
-recorded investigation") and one secondary ("See the results"). "Recorded run, not live" and
-"Executes nothing" sit as pills right above the hero object.
-
-Deviations in this pass:
-
-- **Hues on the first screen:** the hero shows the Strawberry action plus teal, amber, gold and
-  violet pills, five accents where the brief asks for at most four. Each pill marks a different
-  meaning and the action color is Strawberry by rule; dropping one would hide a fact.
-- **Live runs control:** removed from the hero. The "Recorded run, not live" pill carries the same
-  fact next to the demo.
-- **Labels:** no longer mono uppercase; they are Nunito 800 at body size. Stamps keep VERIFIED and
-  WITHDRAWN in upper case.
-- **Results count:** each count is one string ("2 of 3") so release/check_numbers.py finds it in
-  the source; `::first-letter` keeps the count as the giant numeral.
+- **Dev rows in Table 2:** the brief asks for the test split first, then dev. The dev numbers come
+  from the same run files (`release/out/results.json`) and were not on the site before.
+- **Narrow screens:** Table 2 keeps its five columns and scrolls sideways inside a labeled,
+  focusable region, with a visible hint; the page itself never scrolls sideways.
+- **Footnotes:** a withdrawn claim's failing line stays in the claim's cited lines; the footnote
+  gives the reason code and points at that line instead of repeating it.
+- **The dot-matrix rook, rings, glyphs, ticker and washes** of earlier passes are removed, with the
+  three tests of the dot-matrix sampler.
