@@ -1,54 +1,131 @@
-# PYRO-CELL
+# Rookwise
 
-**A digital simulation of a coastal circular-economy pipeline that turns Sargassum seaweed into biochar, energy, and clean water, while protecting the aquatic ecosystems the OneAquaHealth mission exists to defend.**
+Rookwise investigates operational incidents for small teams that have no dedicated SRE, under a hard budget the user sets before the run. Cheap models read the logs in slices, a strong model judges, deterministic code checks every cited line, an independent auditor reviews the result, and a human decides. In v1 Rookwise only reads and recommends: it executes nothing.
 
-![PYRO-CELL dashboard](./dashboard-screenshot.png)
+Built for the Nebius x NVIDIA Global AI Hackathon 2026 on NVIDIA Nemotron models served by Nebius Token Factory.
 
-## Inspiration
+> Every number in the "Results" section comes from the measured run files in `benchmarks/results/runs/`, aggregated by `release/results_json.py`.
 
-Sargassum blooms are not just a beach nuisance. As the mats decompose on the shore, they drive hypoxia and eutrophication in coastal waters, release hydrogen sulfide, and can leach arsenic and heavy metals into the water column, the same water OneAquaHealth's "Healthy Waters, Healthy Ecosystems, Healthy Communities" mission is built to protect. 2026 is already a near-record bloom year across the Atlantic and Caribbean.
+## The problem
 
-We started this project asking a narrower question, whether a pyrolysis pipeline for Sargassum could be energy self-sufficient. It became a broader one once we realized the real judge-facing story is not energy for its own sake: it is that removing the biomass before it decomposes is itself a water-protection intervention, and the energy design is what makes that intervention operationally sustainable rather than a one-off cleanup.
+When a service breaks at 3 a.m., nobody on a small team has time to read 20,000 log lines across three services. An agent could, but a team has two reasons not to trust one:
 
-## What it does
+1. **Trust.** An agent can state a root cause with confidence and cite log lines that do not exist.
+2. **Cost.** An agent run has no price tag up front. The bill arrives after the run.
 
-PYRO-CELL is a client-side simulation dashboard, not a physical prototype, that models a full valorization pipeline from wet, freshly-harvested Sargassum to biochar, syngas, bio-oil, and a candidate water-treatment product, with every number traceable to a cited source or explicitly marked as our own estimate.
+## What Rookwise does about it
 
-**Five modules, all live in the deployed app:**
+- **Every claim cites a line, and code checks it.** Each claim in a diagnosis cites a source, a line range and an exact quote. `core/evidence.py` (no model involved) verifies that the source exists, the lines exist and the quote is really there (after whitespace normalization only). A claim is supported only if all of its citations pass. Claims that fail are withdrawn from the diagnosis, shown with their reason, and never hidden.
+- **A budget set before the run.** A ledger reserves money before every model call and refuses calls that do not fit, so a run cannot pass its cap through retries or rounding. Money is exact (integer micro-USD). Every run reports predicted versus real cost.
+- **Cheap models read, a strong model judges.** The volume goes to the cheapest model; the strong model only sees consolidated findings.
+- **An independent auditor and a human.** A separate model context reviews the supported claims against a fixed rubric. A person approves or rejects the recommendation.
+- **Honest about what it did not read.** The report lists unread slices.
 
-- **Energy balance**: mass and thermal balance across mechanical dewatering (centrifuge), passive solar drying (greenhouse + evacuated-tube thermal collectors), and pyrolysis. Reactor temperature is a single shared slider (400-600°C) that now drives both the energy module and the economic module together, closing a disconnect we found and fixed mid-build.
-- **Economic model**: NPV, breakeven price, and a sensitivity slider on Sargassum acquisition cost, interpolated from the three scenarios published in Cheatham et al. (2026), not a black box.
-- **Seasonality**: a month and reserve-buffer simulator implementing our own hybrid supply strategy (partial buffer, reduced-rate operation in the scarcity core), since Sargassum arrival is seasonal and the original design assumed a constant year-round feed.
-- **Resilience monitoring (Track 6)**: a two-layer hybrid, a real offline snapshot of Météo-France/CNRM satellite Sargassum detection data (Odatis, DOI 10.12770/1eb82d09) calibrated against a seasonal projection layer. No live network dependency, so the demo can never fail from an external outage, and the UI always labels which layer produced the number on screen.
-- **AI-assisted validation (Track 3)**: a Vercel Edge Function that evaluates simulated citizen observations of Sargassum sightings using Groq (an open-weight model, since the team does not have Claude API access), with structured-output reasoning, deterministic pre-checks, and a human-in-the-loop review flag whenever confidence is low or an anomaly is detected. This is explainable AI in the literal sense the track asks for, not a black-box classifier.
+Verified citations mean the evidence exists. They do not prove the diagnosis is correct, which is why accuracy is measured separately (see "Results").
 
-## How we built it
+## How it works
 
-Frontend is React + Vite + TypeScript + Tailwind v4 + Recharts, deployed to Vercel. All physical and economic constants live in one typed module (`src/lib/constants.ts`), each with a source comment, so the UI can never silently drift from the research behind it.
+1. **Intake.** The user picks the evidence (logs, metrics, deploy diff, runbook, ticket) and sets the USD cap.
+2. **Plan.** The director reads the ticket, the runbook and an inventory of the sources and plans the investigation as blocks of tasks.
+3. **Read.** Operators each read one slice of the evidence (slices are cut deterministically, with absolute line numbers) and return findings with citations.
+4. **Consolidate.** One manager per block merges its operators' findings.
+5. **Judge.** The director writes the diagnosis: root cause, category, supporting claims and a remediation plan.
+6. **Verify.** Deterministic code checks every citation. Unsupported claims are withdrawn.
+7. **Audit.** The auditor reviews what remains. If nothing supported remains, the result is inconclusive and no audit call is made.
+8. **Approve.** The human reads the diagnosis, the evidence check, the audit and the cost report.
 
-Independent of the web app, we modeled the physical process and plant layout in MATLAB: a mass and energy balance script (`sargazo.m`, `constantes.mlx`) and a 3D plant layout (`plano.m`) covering intake and centrifuging, the solar drying stage, the pyrolysis reactor with a CSP/syngas hybrid heating architecture, and a biochar filter bank for water treatment, including a thermal regeneration loop back into the reactor for spent filter media.
+If an operator fails, the harness retries with backoff, repairs invalid output with the exact validation error, and escalates to the next model on a ladder. Every step is recorded.
 
-## Challenges we ran into
+## How we use NVIDIA Nemotron and Nebius Token Factory
 
-- **A unit mismatch that inflated our own syngas energy by roughly 6x.** An early MATLAB script multiplied a per-kg-of-syngas HHV directly by total dry mass without applying the syngas mass yield first. We caught it by recomputing independently and comparing against our own already-verified figures.
-- **A silent architectural gap between the energy and economic modules.** The economic model let a user slide reactor temperature from 400 to 800°C, but the energy module was hard-coded to Milledge et al.'s 400°C figures regardless. We only found this because a MATLAB plant sketch forced a single concrete biochar-yield number, which made the mismatch impossible to ignore. Fixed by making pyrolysis heat a function of temperature and reconciling both modules to a shared 400-600°C design range.
-- **A moisture-basis error that had been silently propagating for days.** We had been modeling the process at 80% initial moisture; the actual figure in Cheatham et al. (2026), and in our own team's MATLAB constants file, is 82%. That two-point difference cascades through every downstream number (water removed, energy required, collector area, buffer size). We traced and corrected it everywhere once it surfaced.
-- **A plant sketch that would not even parse.** An early version of `plano.m` had an unclosed `for` loop that made the script fail before drawing anything, plus a cylinder with its height and radius axes accidentally swapped, rendering the pyrolysis furnace as a flattened disc instead of a vertical reactor. We installed Octave in our build environment specifically to execute and visually verify the fix rather than trust a code read.
-- **Realizing our own arsenic warning cuts both ways.** We had flagged that sargassum bioaccumulates arsenic, a risk for biochar used in soil or construction. Researching biochar as a water filter surfaced literature showing sargassum-derived biochar (particularly iron-oxide-modified) can adsorb arsenic from water, but no study we found tests whether *our* biochar's own bioaccumulated arsenic leaches back out under filtration conditions. We are treating that as an open safety question requiring a real leaching test, not an assumption either way.
+Every model call in Rookwise goes to the Nebius Token Factory chat completions API (OpenAI-compatible) through one harness. All models are NVIDIA Nemotron:
 
-## Accomplishments we're proud of
+| Level | Model | Why |
+|---|---|---|
+| Director (plan, diagnosis) | Nemotron-3-Ultra-550b-a55b | Judgment over consolidated findings |
+| Auditor | Nemotron-3-Ultra-550b-a55b | Independent review in a separate context |
+| Managers, escalation of failed tasks | Nemotron-3-Super-120b-a12b | Consolidation, second try |
+| Operators | Nemotron-3.5-Lightning | Reads the volume at low cost |
 
-- A real satellite-data pipeline (not a placeholder): our extraction script pulled genuine daily Sargassum detection data from the Ifremer/CERSAT archive for the Mexican Caribbean box, and in doing so found that the real observed bloom peak is July-August, not June-July as the secondary sources we started with assumed.
-- A working, structured-output AI validation endpoint with a real fallback chain (structured JSON, then free-text parsing, then a safe human-review default), not a demo that only works on the happy path.
-- A fully reconciled physical and economic model, three separate design decisions (moisture basis, greenhouse efficiency, reactor temperature) made explicitly and propagated consistently through every document and every constant in the codebase, with the disagreements between our own sources documented rather than hidden.
+Token Factory prices (per 1M tokens, input / output, read from the console on 2026-10-12): Ultra 1.00 / 3.00, Super 0.30 / 0.90, Lightning 0.06 / 0.24. Ultra costs about 16.7 times Lightning per input token, which is why the cheap model reads the volume. Prices live in `config/prices.json` and are never hard-coded.
 
-## What we learned
+What Token Factory made possible: one OpenAI-compatible endpoint for four Nemotron sizes lets a run mix a 550B-class director with small operators and price every call per token, so the ledger can reserve money before each call. Rate limits per model are read from the `x-ratelimit-*` headers and stored in `config/rate_limits.json`. We also tested structured outputs (`json_schema`) and reasoning controls; what we found is written up in `FEEDBACK.md` and `docs/HARNESS_RESEARCH.md`.
 
-Pre-treatment dominates the energy budget far more than the reactor itself: mechanical dewatering and passive solar drying determine whether the whole pipeline is energy-positive, long before pyrolysis chemistry matters. And research rigor has a compounding return: nearly every "small" correction in this build (a unit error, a moisture basis, a temperature mismatch) was only caught because an earlier verification habit made the next inconsistency visible.
+Tavily: operators have a web search tool for error signatures and advisories (`core/tools/tavily.py`). None of the 18 benchmark runs and neither published recording called it.
 
-## What's next for PYRO-CELL
+## Quick start
 
-- A real leaching test on our own biochar before treating the water-filter application as validated, not just adsorption-capable.
-- Actual reactor engineering sizing (volume, residence time) for the throughput we model; our current 3D plant sketch uses illustrative dimensions, not a calculated vessel.
-- Sizing the CSP field and off-gas treatment for thermal regeneration of spent filter biochar, since some adsorbed metals can volatilize at regeneration temperatures.
-- Revenue-model update: current economics use a $100/t biochar baseline for comparability with Cheatham et al.; the 2026 market (certified biochar plus carbon credits) trades at $400-1,200/t physical and $150-400/tCO2e, pending the characterization work certification requires.
+Requirements: Python 3.11 or newer and [uv](https://docs.astral.sh/uv/).
+
+```bash
+git clone https://github.com/cpantaleon06-coder/rookwise.git
+cd rookwise
+uv sync --frozen --all-extras
+uv run --frozen python scripts/gen_incidents.py     # rebuilds the synthetic incident logs (deterministic)
+uv run --frozen python -m pytest -q                 # tests, no network
+uv run --frozen python scripts/run_incident.py inc-01 estimate   # full pipeline on a stub, no network, no cost
+```
+
+The estimate run plays every agent with a stub transport, so the ledger, the slicing and every budget rule run for real, and the report shows which calls the ledger would refuse. It costs nothing.
+
+### A real run (costs credits)
+
+```bash
+cp .env.example .env          # then set NEBIUS_API_KEY
+HARNESS_MODE=record uv run --frozen python scripts/run_incident.py inc-01 record \
+  --run-usd 0.50 --approve-cap 0.50 --cassette runs/cassettes/inc-01.demo.json
+```
+
+On Windows PowerShell set the variable first: `$env:HARNESS_MODE = "record"`. The command refuses to start unless `--approve-cap` equals `--run-usd`. The reports are written to `runs/incidents/inc-01/record/` (`report.json`, `events.json`, `calls.json`).
+
+### Demo
+
+The web app in `web/` replays recorded runs in the browser. Recorded mode makes no model call and costs nothing.
+
+```bash
+cd web
+npm ci
+npm run dev
+```
+
+It opens the recording `inc-03-run2` first; `web/public/recordings/` holds the published recordings.
+
+## Results
+
+All incidents are synthetic and say so in every file. Six incidents (three dev, three test) with known root causes, each in three configurations: (a) the hierarchy, (b) a single Nemotron-3-Ultra reading the same slices, (c) a single Nemotron-3.5-Lightning reading the same slices. All three use the same slicer, the same operator prompt, the same deterministic evidence check and the same budget rules. The test split is reported apart from dev.
+
+One run per incident and configuration, 18 runs in all, each capped at 0.50 USD. Table generated by `python release/results_json.py --markdown` from `benchmarks/results/runs/`; rates and costs are rounded half up to 3 decimals.
+
+| Configuration | Split | Correct (n of 3) | Evidence recall | Coverage | Real cost per run (USD) |
+|---|---|---|---|---|---|
+| (a) hierarchy | test | 2 of 3 | 0.333 | 0.920 | 0.250 |
+| (b) single Ultra | test | 0 of 3 | 0.222 | 0.107 | 0.386 |
+| (c) single Lightning | test | 1 of 3 | 0.222 | 0.705 | 0.119 |
+| (a) hierarchy | dev | 3 of 3 | 0.556 | 0.880 | 0.290 |
+| (b) single Ultra | dev | 1 of 3 | 0.111 | 0.218 | 0.409 |
+| (c) single Lightning | dev | 1 of 3 | 0.167 | 0.706 | 0.121 |
+
+The dev incidents were used while tuning; the test incidents were not. Verified citations do not prove a diagnosis is correct: a single Lightning run on inc-06 had 6 supported claims and the wrong category.
+
+First-pass citation validity (valid citations over all citations in the first reply of each task, after the citation's source id is derived from its slice) is in each run file under `score.citation_first_pass_validity`; it is not aggregated in this table.
+
+## Limitations
+
+- The corpus is synthetic. Good scores on it do not prove accuracy on real incidents.
+- `diagnosis_correct` is a category match plus at least one verified essential citation. A model can name the right category for the wrong reason.
+- Verified citations prove that evidence exists, not that the diagnosis is right.
+- Some runs end inconclusive or read only part of the evidence when the budget runs out. The report says so.
+- The auditor is a model and may favor outputs like its own. A deterministic check always runs first.
+- v1 executes nothing and holds no credentials for any system.
+
+## Repository map
+
+- `core/`: ledger, harness (retries, repair, escalation, record and replay), evidence check, slicing, team (director, managers, operators, auditor), API models.
+- `config/`: models, prices, rate limits, budget policy, benchmark setup.
+- `skills/`: reading skills for the operators.
+- `benchmarks/`: synthetic incident corpus and its generator inputs.
+- `docs/ARCHITECTURE.md`: design and decisions. `docs/api.md`: the API between core and web. `FEEDBACK.md`: feedback on Token Factory and Nemotron.
+
+## License
+
+MIT. Adapted third-party skills keep their own licenses (see `THIRD_PARTY_NOTICES.md` and `licenses/`).
