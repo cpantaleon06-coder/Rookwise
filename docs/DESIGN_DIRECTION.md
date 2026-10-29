@@ -67,7 +67,7 @@ Every text pair clears 4.5:1.
 All SIL Open Font License 1.1, self-hosted through Fontsource npm packages, latin subset only.
 
 - **Source Serif 4** (variable): headings and long prose. Body 18 px, line height 1.618.
-- **IBM Plex Sans** 400 and 600: labels (small caps), table headers, captions, buttons, notes.
+- **Nunito** (variable): labels, buttons, chips, captions and notes.
 - **IBM Plex Mono** 400: log lines, citations, line numbers and money.
 
 Sizes follow the golden scale 18, 29, 47, 76, 123 px (`web/src/lib/scale.ts`, checked by
@@ -107,3 +107,27 @@ the count and the model only.
   gives the reason code and points at that line instead of repeating it.
 - **The dot-matrix rook, rings, glyphs, ticker and washes** of earlier passes are removed, with the
   three tests of the dot-matrix sampler.
+
+## 7. Middle pass (structure from the report, surface from the references)
+
+Structure, tables and prose stay as above. The surface takes from the references: pill buttons
+and pill status chips (verified, withdrawn, auditor, cost, each with a symbol and a word), a soft
+Strawberry glow behind the dot-matrix rook in the hero, gentle washes behind the hero (soft-edged,
+drifting over 24 s, static with reduced motion) and behind the results figure, coverage rings
+(Figure 2), and 21 to 34 px radii on figures. Boxed elements: the results figure on the landing and
+the approval gate on the run view, one per screen.
+
+Contrast added by this pass (computed against the brightest pixel):
+
+| Pair | Ratio |
+|---|---|
+| Paper primary pill: bone on deep Strawberry | 5.75:1 |
+| Ink primary pill and "Decision needed": ink on Strawberry | 5.60:1 |
+| Paper wash peaks (Strawberry 12%, indigo 10%): body text | 11.63 / 11.13 |
+| Paper wash peaks: muted text | 5.19 / 4.97 |
+| Ink wash peaks: body / muted text | 11.18 and 10.61 / 6.30 and 5.98 |
+| Ink wash peaks: Strawberry text | 4.60 / 4.85 |
+| "Recorded run, not live" pill, paper / ink | 6.21 / 6.16 |
+
+Weak spots left: the run view's provenance line wraps awkwardly at 390 px; long JSON log lines wrap
+heavily on phones; table configuration names wrap inside the results box at 1280 px.

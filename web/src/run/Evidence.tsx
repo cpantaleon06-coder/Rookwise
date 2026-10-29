@@ -314,7 +314,7 @@ export function EvidencePanel({
             role="radio"
             aria-checked={filter === f}
             onClick={() => setFilter(f)}
-            className={`inline-flex min-h-11 items-center rounded-sm px-13 font-semibold ${
+            className={`inline-flex min-h-11 items-center rounded-full px-21 font-bold ${
               filter === f ? "bg-fg text-bg" : "border border-rule-strong text-fg hover:border-fg"
             }`}
           >

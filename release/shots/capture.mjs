@@ -8,8 +8,8 @@
 //   npx playwright install chromium
 //
 // For each viewport (1280x800 and 390x844) it saves PNGs in release/shots/out/:
-//   landing-top, poka-yoke (section whose heading contains "poka-yoke"),
-//   test-split (section whose heading contains "test split"), run (#/run/inc-03-run2 after
+//   landing-top, method (the section with id "method", else the one whose heading contains
+//   "method"), results (likewise "results"), run (#/run/inc-03-run2 after
 //   clicking the "Instant" speed control), evidence (heading containing "evidence") and
 //   approval (heading containing "Approve"). Elements are found by visible text; one that is
 //   not found is logged as SKIPPED and the script goes on. It also prints
@@ -54,9 +54,13 @@ async function mark(page, kind, text) {
       const has = (el) => (el?.textContent || "").toLowerCase().includes(needle);
       let found = null;
       if (kind === "section") {
-        found = [...document.querySelectorAll("section")].find(
-          (s) => visible(s) && ([...s.querySelectorAll("h1,h2,h3,h4,h5,h6")].some(has) || has(s.firstElementChild)),
-        );
+        // A section with this id first (the report's numbered sections have ids), then by heading text.
+        const byId = document.getElementById(text);
+        found =
+          (byId && byId.tagName === "SECTION" && visible(byId) ? byId : null) ||
+          [...document.querySelectorAll("section")].find(
+            (s) => visible(s) && ([...s.querySelectorAll("h1,h2,h3,h4,h5,h6")].some(has) || has(s.firstElementChild)),
+          );
       } else if (kind === "heading") {
         const heading = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].find((h) => visible(h) && has(h));
         // From the parent up, so a heading with its own id is not picked as the area.
@@ -108,8 +112,8 @@ async function main() {
       console.log(`saved landing-top-${size}.png`);
       const landingWidth = await page.evaluate(() => document.documentElement.scrollWidth);
       console.log(`${size} landing scrollWidth ${landingWidth}`);
-      await shootMarked(page, "section", "poka-yoke", `poka-yoke-${size}.png`);
-      await shootMarked(page, "section", "test split", `test-split-${size}.png`);
+      await shootMarked(page, "section", "method", `method-${size}.png`);
+      await shootMarked(page, "section", "results", `results-${size}.png`);
 
       await page.goto(root + RUN_ROUTE, { waitUntil: "networkidle" });
       await page.waitForTimeout(SETTLE_MS);

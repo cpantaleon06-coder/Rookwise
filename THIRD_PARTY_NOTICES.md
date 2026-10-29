@@ -56,16 +56,16 @@ served next to the site in `web/public/licenses/`.
 - Source Serif 4, variable weight, `@fontsource-variable/source-serif-4` 5.3.1. Upstream
   https://github.com/adobe-fonts/source-serif. License: SIL Open Font License 1.1, full text in
   `web/public/licenses/source-serif-4-OFL.txt`. Used for headings and prose.
-- IBM Plex Sans 400 and 600, `@fontsource/ibm-plex-sans` 5.3.0. Upstream
-  https://github.com/IBM/plex. License: SIL Open Font License 1.1, "Copyright 2019 IBM Corp.",
-  full text in `web/public/licenses/ibm-plex-sans-OFL.txt`. Used for labels, captions, table
-  headers and buttons.
+- Nunito, variable weight, `@fontsource-variable/nunito` 5.3.0. Upstream
+  https://github.com/googlefonts/nunito. License: SIL Open Font License 1.1, "Copyright 2014 The
+  Nunito Project Authors", full text in `web/public/licenses/nunito-OFL.txt`. Used for labels,
+  buttons, chips and captions.
 - IBM Plex Mono 400, `@fontsource/ibm-plex-mono` 5.3.0. Upstream https://github.com/IBM/plex.
   License: SIL Open Font License 1.1, full text in `web/public/licenses/ibm-plex-mono-OFL.txt`.
   Used for log lines, citations, line numbers and money.
 
 Earlier versions of the site used Inter, Source Serif 4 (static), Space Grotesk, Nunito and
-JetBrains Mono; Nunito and JetBrains Mono are now removed too, and none of those packages or
+JetBrains Mono, and IBM Plex Sans; JetBrains Mono and IBM Plex Sans are now removed, and none of those packages or
 files ships any more.
 
 ## Laya (experiment dependency, not shipped)

@@ -19,8 +19,8 @@ function Bar({ label, value, max }: { label: string; value: Micros; max: Micros 
     <div className="grid grid-cols-[5.5rem_1fr] items-center gap-13">
       <Label>{label}</Label>
       <div className="flex min-w-0 items-center gap-8">
-        <div className="h-2 min-w-0 flex-1 rounded-sm bg-track">
-          <div className="h-2 rounded-sm bg-cost" style={{ width: `${percentOf(value, max)}%` }} />
+        <div className="h-2 min-w-0 flex-1 rounded-full bg-track">
+          <div className="h-2 rounded-full bg-cost" style={{ width: `${percentOf(value, max)}%` }} />
         </div>
         <span className="num shrink-0">{formatMicros(value)}</span>
       </div>

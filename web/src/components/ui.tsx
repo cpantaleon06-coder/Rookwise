@@ -7,20 +7,20 @@ export type Tone = "ok" | "warn" | "danger" | "info" | "audit" | "money" | "neut
 // meaning (supported, withdrawn, auditor, cost), always next to a word and a
 // symbol, never as the only signal.
 const MARK: Record<Tone, { cls: string; symbol: string }> = {
-  ok: { cls: "text-supported", symbol: "✓" },
-  warn: { cls: "text-withdrawn", symbol: "!" },
-  danger: { cls: "text-withdrawn", symbol: "✕" },
-  info: { cls: "text-fg", symbol: "○" },
-  audit: { cls: "text-auditor", symbol: "◇" },
-  money: { cls: "text-cost", symbol: "$" },
-  neutral: { cls: "text-muted", symbol: "·" },
+  ok: { cls: "bg-supported-tint text-supported", symbol: "✓" },
+  warn: { cls: "bg-withdrawn-tint text-withdrawn", symbol: "!" },
+  danger: { cls: "bg-withdrawn-tint text-withdrawn", symbol: "✕" },
+  info: { cls: "bg-subtle text-fg", symbol: "○" },
+  audit: { cls: "bg-auditor-tint text-auditor", symbol: "◇" },
+  money: { cls: "bg-cost-tint text-cost", symbol: "$" },
+  neutral: { cls: "border border-rule text-muted", symbol: "·" },
 };
 
-/** A small caps word with a symbol before it. The word carries the meaning. */
+/** A pill: a symbol and a small caps word on a tint. The word carries the meaning. */
 export function Chip({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   const m = MARK[tone];
   return (
-    <span className={`label inline-flex max-w-full items-baseline gap-8 ${m.cls}`}>
+    <span className={`label inline-flex max-w-full items-baseline gap-8 rounded-full px-13 ${m.cls}`}>
       <span aria-hidden="true" className="ui font-semibold">
         {m.symbol}
       </span>
@@ -29,13 +29,13 @@ export function Chip({ tone = "neutral", children }: { tone?: Tone; children: Re
   );
 }
 
-/** The verdict of the evidence check on a claim: a word and a symbol in its color, framed by a hairline. */
+/** The verdict of the evidence check on a claim: a pill with a symbol and a word in its mark color. */
 export function Stamp({ kind, className = "" }: { kind: "verified" | "withdrawn"; className?: string }) {
   const verified = kind === "verified";
   return (
     <span
-      className={`label inline-flex shrink-0 items-center gap-8 rounded-sm border border-current px-8 ${
-        verified ? "text-supported" : "text-withdrawn"
+      className={`label inline-flex shrink-0 items-center gap-8 rounded-full px-13 ${
+        verified ? "bg-supported-tint text-supported" : "bg-withdrawn-tint text-withdrawn"
       } ${className}`}
     >
       <span aria-hidden="true">{verified ? "✓" : "✕"}</span>
@@ -82,12 +82,12 @@ type ButtonProps = {
   className?: string;
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 
-/** Flat rectangular actions; secondary and ghost read as underlined text. */
+/** Pill actions: a filled primary, an outlined secondary, an underlined ghost. */
 export function buttonClass(variant: "primary" | "secondary" | "ghost" = "secondary"): string {
   const base =
-    "ui inline-flex min-h-11 shrink-0 items-center justify-center gap-8 rounded-sm px-21 font-semibold transition-colors duration-150 ease-rw disabled:cursor-not-allowed";
+    "ui inline-flex min-h-11 shrink-0 items-center justify-center gap-8 rounded-full px-21 font-bold transition-colors duration-150 ease-rw disabled:cursor-not-allowed";
   if (variant === "primary") {
-    return `${base} bg-fg text-bg hover:bg-muted disabled:opacity-50`;
+    return `${base} bg-accent text-bg hover:bg-fg disabled:opacity-50`;
   }
   if (variant === "ghost") {
     return `${base} px-8 text-fg underline decoration-1 underline-offset-4 hover:decoration-2 disabled:text-muted`;
@@ -154,7 +154,7 @@ export function Meter({
       aria-valuemax={100}
       aria-valuenow={spent === null ? 0 : Math.min(100, spentPct)}
       aria-valuetext={valueText}
-      className={`meter-track relative h-2 w-full overflow-hidden rounded-sm bg-track ${stale ? "outline outline-1 outline-dashed outline-rule-strong" : ""}`}
+      className={`meter-track relative h-2 w-full overflow-hidden rounded-full bg-track ${stale ? "outline outline-1 outline-dashed outline-rule-strong" : ""}`}
     >
       <div
         className={`absolute inset-y-0 left-0 transition-[width] duration-300 ease-rw ${alert ? "bg-withdrawn" : "bg-cost"}`}

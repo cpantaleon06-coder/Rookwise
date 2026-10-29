@@ -53,11 +53,11 @@ export function ApprovalGate({
     <section
       id="decision"
       aria-labelledby="decision-title"
-      className={`relative min-w-0 scroll-mt-144 pt-21 ${pending ? "border-t-2 border-accent" : "border-t border-rule"}`}
+      className={`wash relative min-w-0 scroll-mt-144 rounded-hero border p-21 sm:p-34 ${pending ? "border-accent" : "border-rule"}`}
     >
       {pending && (
-        <p className="label text-accent">
-          <span aria-hidden="true" className="mr-8">!</span>
+        <p className="label inline-flex items-baseline gap-8 rounded-full bg-withdrawn-tint px-13 text-accent">
+          <span aria-hidden="true">!</span>
           Decision needed
         </p>
       )}

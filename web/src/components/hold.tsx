@@ -126,7 +126,7 @@ export function ApproveControls({ onApprove, onReject }: { onApprove: () => void
           </p>
           <button
             type="button"
-            className="ui min-h-11 rounded-sm px-13 text-fg underline hover:decoration-2"
+            className="ui min-h-11 rounded-full px-13 text-fg underline hover:decoration-2"
             onClick={() => setStep("confirm")}
           >
             Approve in two steps instead
