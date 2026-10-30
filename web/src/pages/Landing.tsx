@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { runHref } from "../App";
 import { SiteFooter, SiteHeader, SkipLink } from "../components/chrome";
+import { DotRook, ProgressRing } from "../components/figures";
 import { buttonClass, Skeleton, Stamp } from "../components/ui";
 import { runFacts, type RunFacts } from "../lib/facts";
 import { LEVEL_WORDS, reasonWords } from "../lib/labels";
@@ -107,11 +108,11 @@ function Caption({ label, children, source }: { label: string; children: ReactNo
 
 function StatusMarks() {
   return (
-    <p className="ui flex flex-wrap justify-center gap-x-21 gap-y-8 text-muted">
-      <span className="label inline-flex items-baseline gap-8">
+    <p className="ui flex flex-wrap justify-center gap-8">
+      <span className="label inline-flex items-baseline gap-8 rounded-full bg-auditor-tint px-13 text-auditor">
         <span aria-hidden="true">○</span>Recorded run, not live
       </span>
-      <span className="label inline-flex items-baseline gap-8">
+      <span className="label inline-flex items-baseline gap-8 rounded-full border border-rule-strong px-13 text-fg">
         <span aria-hidden="true">■</span>Executes nothing
       </span>
     </p>
@@ -222,6 +223,15 @@ const SAFEGUARDS = [
   ],
 ] as const;
 
+/** Each Shingo label in the mark of what it guards; four hues at most on this screen. */
+const KIND_PILL: Record<(typeof SAFEGUARDS)[number][0], string> = {
+  Contact: "bg-supported-tint text-supported",
+  Control: "bg-cost-tint text-cost",
+  Sequence: "border border-rule-strong text-fg",
+  Warning: "bg-withdrawn-tint text-withdrawn",
+  "Second check": "bg-auditor-tint text-auditor",
+};
+
 function levelWords(level: TeamSummary["levels"][number]): string {
   return LEVEL_WORDS[level.level] ?? level.level;
 }
@@ -283,6 +293,30 @@ const SPLITS = [
 
 const CAPTION =
   "Synthetic incidents, 3 per configuration, same 0.50 USD cap for every configuration, test split not used while tuning.";
+
+/** Figure 2: mean coverage on the test split as rings, from the same numbers as Table 2. */
+function CoverageRings() {
+  const test = RESULTS.filter((r) => r.split === "test");
+  return (
+    <figure className="mt-34">
+      <ul className="ui grid grid-cols-3 gap-13 text-center">
+        {test.map((r, i) => (
+          <li key={r.name} className="flex flex-col items-center gap-8">
+            <span className="relative inline-flex items-center justify-center">
+              <ProgressRing value={Number(r.coverage)} size={89} stroke={8} tone={i === 0 ? "supported" : "fg"} />
+              <span className="figure absolute font-bold">{r.coverage}</span>
+            </span>
+            <span className="text-muted">{r.name}</span>
+          </li>
+        ))}
+      </ul>
+      <Caption label="Figure 2." source="benchmarks/results/runs/ (test split)">
+        Mean coverage on the test split: the share of the evidence each configuration read under the same 0.50 USD
+        cap. The same values appear in Table 2.
+      </Caption>
+    </figure>
+  );
+}
 
 function ResultsTable() {
   return (
@@ -367,9 +401,10 @@ export function Landing() {
       <SiteHeader />
       <main id="content" className="px-21">
         <article className="measure mx-auto pb-55">
-          <header className="pt-55 text-center">
+          <header className="relative isolate pt-55 text-center">
+            <div aria-hidden="true" className="wash wash-drift wash-soft absolute -inset-x-21 inset-y-0 -z-10" />
             <p className="label text-muted">Rookwise, technical note</p>
-            <h1 className="mt-13 text-title text-balance sm:text-heading">
+            <h1 className="mt-13 text-title font-bold text-balance sm:text-heading">
               An incident answer you can check, line by&nbsp;line.
             </h1>
             <p className="ui mt-21 text-muted text-balance">
@@ -378,6 +413,16 @@ export function Landing() {
             </p>
             <div className="mt-21">
               <StatusMarks />
+            </div>
+            <div className="mt-34 flex flex-col items-center gap-13 sm:flex-row sm:justify-center">
+              {watch}
+              <a href="#results" className={buttonClass("ghost")}>
+                See the results
+              </a>
+            </div>
+            <div aria-hidden="true" className="relative mx-auto mt-21 h-[178px] w-full max-w-[377px] sm:h-[233px]">
+              <div className="glow absolute left-1/2 top-1/2 size-[178px] -translate-x-1/2 -translate-y-1/2 sm:size-[233px]" />
+              <DotRook className="absolute left-1/2 top-1/2 h-[144px] -translate-x-1/2 -translate-y-1/2 sm:h-[178px]" />
             </div>
           </header>
 
@@ -389,12 +434,6 @@ export function Landing() {
               returns a diagnosis with a remediation plan. Every claim is checked against the log lines. Unsupported
               claims are withdrawn and shown.
             </p>
-            <div className="mt-21 flex flex-col items-center gap-13 sm:flex-row sm:justify-center">
-              {watch}
-              <a href="#results" className={buttonClass("ghost")}>
-                See the results
-              </a>
-            </div>
           </section>
 
           {state.kind === "loading" ? (
@@ -431,7 +470,7 @@ export function Landing() {
                   <div>
                     <p>
                       <strong className="font-semibold">{title}.</strong>{" "}
-                      <span className="label text-muted">{kind}</span>
+                      <span className={`label ml-8 inline-flex rounded-full px-13 ${KIND_PILL[kind]}`}>{kind}</span>
                     </p>
                     <p className="mt-8">{text}</p>
                   </div>
@@ -455,7 +494,10 @@ export function Landing() {
               slices, and (c) a single Nemotron Lightning reading the same slices. All three share the slicer, the
               operator prompt, the evidence check and the budget rules.
             </p>
-            <ResultsTable />
+            <div className="wash mt-34 rounded-hero border border-rule px-21 pb-21 sm:px-34 sm:pb-34">
+              <ResultsTable />
+              <CoverageRings />
+            </div>
             <p className="mt-21">
               Verified citations do not prove a diagnosis is correct: a single Lightning run on inc-06 had 6 supported
               claims and the wrong category. And Rookwise is allowed to say it does not know: inconclusive is a result,

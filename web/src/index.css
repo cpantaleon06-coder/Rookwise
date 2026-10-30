@@ -9,18 +9,11 @@
   src: url("@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "IBM Plex Sans";
+  font-family: "Nunito";
   font-style: normal;
   font-display: swap;
-  font-weight: 400;
-  src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 600;
-  src: url("@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+  font-weight: 200 1000;
+  src: url("@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2") format("woff2");
 }
 @font-face {
   font-family: "IBM Plex Mono";
@@ -121,15 +114,17 @@
 
   --font-*: initial;
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
-  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
 
-  /* Section 3: square corners, 2 to 4 px at most. */
+  /* Section 3: tables and prose stay square (2 to 4 px); figures take 21 or
+     34 px; controls and chips are full pills (rounded-full). */
   --radius-*: initial;
   --radius-sm: 2px;
   --radius-md: 3px;
   --radius-lg: 4px;
-  --radius-xl: 4px;
+  --radius-figure: 21px;
+  --radius-hero: 34px;
 
   --ease-rw: cubic-bezier(0, 0, 0.2, 1);
 }
@@ -151,7 +146,7 @@
   h2,
   h3 {
     font-family: var(--font-serif);
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -0.005em;
   }
   button,
@@ -190,7 +185,7 @@
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: 1.272;
-    font-weight: 600;
+    font-weight: 800;
     font-variant-caps: all-small-caps;
     letter-spacing: 0.06em;
   }
@@ -254,7 +249,34 @@
     border-top: 1px solid var(--rule);
   }
   .pill {
-    border-radius: var(--radius-md);
+    border-radius: 999px;
+  }
+
+  /* Surface from the references: a soft Strawberry glow behind one object, and
+     gentle washes behind the hero and the results figure. Never under small text
+     at a level that lowers contrast below AA (see the design file). */
+  .glow {
+    background-image: radial-gradient(
+      closest-side,
+      color-mix(in srgb, #ff5c8d 34%, transparent),
+      color-mix(in srgb, #ff5c8d 10%, transparent) 55%,
+      transparent
+    );
+    pointer-events: none;
+  }
+  .wash {
+    background-image:
+      radial-gradient(60% 70% at 22% 18%, color-mix(in srgb, var(--auditor) 10%, transparent), transparent),
+      radial-gradient(60% 70% at 78% 82%, color-mix(in srgb, #ff5c8d 12%, transparent), transparent);
+  }
+  /* Fades the wash out toward its edges, so it reads as light, not as a box. */
+  .wash-soft {
+    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, black 45%, transparent 100%);
+  }
+  /* The one ambient motion: the hero wash drifts over 24 s, a few percent. */
+  .wash-drift {
+    background-size: 120% 120%;
+    animation: wash-drift 24s ease-in-out infinite alternate;
   }
 
   /* Motion: 150 to 300 ms, ease-out, no bounce. Reduced motion renders the final state. */
@@ -272,6 +294,14 @@
   }
 }
 
+@keyframes wash-drift {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 100% 100%;
+  }
+}
 @keyframes reveal {
   from {
     opacity: 0;
@@ -297,6 +327,9 @@
     animation-duration: 0ms !important;
     animation-delay: 0ms !important;
     scroll-behavior: auto !important;
+  }
+  .wash-drift {
+    animation: none;
   }
 }
 

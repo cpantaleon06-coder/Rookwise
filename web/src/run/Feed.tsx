@@ -39,7 +39,7 @@ export function FeedPanel({ state, done }: { state: RunState; done: boolean }) {
             role="radio"
             aria-checked={filter === f.id}
             onClick={() => setFilter(f.id)}
-            className={`label inline-flex min-h-11 items-center rounded-sm px-13 ${
+            className={`label inline-flex min-h-11 items-center rounded-full px-13 ${
               filter === f.id ? "bg-fg text-bg" : "border border-rule-strong hover:bg-subtle"
             }`}
           >

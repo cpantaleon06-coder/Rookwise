@@ -84,14 +84,14 @@ export function ProvenanceLine({
       </dl>
       <p className="mt-8 flex flex-wrap justify-center gap-x-21 gap-y-8">
         {(summary.simulated_case || bundle.run.simulated_case) && (
-          <span className="label">
+          <span className="label inline-flex rounded-full border border-rule-strong px-13 text-fg">
             <span aria-hidden="true" className="mr-8">△</span>Synthetic incident
           </span>
         )}
-        <span className="label">
+        <span className="label inline-flex rounded-full bg-auditor-tint px-13 text-auditor">
           <span aria-hidden="true" className="mr-8">○</span>Recorded run, not live
         </span>
-        <span className="label">
+        <span className="label inline-flex rounded-full border border-rule-strong px-13 text-fg">
           <span aria-hidden="true" className="mr-8">■</span>Executes nothing
         </span>
       </p>
@@ -217,8 +217,12 @@ export function RunHeader({
           {status}
         </p>
         {decisionNeeded && (
-          <a href="#decision" onClick={jumpTo("decision")} className="mt-8 inline-block text-fg underline">
-            Decision needed: approve or reject
+          <a
+            href="#decision"
+            onClick={jumpTo("decision")}
+            className="label mt-8 inline-flex min-h-11 items-center gap-8 rounded-full bg-accent px-21 text-bg no-underline"
+          >
+            <span aria-hidden="true">!</span>Decision needed: approve or reject
           </a>
         )}
       </div>
@@ -258,7 +262,7 @@ export function ReplayToolbar({ replay }: { replay: ReplayControls }) {
           Play
         </button>
       )}
-      <div role="radiogroup" aria-label="Replay speed" className="flex rounded-sm border border-rule-strong">
+      <div role="radiogroup" aria-label="Replay speed" className="flex rounded-full border border-rule-strong">
         {SPEEDS.map((s) => (
           <button
             key={s}
@@ -266,7 +270,7 @@ export function ReplayToolbar({ replay }: { replay: ReplayControls }) {
             role="radio"
             aria-checked={speed === s}
             onClick={() => replay.setSpeed(s)}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center px-13 font-semibold ${
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-13 font-bold ${
               speed === s ? "bg-fg text-bg" : "text-fg hover:bg-subtle"
             }`}
           >
